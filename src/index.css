@@ -1,0 +1,427 @@
+/* src/index.css */
+
+/* Fuentes personalizadas - DEBEN IR PRIMERO */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+/* Importar TailwindCSS */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Variables CSS personalizadas */
+:root {
+    /* Colores principales del sistema COTEL */
+    --color-primary: #2563eb;
+    --color-primary-dark: #1d4ed8;
+    --color-primary-light: #3b82f6;
+
+    --color-secondary: #64748b;
+    --color-secondary-dark: #475569;
+    --color-secondary-light: #94a3b8;
+
+    --color-success: #22c55e;
+    --color-warning: #f59e0b;
+    --color-error: #ef4444;
+    --color-info: #3b82f6;
+
+    /* Sombras */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+
+    /* Transiciones */
+    --transition-fast: 150ms ease-in-out;
+    --transition-normal: 250ms ease-in-out;
+    --transition-slow: 350ms ease-in-out;
+
+    /* Espaciado */
+    --spacing-xs: 0.25rem;
+    --spacing-sm: 0.5rem;
+    --spacing-md: 1rem;
+    --spacing-lg: 1.5rem;
+    --spacing-xl: 2rem;
+
+    /* Border radius */
+    --radius-sm: 0.25rem;
+    --radius-md: 0.375rem;
+    --radius-lg: 0.5rem;
+    --radius-xl: 0.75rem;
+}
+
+/* Configuración base */
+@layer base {
+    html {
+        font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        scroll-behavior: smooth;
+    }
+
+    body {
+        @apply bg-gray-50 text-gray-900;
+        font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+        min-height: 100vh;
+    }
+
+    /* Mejorar la selección de texto */
+    ::selection {
+        @apply bg-blue-100 text-blue-900;
+    }
+
+    /* Estilos para elementos de formulario */
+    input, textarea, select {
+        @apply transition-colors duration-200;
+    }
+
+    input:focus, textarea:focus, select:focus {
+        @apply outline-none;
+    }
+
+    /* Mejorar los botones */
+    button {
+        @apply transition-all duration-200;
+        font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    }
+
+    /* Scrollbar personalizada */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        @apply bg-gray-100;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        @apply bg-gray-300 rounded-full;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        @apply bg-gray-400;
+    }
+
+    /* Mejorar el enfoque para accesibilidad */
+    .focus-ring {
+        @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
+    }
+
+    /* Ocultar elementos visualmente pero mantenerlos para lectores de pantalla */
+    .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+}
+
+/* Componentes personalizados */
+@layer components {
+    /* Botón primario */
+    .btn-primary {
+        @apply inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200;
+    }
+
+    .btn-primary:disabled {
+        @apply bg-gray-400 cursor-not-allowed;
+    }
+
+    /* Botón secundario */
+    .btn-secondary {
+        @apply inline-flex items-center justify-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200;
+    }
+
+    /* Botón de peligro */
+    .btn-danger {
+        @apply inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200;
+    }
+
+    /* Input estándar */
+    .form-input {
+        @apply block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200;
+    }
+
+    .form-input:invalid {
+        @apply border-red-300 focus:border-red-500 focus:ring-red-500;
+    }
+
+    /* Card estándar */
+    .card {
+        @apply bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden;
+    }
+
+    .card-header {
+        @apply px-6 py-4 border-b border-gray-200 bg-gray-50;
+    }
+
+    .card-body {
+        @apply px-6 py-4;
+    }
+
+    .card-footer {
+        @apply px-6 py-4 border-t border-gray-200 bg-gray-50;
+    }
+
+    /* Table responsive */
+    .table-responsive {
+        @apply overflow-hidden shadow ring-1 ring-black ring-opacity-5 rounded-lg;
+    }
+
+    .table-responsive table {
+        @apply min-w-full divide-y divide-gray-300;
+    }
+
+    .table-responsive thead {
+        @apply bg-gray-50;
+    }
+
+    .table-responsive th {
+        @apply px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider;
+    }
+
+    .table-responsive tbody {
+        @apply bg-white divide-y divide-gray-200;
+    }
+
+    .table-responsive td {
+        @apply px-6 py-4 whitespace-nowrap text-sm text-gray-900;
+    }
+
+    /* Loading spinner */
+    .spinner {
+        @apply animate-spin rounded-full border-2 border-gray-300 border-t-blue-600;
+    }
+
+    /* Badge componente */
+    .badge {
+        @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+    }
+
+    .badge-success {
+        @apply bg-green-100 text-green-800;
+    }
+
+    .badge-warning {
+        @apply bg-yellow-100 text-yellow-800;
+    }
+
+    .badge-error {
+        @apply bg-red-100 text-red-800;
+    }
+
+    .badge-info {
+        @apply bg-blue-100 text-blue-800;
+    }
+
+    .badge-gray {
+        @apply bg-gray-100 text-gray-800;
+    }
+
+    /* Alert componente */
+    .alert {
+        @apply rounded-md p-4 border;
+    }
+
+    .alert-success {
+        @apply bg-green-50 border-green-200 text-green-800;
+    }
+
+    .alert-warning {
+        @apply bg-yellow-50 border-yellow-200 text-yellow-800;
+    }
+
+    .alert-error {
+        @apply bg-red-50 border-red-200 text-red-800;
+    }
+
+    .alert-info {
+        @apply bg-blue-50 border-blue-200 text-blue-800;
+    }
+}
+
+/* Utilidades personalizadas */
+@layer utilities {
+    /* Animaciones personalizadas */
+    .animate-fade-in {
+        animation: fadeIn 0.5s ease-in-out;
+    }
+
+    .animate-fade-out {
+        animation: fadeOut 0.5s ease-in-out;
+    }
+
+    .animate-slide-in-right {
+        animation: slideInRight 0.3s ease-out;
+    }
+
+    .animate-slide-in-left {
+        animation: slideInLeft 0.3s ease-out;
+    }
+
+    .animate-bounce-in {
+        animation: bounceIn 0.6s ease-out;
+    }
+
+    /* Gradientes personalizados */
+    .gradient-blue {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .gradient-purple {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .gradient-green {
+        background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
+    }
+
+    /* Estados de interacción */
+    .interactive {
+        @apply transition-all duration-200 cursor-pointer;
+    }
+
+    .interactive:hover {
+        @apply transform scale-105;
+    }
+
+    .interactive:active {
+        @apply transform scale-95;
+    }
+
+    /* Texto truncado con tooltip */
+    .text-truncate {
+        @apply truncate;
+    }
+
+    /* Sombras personalizadas */
+    .shadow-cotel {
+        box-shadow: 0 4px 14px 0 rgba(37, 99, 235, 0.1);
+    }
+
+    .shadow-cotel-lg {
+        box-shadow: 0 10px 25px 0 rgba(37, 99, 235, 0.15);
+    }
+}
+
+/* Keyframes para animaciones */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes fadeOut {
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideInLeft {
+    from {
+        transform: translateX(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes bounceIn {
+    0% {
+        transform: scale(0.3);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.05);
+    }
+    70% {
+        transform: scale(0.9);
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* Estilos específicos para react-hot-toast */
+.Toastify__toast {
+    font-family: 'Inter', sans-serif;
+}
+
+/* Responsive design helpers */
+@media (max-width: 640px) {
+    .container {
+        @apply px-4;
+    }
+}
+
+/* Dark mode support (opcional para futuro) */
+@media (prefers-color-scheme: dark) {
+    .dark-mode {
+        /* Variables para modo oscuro */
+        --color-bg: #1f2937;
+        --color-text: #f9fafb;
+    }
+}
+
+/* Print styles */
+@media print {
+    body {
+        @apply text-black bg-white;
+    }
+
+    .no-print {
+        display: none !important;
+    }
+
+    .print-only {
+        display: block !important;
+    }
+}
+
+/* Accesibilidad mejorada */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* Focus visible para mejor accesibilidad */
+.focus-visible:focus:not(:focus-visible) {
+    outline: none;
+}
+
+.focus-visible:focus-visible {
+    @apply outline-none ring-2 ring-blue-500 ring-offset-2;
+}
