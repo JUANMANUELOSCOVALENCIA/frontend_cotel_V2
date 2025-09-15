@@ -60,6 +60,10 @@ const ImportacionMasivaDialog = ({
     const [previewData, setPreviewData] = useState(null);
     const [validationErrors, setValidationErrors] = useState([]);
     const [uploadProgress, setUploadProgress] = useState(0);
+    const [itemEquipo, setItemEquipo] = useState('');
+
+    // ✅ NUEVO: Campo para número de entrega
+    const [numeroEntrega, setNumeroEntrega] = useState('');
 
     const fileInputRef = useRef(null);
 
@@ -71,7 +75,6 @@ const ImportacionMasivaDialog = ({
         'Importar',
         'Resultados'
     ];
-    const [itemEquipo, setItemEquipo] = useState('');
 
     // ========== HANDLERS ==========
     const handleReset = () => {
@@ -79,6 +82,7 @@ const ImportacionMasivaDialog = ({
         setSelectedFile(null);
         setSelectedModel('');
         setItemEquipo('');
+        setNumeroEntrega(''); // ✅ NUEVO: Reset número entrega
         setPreviewData(null);
         setValidationErrors([]);
         setUploadProgress(0);
@@ -116,8 +120,8 @@ const ImportacionMasivaDialog = ({
     };
 
     const handleValidateFile = async () => {
-        if (!selectedFile || !selectedModel) {
-            toast.error('Selecciona un archivo y modelo');
+        if (!selectedFile || !selectedModel || !numeroEntrega) { // ✅ ACTUALIZADO: Incluir numeroEntrega
+            toast.error('Selecciona un archivo, modelo y número de entrega');
             return;
         }
         // Validar formato ITEM_EQUIPO
@@ -125,9 +129,20 @@ const ImportacionMasivaDialog = ({
             toast.error('ITEM_EQUIPO debe tener entre 6 y 10 dígitos');
             return;
         }
+
+        // Limpiar ITEM_EQUIPO
+        let itemEquipoLimpio = itemEquipo.toString().trim();
+        if (itemEquipoLimpio.startsWith('"') && itemEquipoLimpio.endsWith('"')) {
+            itemEquipoLimpio = itemEquipoLimpio.slice(1, -1);
+        }
+        if (itemEquipoLimpio.startsWith("'") && itemEquipoLimpio.endsWith("'")) {
+            itemEquipoLimpio = itemEquipoLimpio.slice(1, -1);
+        }
+
         try {
             setCurrentStep(2);
-            const result = await importarArchivo(selectedFile, lote.id, selectedModel, itemEquipo, true);
+            // ✅ ACTUALIZADO: Incluir numeroEntrega en la validación
+            const result = await importarArchivo(selectedFile, lote.id, selectedModel, itemEquipoLimpio, true, numeroEntrega);
 
             if (result.success) {
                 setPreviewData(result.data.resultado);
@@ -149,39 +164,35 @@ const ImportacionMasivaDialog = ({
     };
 
     const handleImport = async () => {
-        // PRIMERO: Validaciones iniciales
-        if (!selectedFile || !selectedModel || !itemEquipo) {
-            toast.error('Faltan datos para la importación');
+        // ✅ ACTUALIZADO: Incluir numeroEntrega en validaciones
+        if (!selectedFile || !selectedModel || !itemEquipo || !numeroEntrega) {
+            toast.error('Todos los campos son requeridos para la importación');
             return;
         }
 
-        // SEGUNDO: Declarar y limpiar la variable
+        // Limpiar ITEM_EQUIPO
         let itemEquipoLimpio = itemEquipo.toString().trim();
-
-        // Quitar comillas dobles si existen
         if (itemEquipoLimpio.startsWith('"') && itemEquipoLimpio.endsWith('"')) {
             itemEquipoLimpio = itemEquipoLimpio.slice(1, -1);
         }
-
-        // Quitar comillas simples si existen
         if (itemEquipoLimpio.startsWith("'") && itemEquipoLimpio.endsWith("'")) {
             itemEquipoLimpio = itemEquipoLimpio.slice(1, -1);
         }
 
         console.log('ITEM_EQUIPO limpio:', itemEquipoLimpio);
 
-        // TERCERO: Validar formato
+        // Validar formato
         if (!/^\d{6,10}$/.test(itemEquipoLimpio)) {
             toast.error(`ITEM_EQUIPO inválido: "${itemEquipoLimpio}". Debe tener 6-10 dígitos`);
             return;
         }
 
-        // CUARTO: Debugging DESPUÉS de declarar la variable
         console.log('🔍 COMPONENT DEBUG - Antes de llamar importarArchivo:', {
             selectedFile: selectedFile?.name,
             loteId: lote.id,
             selectedModel,
             itemEquipoLimpio,
+            numeroEntrega, // ✅ NUEVO: Debug número entrega
             esValidacion: false
         });
 
@@ -199,16 +210,15 @@ const ImportacionMasivaDialog = ({
                 });
             }, 200);
 
-            // QUINTO: Llamar a importarArchivo UNA SOLA VEZ
-            const result = await importarArchivo(selectedFile, lote.id, selectedModel, itemEquipoLimpio, false);
+            // ✅ ACTUALIZADO: Incluir numeroEntrega en la importación
+            const result = await importarArchivo(selectedFile, lote.id, selectedModel, itemEquipoLimpio, false, numeroEntrega);
 
             clearInterval(progressInterval);
             setUploadProgress(100);
 
             if (result.success) {
                 setCurrentStep(4);
-                toast.success(`¡Importación exitosa! ${result.data.resultado.importados} equipos registrados`);
-
+                toast.success(`¡Importación exitosa! ${result.data.resultado.importados} equipos registrados en entrega #${numeroEntrega}`); // ✅ ACTUALIZADO: Mostrar número entrega
                 setTimeout(() => {
                     onSuccess();
                 }, 1500);
@@ -221,103 +231,67 @@ const ImportacionMasivaDialog = ({
             setCurrentStep(3);
         }
     };
+
+    // ✅ ACTUALIZADO: Plantilla con D_SN opcional
     const handleDownloadTemplate = async () => {
         try {
             const result = await obtenerPlantilla();
             if (result.success) {
-                // Crear datos para Excel con ejemplos
+                // ✅ ACTUALIZADO: Plantilla con D_SN opcional
                 const data = [
-                    ['D_SN', 'GPON_SN', 'MAC'], // Headers en la primera fila
-                    ['SN123456789', 'HWTC12345678', '00:11:22:33:44:55'],
-                    ['SN987654321', 'HWTC87654321', '00:11:22:33:44:56'],
-                    ['SN456789123', 'HWTC56789123', '00:11:22:33:44:57'],
-                    ['', '', ''], // Fila vacía para que empiecen a llenar
-                    ['', '', ''], // Más filas vacías
+                    ['GPON_SN', 'MAC', 'D_SN'], // Headers
+                    ['HWTC12345678', '00:11:22:33:44:55', 'SN123456789'],
+                    ['HWTC87654321', '00:11:22:33:44:56', 'SN987654321'],
+                    ['HWTC56789123', '00:11:22:33:44:57', ''], // ✅ D_SN vacío permitido
+                    ['', '', ''], // Filas para llenar
                     ['', '', ''],
                 ];
 
-                // Crear hoja de Excel
                 const worksheet = XLSX.utils.aoa_to_sheet(data);
 
-                // Configurar ancho de columnas
+                // Configurar anchos
                 worksheet['!cols'] = [
-                    { width: 20 }, // Columna A - D_SN
-                    { width: 25 }, // Columna B - GPON_SN
-                    { width: 20 }  // Columna C - MAC
+                    { width: 25 }, // GPON_SN
+                    { width: 20 }, // MAC
+                    { width: 20 }  // D_SN
                 ];
 
-                // Aplicar estilos a los headers (fila 1)
-                const headerStyle = {
-                    font: { bold: true, color: { rgb: "FFFFFF" } },
-                    fill: { fgColor: { rgb: "4472C4" } },
-                    alignment: { horizontal: "center", vertical: "center" }
-                };
-
-                // Aplicar estilo a las celdas de header
-                ['A1', 'B1', 'C1'].forEach(cell => {
-                    if (worksheet[cell]) {
-                        worksheet[cell].s = headerStyle;
-                    }
-                });
-
-                // Crear libro de Excel
                 const workbook = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(workbook, worksheet, 'Plantilla ONUs');
 
-                // Crear hoja de instrucciones
+                // ✅ ACTUALIZAR instrucciones
                 const instrucciones = [
-                    ['INSTRUCCIONES PARA IMPORTACIÓN MASIVA DE ONUs'],
+                    ['INSTRUCCIONES PARA IMPORTACIÓN MASIVA DE ONUs - ACTUALIZADO'],
                     [''],
                     ['Formato requerido:'],
-                    ['• Columna A: D_SN - Serial del fabricante (mínimo 6 caracteres)'],
-                    ['• Columna B: GPON_SN - Serial GPON (mínimo 8 caracteres)'],
-                    ['• Columna C: MAC - Dirección MAC formato XX:XX:XX:XX:XX:XX'],
+                    ['• Columna A: GPON_SN - Serial GPON (OBLIGATORIO, mínimo 8 caracteres)'],
+                    ['• Columna B: MAC - Dirección MAC formato XX:XX:XX:XX:XX:XX (OBLIGATORIO)'],
+                    ['• Columna C: D_SN - Serial del fabricante (OPCIONAL, puede estar vacío)'],
                     [''],
-                    ['Reglas importantes:'],
-                    ['• Todos los valores deben ser únicos (no repetir MACs, seriales, etc.)'],
-                    ['• No eliminar los encabezados de la primera fila'],
-                    ['• No dejar filas vacías entre los datos'],
-                    ['• El ITEM_EQUIPO se configura en el formulario de importación'],
-                    ['• Máximo 1000 equipos por archivo'],
+                    ['✅ NUEVAS CARACTERÍSTICAS:'],
+                    ['• D_SN es completamente opcional'],
+                    ['• Puedes omitir la columna D_SN si no tienes esos datos'],
+                    ['• Puedes dejar celdas D_SN vacías'],
+                    ['• El sistema aceptará archivos con solo GPON_SN y MAC'],
+                    [''],
+                    ['📋 ENTREGAS PARCIALES:'],
+                    ['• Asigna un número de entrega (1, 2, 3, etc.)'],
+                    ['• Cada importación se vincula a una entrega específica'],
+                    ['• Permite rastrear el progreso del lote'],
                     [''],
                     ['Ejemplo de datos válidos:'],
-                    ['D_SN: SN123456789'],
-                    ['GPON_SN: HWTC12345678'],
-                    ['MAC: 00:11:22:33:44:55'],
-                    [''],
-                    ['Una vez completado, guarde el archivo y súbalo en el sistema.']
+                    ['GPON_SN: HWTC12345678 (OBLIGATORIO)'],
+                    ['MAC: 00:11:22:33:44:55 (OBLIGATORIO)'],
+                    ['D_SN: SN123456789 o vacío (OPCIONAL)'],
                 ];
 
                 const worksheetInstrucciones = XLSX.utils.aoa_to_sheet(instrucciones);
-                worksheetInstrucciones['!cols'] = [{ width: 60 }];
-
-                // Estilo para el título
-                if (worksheetInstrucciones['A1']) {
-                    worksheetInstrucciones['A1'].s = {
-                        font: { bold: true, size: 14, color: { rgb: "000080" } },
-                        alignment: { horizontal: "center" }
-                    };
-                }
-
                 XLSX.utils.book_append_sheet(workbook, worksheetInstrucciones, 'Instrucciones');
 
-                // Configurar propiedades del archivo
-                workbook.Props = {
-                    Title: "Plantilla Importación ONUs",
-                    Subject: "Plantilla para importación masiva de equipos ONUs",
-                    Author: "Sistema de Almacenes",
-                    CreatedDate: new Date()
-                };
-
-                // Descargar el archivo
-                XLSX.writeFile(workbook, 'Plantilla_Importacion_ONUs.xlsx');
-
-                toast.success('Plantilla Excel descargada con éxito');
-            } else {
-                toast.error('Error al descargar plantilla');
+                XLSX.writeFile(workbook, 'Plantilla_Importacion_ONUs_v2.xlsx');
+                toast.success('Plantilla Excel actualizada descargada');
             }
         } catch (error) {
-            console.error('Error generando plantilla:', error);
             toast.error('Error al generar plantilla Excel');
         }
     };
@@ -355,10 +329,10 @@ const ImportacionMasivaDialog = ({
                     <div className="flex items-center justify-between">
                         <div>
                             <Typography variant="h6" color="blue-gray">
-                                Plantilla de Importación
+                                Plantilla de Importación Actualizada
                             </Typography>
                             <Typography variant="small" color="gray">
-                                Descarga la plantilla para ver el formato requerido
+                                Descarga la nueva plantilla con D_SN opcional
                             </Typography>
                         </div>
                         <Button
@@ -369,7 +343,7 @@ const ImportacionMasivaDialog = ({
                             onClick={handleDownloadTemplate}
                         >
                             <IoDownload className="h-4 w-4" />
-                            Descargar Plantilla
+                            Descargar Plantilla v2
                         </Button>
                     </div>
                 </CardBody>
@@ -428,25 +402,38 @@ const ImportacionMasivaDialog = ({
                 )}
             </div>
 
-            {/* Requisitos */}
+            {/* ✅ ACTUALIZADO: Requisitos con D_SN opcional */}
             <Alert color="blue" className="mb-4">
                 <Typography variant="small" className="font-medium mb-2">
-                    📋 Formato del archivo Excel:
+                    📋 Formato del archivo Excel (ACTUALIZADO):
                 </Typography>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm">
                     <div className="bg-white bg-opacity-50 p-2 rounded">
-                        <strong>Columna A:</strong> D_SN<br/>
-                        <span className="text-xs">Serial del fabricante</span>
+                        <strong>Columna A:</strong> GPON_SN<br/>
+                        <span className="text-xs text-red-600">OBLIGATORIO</span>
                     </div>
                     <div className="bg-white bg-opacity-50 p-2 rounded">
-                        <strong>Columna B:</strong> GPON_SN<br/>
-                        <span className="text-xs">Serial GPON del equipo</span>
+                        <strong>Columna B:</strong> MAC<br/>
+                        <span className="text-xs text-red-600">OBLIGATORIO</span>
                     </div>
                     <div className="bg-white bg-opacity-50 p-2 rounded">
-                        <strong>Columna C:</strong> MAC<br/>
-                        <span className="text-xs">XX:XX:XX:XX:XX:XX</span>
+                        <strong>Columna C:</strong> D_SN<br/>
+                        <span className="text-xs text-green-600">OPCIONAL</span>
                     </div>
                 </div>
+            </Alert>
+
+            {/* ✅ ACTUALIZADO: Información sobre D_SN opcional */}
+            <Alert color="green">
+                <Typography variant="small" className="font-medium mb-2">
+                    ✅ D_SN ahora es OPCIONAL:
+                </Typography>
+                <ul className="text-sm space-y-1 ml-4">
+                    <li>• Puedes usar archivos con solo GPON_SN y MAC</li>
+                    <li>• Puedes dejar celdas D_SN vacías</li>
+                    <li>• Puedes omitir completamente la columna D_SN</li>
+                    <li>• El sistema validará automáticamente el formato</li>
+                </ul>
             </Alert>
 
             <Alert color="amber">
@@ -454,17 +441,18 @@ const ImportacionMasivaDialog = ({
                     ⚠️ Requisitos importantes:
                 </Typography>
                 <ul className="text-sm space-y-1 ml-4">
-                    <li>• Descargar y usar la plantilla Excel proporcionada</li>
-                    <li>• Completar las columnas A, B, C con los datos respectivos</li>
+                    <li>• Descargar y usar la plantilla Excel actualizada</li>
+                    <li>• GPON_SN y MAC son OBLIGATORIOS</li>
+                    <li>• D_SN es completamente OPCIONAL</li>
                     <li>• Mantener los encabezados en la primera fila</li>
                     <li>• Todos los valores deben ser únicos (no duplicados)</li>
-                    <li>• El ITEM_EQUIPO se configura en el siguiente paso</li>
-                    <li>• Guardar como archivo .xlsx antes de subir</li>
+                    <li>• Asignar número de entrega en el siguiente paso</li>
                 </ul>
             </Alert>
         </div>
     );
 
+    // ✅ ACTUALIZADO: StepConfiguration con número de entrega
     const StepConfiguration = () => (
         <div className="space-y-4">
             <Typography variant="h6" color="blue-gray" className="mb-4">
@@ -504,7 +492,7 @@ const ImportacionMasivaDialog = ({
                 </div>
             </div>
 
-            {/* AGREGAR: Campo para ITEM_EQUIPO */}
+            {/* Código ITEM_EQUIPO */}
             <div>
                 <Typography variant="small" color="gray" className="mb-2">
                     Código ITEM_EQUIPO del Lote *
@@ -517,8 +505,23 @@ const ImportacionMasivaDialog = ({
                     maxLength="10"
                     placeholder="1234567890"
                 />
+            </div>
+
+            {/* ✅ NUEVO: Número de entrega parcial */}
+            <div>
+                <Typography variant="small" color="gray" className="mb-2">
+                    Número de Entrega *
+                </Typography>
+                <Input
+                    type="number"
+                    label="Número de entrega (1, 2, 3...)"
+                    value={numeroEntrega}
+                    onChange={(e) => setNumeroEntrega(e.target.value)}
+                    min="1"
+                    placeholder="1"
+                />
                 <Typography variant="small" color="gray" className="mt-1">
-                    Este código se aplicará a todos los equipos del archivo
+                    Identifica a qué entrega parcial pertenecen estos equipos
                 </Typography>
             </div>
 
@@ -529,9 +532,23 @@ const ImportacionMasivaDialog = ({
                     <strong>Proveedor:</strong> {lote?.proveedor_info?.nombre_comercial}
                 </Typography>
             </Alert>
+
+            {/* ✅ NUEVO: Información sobre D_SN opcional */}
+            <Alert color="green">
+                <Typography variant="small" className="font-medium mb-2">
+                    ✅ D_SN ahora es OPCIONAL:
+                </Typography>
+                <ul className="text-sm space-y-1 ml-4">
+                    <li>• Puedes usar archivos con solo GPON_SN y MAC</li>
+                    <li>• Puedes dejar celdas D_SN vacías</li>
+                    <li>• Puedes omitir completamente la columna D_SN</li>
+                    <li>• El sistema validará automáticamente el formato</li>
+                </ul>
+            </Alert>
         </div>
     );
 
+    // ✅ ACTUALIZADO: StepValidation con información sobre D_SN
     const StepValidation = () => (
         <div className="space-y-4">
             <Typography variant="h6" color="blue-gray" className="mb-4">
@@ -540,8 +557,8 @@ const ImportacionMasivaDialog = ({
 
             {previewData ? (
                 <div className="space-y-4">
-                    {/* Resumen de validación */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Resumen con información sobre D_SN */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <Card>
                             <CardBody className="text-center">
                                 <Typography color="green" className="text-2xl font-bold">
@@ -565,14 +582,35 @@ const ImportacionMasivaDialog = ({
                         <Card>
                             <CardBody className="text-center">
                                 <Typography color="blue" className="text-2xl font-bold">
-                                    {(previewData.validados || 0) + (previewData.errores || 0)}
+                                    {numeroEntrega}
                                 </Typography>
                                 <Typography variant="small" color="gray">
-                                    Total Filas
+                                    Entrega #
+                                </Typography>
+                            </CardBody>
+                        </Card>
+                        <Card>
+                            <CardBody className="text-center">
+                                <Typography color="teal" className="text-2xl font-bold">
+                                    {previewData.columna_d_sn_presente ? 'SÍ' : 'NO'}
+                                </Typography>
+                                <Typography variant="small" color="gray">
+                                    D_SN Presente
                                 </Typography>
                             </CardBody>
                         </Card>
                     </div>
+
+                    {/* Información sobre D_SN */}
+                    <Alert color={previewData.columna_d_sn_presente ? "blue" : "amber"}>
+                        <Typography variant="small">
+                            {previewData.columna_d_sn_presente ? (
+                                <span>✅ <strong>D_SN detectado:</strong> El archivo incluye columna D_SN. Algunos valores pueden estar vacíos (permitido).</span>
+                            ) : (
+                                <span>📋 <strong>Sin D_SN:</strong> El archivo no incluye columna D_SN. Los equipos se registrarán sin serial del fabricante.</span>
+                            )}
+                        </Typography>
+                    </Alert>
 
                     {/* Errores de validación */}
                     {validationErrors.length > 0 && (
@@ -613,8 +651,8 @@ const ImportacionMasivaDialog = ({
                                     <table className="w-full text-sm">
                                         <thead>
                                         <tr className="border-b">
-                                            <th className="text-left p-2">MAC Address</th>
                                             <th className="text-left p-2">GPON Serial</th>
+                                            <th className="text-left p-2">MAC Address</th>
                                             <th className="text-left p-2">D-SN</th>
                                             <th className="text-left p-2">Item Equipo</th>
                                         </tr>
@@ -622,9 +660,9 @@ const ImportacionMasivaDialog = ({
                                         <tbody>
                                         {previewData.equipos_validos.slice(0, 5).map((equipo, index) => (
                                             <tr key={index} className="border-b">
-                                                <td className="p-2 font-mono text-xs">{equipo.mac_address}</td>
                                                 <td className="p-2 font-mono text-xs">{equipo.gpon_serial}</td>
-                                                <td className="p-2 font-mono text-xs">{equipo.serial_manufacturer}</td>
+                                                <td className="p-2 font-mono text-xs">{equipo.mac_address}</td>
+                                                <td className="p-2 font-mono text-xs">{equipo.serial_manufacturer || '—'}</td>
                                                 <td className="p-2 font-mono text-xs">{equipo.codigo_item_equipo}</td>
                                             </tr>
                                         ))}
@@ -655,12 +693,7 @@ const ImportacionMasivaDialog = ({
             <Typography variant="h6" color="blue-gray" className="mb-4">
                 Importando Equipos
             </Typography>
-            {/* AGREGAR DEBUG TEMPORAL */}
-            <Alert color="blue">
-                <Typography variant="small">
-                    Debug - ITEM_EQUIPO actual: "{itemEquipo}" (longitud: {itemEquipo?.length})
-                </Typography>
-            </Alert>
+
             <div className="text-center space-y-4">
                 <div className="flex justify-center">
                     {uploadProgress < 100 ? (
@@ -685,7 +718,7 @@ const ImportacionMasivaDialog = ({
                 </div>
 
                 {resultado && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
                         <Card>
                             <CardBody className="text-center">
                                 <Typography color="green" className="text-xl font-bold">
@@ -716,7 +749,29 @@ const ImportacionMasivaDialog = ({
                                 </Typography>
                             </CardBody>
                         </Card>
+                        <Card>
+                            <CardBody className="text-center">
+                                <Typography color="teal" className="text-xl font-bold">
+                                    #{numeroEntrega}
+                                </Typography>
+                                <Typography variant="small" color="gray">
+                                    Entrega
+                                </Typography>
+                            </CardBody>
+                        </Card>
                     </div>
+                )}
+
+                {/* ✅ NUEVO: Información adicional sobre la importación */}
+                {resultado && (
+                    <Alert color="green" className="mt-4">
+                        <Typography variant="small">
+                            <strong>Entrega #{numeroEntrega} completada:</strong> Los equipos han sido registrados exitosamente en el lote {lote?.numero_lote}.
+                            {resultado.equipos_sin_d_sn > 0 && (
+                                <span> Se registraron {resultado.equipos_sin_d_sn} equipos sin D_SN (permitido).</span>
+                            )}
+                        </Typography>
+                    </Alert>
                 )}
             </div>
         </div>
@@ -733,10 +788,10 @@ const ImportacionMasivaDialog = ({
             <DialogHeader className="flex items-center justify-between">
                 <div>
                     <Typography variant="h5" color="blue-gray">
-                        Importación Masiva de ONUs
+                        Importación Masiva de ONUs - v2.0
                     </Typography>
                     <Typography color="gray">
-                        Lote: {lote?.numero_lote}
+                        Lote: {lote?.numero_lote} | D_SN Opcional
                     </Typography>
                 </div>
                 <Button
@@ -809,7 +864,7 @@ const ImportacionMasivaDialog = ({
                         <Button
                             color="blue"
                             onClick={handleValidateFile}
-                            disabled={!selectedFile || !selectedModel || loading}
+                            disabled={!selectedFile || !selectedModel || !numeroEntrega || loading} // ✅ ACTUALIZADO
                             className="flex items-center gap-2"
                         >
                             <IoEye className="h-4 w-4" />
@@ -847,3 +902,5 @@ const ImportacionMasivaDialog = ({
 };
 
 export default ImportacionMasivaDialog;
+
+

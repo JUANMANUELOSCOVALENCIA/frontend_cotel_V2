@@ -29,7 +29,8 @@ import {
     IoLocationOutline,
     IoPlay,
     IoRefresh,
-    IoCheckmark
+    IoCheckmark,
+    IoGitBranch
 } from 'react-icons/io5';
 
 // ========== TABLA DE LOTES ==========
@@ -40,6 +41,7 @@ export const LotesTable = ({
                                onEdit,
                                onDelete,
                                onImport,
+                               onEntregas,
                                permissions
                            }) => {
     const getEstadoColor = (estado) => {
@@ -229,6 +231,19 @@ export const LotesTable = ({
                                         )}
 
                                         {permissions?.canEdit && lote.estado_info?.codigo !== 'CERRADO' && (
+                                            <Tooltip content="Entregas Parciales">
+                                                <IconButton
+                                                    variant="text"
+                                                    color="amber"
+                                                    size="sm"
+                                                    onClick={() => onEntregas(lote)}
+                                                >
+                                                    <IoGitBranch className="h-4 w-4" />
+                                                </IconButton>
+                                            </Tooltip>
+                                        )}
+
+                                        {permissions?.canEdit && lote.estado_info?.codigo !== 'CERRADO' && (
                                             <Tooltip content="Editar">
                                                 <IconButton
                                                     variant="text"
@@ -266,7 +281,6 @@ export const LotesTable = ({
 };
 
 // ========== CARD DE ESTADÍSTICAS ==========
-// ========== CARD DE ESTADÍSTICAS (CORREGIDO) ==========
 export const LoteStatsCard = ({
                                   icon: Icon,
                                   title,
@@ -275,7 +289,6 @@ export const LoteStatsCard = ({
                                   trend,
                                   subtitle
                               }) => {
-    // ✅ CORRECCIÓN: Mapear colores a clases específicas
     const colorClasses = {
         blue: {
             bg: 'bg-blue-50',
@@ -323,7 +336,6 @@ export const LoteStatsCard = ({
                         )}
                     </div>
                     <div className={`rounded-full p-3 ${currentColor.bg}`}>
-                        {/* ✅ CORRECCIÓN: Validar que Icon sea una función antes de renderizar */}
                         {Icon && typeof Icon === 'function' && (
                             <Icon className={`h-6 w-6 ${currentColor.text}`} />
                         )}

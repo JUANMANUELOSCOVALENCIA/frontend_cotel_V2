@@ -145,6 +145,8 @@ export const ENDPOINTS = {
     LOTES_ESTADISTICAS: '/almacenes/lotes/estadisticas/',
 
     LOTE_DETALLES: '/almacenes/lote-detalles/',
+    LOTE_ENTREGAS_PARCIALES: (id) => `/almacenes/lotes/${id}/entregas_parciales/`,
+    ENTREGA_PARCIAL_CREATE: (loteId) => `/almacenes/lotes/${loteId}/agregar_entrega_parcial/`,
 
     // === MATERIALES ===
     MATERIALES: '/almacenes/materiales/',
@@ -163,9 +165,12 @@ export const ENDPOINTS = {
     IMPORTACION_MASIVA: '/almacenes/importacion/masiva/',
 
     // === LABORATORIO ===
-    LABORATORIO: '/almacenes/laboratorio/',
-    LABORATORIO_MASIVO: '/almacenes/laboratorio/masivo/',
+    LABORATORIO_DASHBOARD: '/almacenes/laboratorio/',
+    LABORATORIO_OPERACION_INDIVIDUAL: '/almacenes/laboratorio/',
+    LABORATORIO_OPERACION_MASIVA: '/almacenes/laboratorio/masivo/',
     LABORATORIO_CONSULTAS: '/almacenes/laboratorio/consultas/',
+    LABORATORIO_INSPECCION: '/almacenes/laboratorio/inspeccion/',
+    LABORATORIO_INSPECCION_EXPORT: '/almacenes/laboratorio/inspeccion/export/',
 
     // === TRASPASOS ===
     TRASPASOS: '/almacenes/traspasos/',

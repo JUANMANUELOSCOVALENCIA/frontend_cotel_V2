@@ -24,6 +24,8 @@ import LotesPage from "./core/almacenes/pages/lotes/index.jsx";
 import ONUsList from "./core/almacenes/pages/almacenes/ONUsList.jsx";
 import ModelosPage from "./core/almacenes/pages/modelos/index.jsx";
 import ProveedoresPage from "./core/almacenes/pages/provedores/index.jsx";
+import LaboratorioPage from "./core/almacenes/pages/laboratorio/LaboratorioPage.jsx";
+import DevolicionesPage from "./core/almacenes/pages/devoluciones/DevolucionesPage.jsx";
 
 function App() {
     const { isAuthenticated, loading, user } = useContext(AuthContext);
@@ -94,7 +96,8 @@ function App() {
                     <Route path="almacenes/onus" element={<ONUsList />} />
                     <Route path="almacenes/modelos" element={<ModelosPage />} />
                     <Route path="almacenes/proveedores" element={<ProveedoresPage />} />
-
+                    <Route path="laboratorio/laboratorio" element={<LaboratorioPage />} />
+                    <Route path="devoluciones/devoluciones" element={<DevolicionesPage />} />
                 </Route>
 
                 {/* Catch all */}

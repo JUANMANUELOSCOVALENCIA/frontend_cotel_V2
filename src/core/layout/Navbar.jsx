@@ -34,40 +34,51 @@ const Navbar = () => {
     const navigate = useNavigate();
     const [isNavOpen, setIsNavOpen] = useState(false);
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+
+    // Estados separados para cada dropdown
     const [isUsersMenuOpen, setIsUsersMenuOpen] = useState(false);
     const [isAlmacenesMenuOpen, setIsAlmacenesMenuOpen] = useState(false);
+    const [isLaboratorioMenuOpen, setIsLaboratorioMenuOpen] = useState(false);
     const [submenuPosition, setSubmenuPosition] = useState('right');
 
+    // Referencias separadas
     const profileMenuRef = useRef(null);
     const usersMenuRef = useRef(null);
     const almacenesMenuRef = useRef(null);
+    const laboratorioMenuRef = useRef(null);
     const submenuRef = useRef(null);
 
     const { isAuthenticated, requiresPasswordChange } = useAuth();
     const { user, fullName } = useUser();
     const { logout } = useLogout();
 
-    // Función para detectar la posición óptima del submenú
+    // Detectar posición óptima del submenú
     const detectSubmenuPosition = (element) => {
         if (!element) return 'right';
-
         const rect = element.getBoundingClientRect();
-        const submenuWidth = 250; // ancho mínimo del submenú
+        const submenuWidth = 250;
         const windowWidth = window.innerWidth;
         const spaceRight = windowWidth - rect.right;
-        const spaceLeft = rect.left;
+        return spaceRight >= submenuWidth ? 'right' : 'left';
+    };
 
-        // Si hay suficiente espacio a la derecha, úsala
-        if (spaceRight >= submenuWidth) {
-            return 'right';
-        }
-        // Si no hay espacio a la derecha pero sí a la izquierda, úsala
-        else if (spaceLeft >= submenuWidth) {
-            return 'left';
-        }
-        // Si no hay espacio en ningún lado, priorizar derecha
-        else {
-            return 'right';
+    // Cerrar otros dropdowns excepto el especificado
+    const closeOtherDropdowns = (keepOpen = null) => {
+        if (keepOpen !== 'Usuarios') setIsUsersMenuOpen(false);
+        if (keepOpen !== 'Almacenes') setIsAlmacenesMenuOpen(false);
+        if (keepOpen !== 'Laboratorio') setIsLaboratorioMenuOpen(false);
+        if (keepOpen !== 'Profile') setIsProfileMenuOpen(false);
+    };
+
+    // Manejar toggle de dropdown
+    const handleDropdownToggle = (label, currentState) => {
+        if (currentState) {
+            // Si está abierto, solo cerrarlo
+            getDropdownConfig(label)?.setIsOpen(false);
+        } else {
+            // Si está cerrado, cerrar otros y abrir este
+            closeOtherDropdowns(label);
+            getDropdownConfig(label)?.setIsOpen(true);
         }
     };
 
@@ -83,20 +94,47 @@ const Navbar = () => {
             if (almacenesMenuRef.current && !almacenesMenuRef.current.contains(event.target)) {
                 setIsAlmacenesMenuOpen(false);
             }
+            if (laboratorioMenuRef.current && !laboratorioMenuRef.current.contains(event.target)) {
+                setIsLaboratorioMenuOpen(false);
+            }
         };
 
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+        document.addEventListener('click', handleClickOutside);
+        return () => document.removeEventListener('click', handleClickOutside);
     }, []);
 
-    const toggleIsNavOpen = () => setIsNavOpen((cur) => !cur);
+    // Función para obtener configuración del dropdown
+    const getDropdownConfig = (label) => {
+        switch (label) {
+            case 'Usuarios':
+                return {
+                    isOpen: isUsersMenuOpen,
+                    setIsOpen: setIsUsersMenuOpen,
+                    menuRef: usersMenuRef
+                };
+            case 'Almacenes':
+                return {
+                    isOpen: isAlmacenesMenuOpen,
+                    setIsOpen: setIsAlmacenesMenuOpen,
+                    menuRef: almacenesMenuRef
+                };
+            case 'Laboratorio':
+                return {
+                    isOpen: isLaboratorioMenuOpen,
+                    setIsOpen: setIsLaboratorioMenuOpen,
+                    menuRef: laboratorioMenuRef
+                };
+            default:
+                return null;
+        }
+    };
 
     const handleLogout = async () => {
         await logout();
         navigate('/login');
     };
 
-    // Elementos de navegación principales
+    // Navegación principal
     const navItems = [
         {
             label: 'Dashboard',
@@ -196,7 +234,14 @@ const Navbar = () => {
                             description: 'Gestión de almacenes'
                         }
                     ]
-                }
+                },
+                {
+                    label: 'Devoluciones',
+                    href: '/devoluciones/devoluciones',
+                    icon: IoCloudUpload,
+                    permissions: [{ recurso: 'almacenes', accion: 'leer' }],
+                    description: 'Devoluciones de equipos'
+                },
             ]
         },
         {
@@ -206,32 +251,32 @@ const Navbar = () => {
             permissions: [{ recurso: 'logs', accion: 'leer' }],
             type: 'link'
         },
-    ];
-
-    // Elementos del menú de perfil
-    const profileMenuItems = [
         {
-            label: 'Mi Perfil',
-            icon: IoPersonCircle,
-            href: '/profile',
-        },
-        {
-            label: 'Cambiar Contraseña',
-            icon: IoKey,
-            href: '/change-password',
-        },
-        {
-            label: 'Configuración',
-            icon: IoSettings,
-            href: '/settings',
-        },
-    ];
-
-    // Verificar si una ruta está activa (incluyendo subrutas)
-    const isRouteActive = (href, submenu = null) => {
-        if (href) {
-            return location.pathname === href;
+            label: 'Laboratorio',
+            icon: IoStorefront,
+            permissions: [{ recurso: 'almacenes', accion: 'leer' }],
+            type: 'dropdown',
+            submenu: [
+                {
+                    label: 'Laboratorio',
+                    href: '/laboratorio/laboratorio',
+                    icon: IoCloudUpload,
+                    permissions: [{ recurso: 'almacenes', accion: 'leer' }],
+                    description: 'Laboratorio de equipos'
+                },
+            ]
         }
+    ];
+
+    const profileMenuItems = [
+        { label: 'Mi Perfil', icon: IoPersonCircle, href: '/profile' },
+        { label: 'Cambiar Contraseña', icon: IoKey, href: '/change-password' },
+        { label: 'Configuración', icon: IoSettings, href: '/settings' },
+    ];
+
+    // Verificar si una ruta está activa
+    const isRouteActive = (href, submenu = null) => {
+        if (href) return location.pathname === href;
         if (submenu) {
             return submenu.some(item => {
                 if (item.submenu) {
@@ -243,43 +288,23 @@ const Navbar = () => {
         return false;
     };
 
-    // Función para manejar el dropdown de almacenes
-    const handleAlmacenesDropdown = (itemLabel) => {
-        if (itemLabel === 'Almacenes') {
-            return {
-                isOpen: isAlmacenesMenuOpen,
-                setIsOpen: setIsAlmacenesMenuOpen,
-                menuRef: almacenesMenuRef
-            };
-        } else if (itemLabel === 'Usuarios') {
-            return {
-                isOpen: isUsersMenuOpen,
-                setIsOpen: setIsUsersMenuOpen,
-                menuRef: usersMenuRef
-            };
-        }
-        return null;
-    };
-
-    // Manejar hover del submenú
-    const handleSubmenuHover = (event) => {
-        const position = detectSubmenuPosition(event.currentTarget);
-        setSubmenuPosition(position);
-    };
-
-    // Componente para elementos de navegación desktop
+    // Navegación desktop
     const NavList = () => (
         <ul className="mt-2 mb-4 flex flex-col gap-2 lg:mb-0 lg:mt-0 lg:flex-row lg:items-center">
             {navItems.map((item) => {
                 if (item.type === 'dropdown') {
-                    const dropdownConfig = handleAlmacenesDropdown(item.label);
+                    const dropdownConfig = getDropdownConfig(item.label);
 
                     return (
                         <Permission key={item.label} permissions={item.permissions}>
                             <li className="p-1 relative" ref={dropdownConfig?.menuRef}>
                                 <Button
                                     variant="text"
-                                    onClick={() => dropdownConfig?.setIsOpen(!dropdownConfig?.isOpen)}
+                                    onMouseDown={(event) => {
+                                        event.preventDefault();
+                                        event.stopPropagation();
+                                        handleDropdownToggle(item.label, dropdownConfig?.isOpen);
+                                    }}
                                     className={`flex items-center gap-2 px-4 py-3 rounded-lg transition-all duration-200 font-medium normal-case ${
                                         isRouteActive(null, item.submenu)
                                             ? 'bg-orange-500 text-white shadow-md border border-orange-600'
@@ -288,54 +313,38 @@ const Navbar = () => {
                                 >
                                     <item.icon className="h-5 w-5" />
                                     {item.label}
-                                    <IoChevronDown
-                                        className={`h-4 w-4 transition-transform ${
-                                            dropdownConfig?.isOpen ? 'rotate-180' : ''
-                                        }`}
-                                    />
+                                    <IoChevronDown className={`h-4 w-4 transition-transform ${dropdownConfig?.isOpen ? 'rotate-180' : ''}`} />
                                 </Button>
 
                                 {dropdownConfig?.isOpen && (
                                     <div className="absolute top-full left-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[280px] max-w-[320px] p-2">
-                                        {item.submenu.map((subItem) => {
-                                            // Si tiene submenú (como Descripciones)
+                                        {item.submenu?.map((subItem) => {
                                             if (subItem.type === 'submenu') {
                                                 return (
                                                     <Permission key={subItem.label} permissions={subItem.permissions}>
                                                         <div
                                                             className="relative group"
-                                                            onMouseEnter={handleSubmenuHover}
+                                                            onMouseEnter={(e) => setSubmenuPosition(detectSubmenuPosition(e.currentTarget))}
                                                             ref={submenuRef}
                                                         >
                                                             <div className="w-full rounded-lg p-3 transition-all duration-200 text-left hover:bg-gray-50 cursor-pointer flex items-center justify-between">
                                                                 <div className="flex items-start gap-3">
                                                                     <subItem.icon className="h-5 w-5 text-orange-500 mt-0.5" />
-                                                                    <div>
-                                                                        <Typography variant="small" color="gray" className="font-medium">
-                                                                            {subItem.label}
-                                                                        </Typography>
-                                                                    </div>
+                                                                    <Typography variant="small" color="gray" className="font-medium">
+                                                                        {subItem.label}
+                                                                    </Typography>
                                                                 </div>
-                                                                <IoChevronDown
-                                                                    className={`h-4 w-4 text-gray-400 transition-transform ${
-                                                                        submenuPosition === 'left' ? 'rotate-90' : '-rotate-90'
-                                                                    }`}
-                                                                />
+                                                                <IoChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${submenuPosition === 'left' ? 'rotate-90' : '-rotate-90'}`} />
                                                             </div>
 
-                                                            {/* Submenú lateral inteligente */}
-                                                            <div
-                                                                className={`absolute top-0 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[250px] p-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 ${
-                                                                    submenuPosition === 'left'
-                                                                        ? 'right-full mr-2'
-                                                                        : 'left-full ml-2'
-                                                                }`}
-                                                            >
-                                                                {subItem.submenu.map((nestedItem) => (
+                                                            <div className={`absolute top-0 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[250px] p-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 ${
+                                                                submenuPosition === 'left' ? 'right-full mr-2' : 'left-full ml-2'
+                                                            }`}>
+                                                                {subItem.submenu?.map((nestedItem) => (
                                                                     <Permission key={nestedItem.href} permissions={nestedItem.permissions}>
                                                                         <button
                                                                             onClick={() => {
-                                                                                dropdownConfig?.setIsOpen(false);
+                                                                                closeOtherDropdowns();
                                                                                 navigate(nestedItem.href);
                                                                             }}
                                                                             className={`w-full rounded-lg p-3 transition-all duration-200 text-left ${
@@ -364,12 +373,11 @@ const Navbar = () => {
                                                 );
                                             }
 
-                                            // Elementos normales (sin submenú)
                                             return (
                                                 <Permission key={subItem.href} permissions={subItem.permissions}>
                                                     <button
                                                         onClick={() => {
-                                                            dropdownConfig?.setIsOpen(false);
+                                                            closeOtherDropdowns();
                                                             navigate(subItem.href);
                                                         }}
                                                         className={`w-full rounded-lg p-3 transition-all duration-200 text-left ${
@@ -402,12 +410,7 @@ const Navbar = () => {
 
                 return (
                     <Permission key={item.href} permissions={item.permissions}>
-                        <Typography
-                            as="li"
-                            variant="small"
-                            color="blue-gray"
-                            className="p-1 font-normal"
-                        >
+                        <Typography as="li" variant="small" color="blue-gray" className="p-1 font-normal">
                             <Link
                                 to={item.href}
                                 className={`flex items-center px-4 py-3 rounded-lg transition-all duration-200 font-medium ${
@@ -415,7 +418,10 @@ const Navbar = () => {
                                         ? 'bg-orange-500 text-white shadow-md border border-orange-600'
                                         : 'text-gray-800 bg-gray-50 border border-gray-300 hover:bg-orange-500 hover:text-white hover:border-orange-600 shadow-sm'
                                 }`}
-                                onClick={() => setIsNavOpen(false)}
+                                onClick={() => {
+                                    closeOtherDropdowns();
+                                    setIsNavOpen(false);
+                                }}
                             >
                                 <item.icon className="mr-3 h-5 w-5" />
                                 {item.label}
@@ -427,7 +433,7 @@ const Navbar = () => {
         </ul>
     );
 
-    // Componente para navegación móvil
+    // Navegación móvil
     const MobileNavList = () => (
         <div className="space-y-3">
             {navItems.map((item) => {
@@ -440,7 +446,7 @@ const Navbar = () => {
                                     {item.label}
                                 </div>
                                 <div className="ml-4 space-y-1">
-                                    {item.submenu.map((subItem) => {
+                                    {item.submenu?.map((subItem) => {
                                         if (subItem.type === 'submenu') {
                                             return (
                                                 <Permission key={subItem.label} permissions={subItem.permissions}>
@@ -450,7 +456,7 @@ const Navbar = () => {
                                                             {subItem.label}
                                                         </div>
                                                         <div className="ml-8 space-y-1">
-                                                            {subItem.submenu.map((nestedItem) => (
+                                                            {subItem.submenu?.map((nestedItem) => (
                                                                 <Permission key={nestedItem.href} permissions={nestedItem.permissions}>
                                                                     <Link
                                                                         to={nestedItem.href}
@@ -519,11 +525,21 @@ const Navbar = () => {
         </div>
     );
 
+    // Menú de perfil
     const ProfileMenu = () => (
         <div className="relative" ref={profileMenuRef}>
             <Button
                 variant="text"
-                onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                onMouseDown={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    if (isProfileMenuOpen) {
+                        setIsProfileMenuOpen(false);
+                    } else {
+                        closeOtherDropdowns('Profile');
+                        setIsProfileMenuOpen(true);
+                    }
+                }}
                 className="flex items-center gap-2 rounded-lg py-2 pr-3 pl-2 bg-gray-50 border border-gray-300 text-gray-800 hover:bg-orange-50 hover:border-orange-300 transition-all duration-200 shadow-sm"
             >
                 <Avatar
@@ -537,13 +553,7 @@ const Navbar = () => {
                     {user?.nombres}
                 </span>
                 {requiresPasswordChange && (
-                    <Chip
-                        variant="filled"
-                        color="orange"
-                        size="sm"
-                        value="!"
-                        className="rounded-full bg-orange-600 text-white ml-1"
-                    />
+                    <Chip variant="filled" color="orange" size="sm" value="!" className="rounded-full bg-orange-600 text-white ml-1" />
                 )}
             </Button>
 
@@ -597,9 +607,7 @@ const Navbar = () => {
         </div>
     );
 
-    if (!isAuthenticated) {
-        return null;
-    }
+    if (!isAuthenticated) return null;
 
     return (
         <MTNavbar className="sticky top-0 z-10 h-max max-w-full rounded-none px-4 py-3 lg:px-8 lg:py-4 bg-white border-b-2 border-orange-200 shadow-md">
@@ -632,13 +640,9 @@ const Navbar = () => {
                         variant="outlined"
                         className="ml-auto h-10 w-10 border-2 border-orange-500 bg-white text-orange-500 hover:bg-orange-500 hover:text-white focus:bg-orange-500 focus:text-white active:bg-orange-600 lg:hidden transition-all duration-200"
                         ripple={false}
-                        onClick={toggleIsNavOpen}
+                        onClick={() => setIsNavOpen(!isNavOpen)}
                     >
-                        {isNavOpen ? (
-                            <IoClose className="h-6 w-6" />
-                        ) : (
-                            <IoMenu className="h-6 w-6" />
-                        )}
+                        {isNavOpen ? <IoClose className="h-6 w-6" /> : <IoMenu className="h-6 w-6" />}
                     </IconButton>
                 </div>
             </div>

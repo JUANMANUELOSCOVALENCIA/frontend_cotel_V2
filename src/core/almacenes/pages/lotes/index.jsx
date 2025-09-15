@@ -52,6 +52,7 @@ import LoteDialogs from './loteDialogs';
 
 // Componente de importación masiva
 import ImportacionMasivaDialog from '../importacion/ImportacionMasivaDialog';
+import EntregasParcialesDialog from './EntregasParcialesDialog';
 
 // Componente Modal mejorado
 const Modal = ({ open, onClose, children, size = "lg" }) => {
@@ -164,7 +165,8 @@ const LotesPage = () => {
         create: false,
         edit: false,
         confirm: false,
-        import: false
+        import: false,
+        entregas: false
     });
     const [confirmAction, setConfirmAction] = useState(null);
 
@@ -254,6 +256,12 @@ const LotesPage = () => {
         setDialogs({ ...dialogs, import: true });
     };
 
+    const handleEntregasLote = (lote) => {
+        console.log('📦 ENTREGAS - Lote seleccionado:', lote);
+        setSelectedLote(lote);
+        setDialogs({ ...dialogs, entregas: true });
+    };
+
     const handleLoteAction = async (action, lote) => {
         console.log('🎬 LOTE ACTION - Iniciando:', { action, lote: lote?.id });
 
@@ -285,7 +293,7 @@ const LotesPage = () => {
         if (dialogName === 'confirm') {
             setConfirmAction(null);
         }
-        if (dialogName === 'import') {
+        if (['import', 'entregas'].includes(dialogName)) {
             setSelectedLote(null);
         }
         if (dialogName === 'detail') {
@@ -308,6 +316,12 @@ const LotesPage = () => {
         await loadLotes();
         toast.success('¡Importación completada! Los materiales han sido registrados.');
         setActiveTab('materiales');
+    };
+
+    const handleEntregasSuccess = async () => {
+        closeDialog('entregas');
+        await loadLotes();
+        toast.success('Entrega parcial registrada exitosamente');
     };
 
     // ========== RENDERIZADO DE TABS ==========
@@ -538,6 +552,7 @@ const LotesPage = () => {
                         onEdit={handleEditLote}
                         onDelete={handleDeleteLote}
                         onImport={handleImportLote}
+                        onEntregas={handleEntregasLote}
                         permissions={permissions}
                     />
                 )}
@@ -661,6 +676,23 @@ const LotesPage = () => {
                         opciones={opciones}
                         onSuccess={handleImportSuccess}
                         useCustomModal={false}
+                    />
+                )}
+            </Modal>
+
+            {/* Diálogo de entregas parciales */}
+            <Modal
+                open={dialogs.entregas}
+                onClose={() => closeDialog('entregas')}
+                size="xl"
+            >
+                {selectedLote && (
+                    <EntregasParcialesDialog
+                        open={dialogs.entregas}
+                        onClose={() => closeDialog('entregas')}
+                        lote={selectedLote}
+                        opciones={opciones}
+                        onSuccess={handleEntregasSuccess}
                     />
                 )}
             </Modal>

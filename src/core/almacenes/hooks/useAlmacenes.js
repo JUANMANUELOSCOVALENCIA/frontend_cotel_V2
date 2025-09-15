@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import almacenesService from '../services/almacenesService';
 import { usePermissions } from '../../permissions/hooks/usePermissions';
+import { api } from '../../../services/api';
+import ENDPOINTS from "../../../services/endpoints.js";
 
 // ========== HOOK PRINCIPAL DE ALMACENES ==========
 export const useAlmacenes = () => {
@@ -743,32 +745,67 @@ export const useLotes = () => {
     };
 };
 
+// src/core/almacenes/hooks/useAlmacenes.js - useImportacionMasiva ACTUALIZADO
 export const useImportacionMasiva = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [resultado, setResultado] = useState(null);
 
-    // FUNCIÓN ACTUALIZADA con itemEquipo
-    const importarArchivo = useCallback(async (archivo, loteId, modeloId, itemEquipo, esValidacion = false) => {
+    // ✅ ACTUALIZADO: Agregar numeroEntrega como parámetro
+    const importarArchivo = useCallback(async (archivo, loteId, modeloId, itemEquipo, esValidacion = false, numeroEntrega = null) => {
         setLoading(true);
         setError(null);
         setResultado(null);
 
         try {
-            // USAR la nueva función del servicio
-            const result = await almacenesService.importarMaterialesMasivo(archivo, loteId, modeloId, itemEquipo, esValidacion);
+            console.log('🔍 HOOK DEBUG - Parámetros recibidos:', {
+                archivo: archivo?.name,
+                loteId,
+                modeloId,
+                itemEquipo,
+                esValidacion,
+                numeroEntrega // ✅ NUEVO: Debug número entrega
+            });
 
-            if (result.success) {
-                setResultado(result.data.resultado);
-                return { success: true, data: result.data };
-            } else {
-                setError(result.error);
-                return { success: false, error: result.error };
+            const formData = new FormData();
+            formData.append('archivo', archivo);
+            formData.append('lote_id', loteId);
+            formData.append('modelo_id', modeloId);
+            formData.append('item_equipo', itemEquipo);
+            formData.append('validacion', esValidacion ? 'true' : 'false');
+
+            // ✅ AGREGAR numero_entrega si se proporciona
+            if (numeroEntrega) {
+                formData.append('numero_entrega', numeroEntrega);
+                console.log('✅ Número de entrega agregado:', numeroEntrega);
             }
-        } catch (err) {
-            const error = 'Error en la importación';
-            setError(error);
-            return { success: false, error };
+
+            // Debug del FormData
+            console.log('📋 FormData enviado:');
+            for (let [key, value] of formData.entries()) {
+                console.log(`  ${key}:`, value);
+            }
+
+            const response = await api.post(ENDPOINTS.IMPORTACION_MASIVA, formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
+
+            if (response.data.success) {
+                setResultado(response.data.resultado);
+                console.log('✅ Importación exitosa:', response.data.resultado);
+                return { success: true, data: response.data };
+            } else {
+                setError(response.data.error);
+                console.error('❌ Error del servidor:', response.data.error);
+                return { success: false, error: response.data.error };
+            }
+        } catch (error) {
+            console.error('❌ Error en importación masiva:', error);
+            const errorMessage = error.response?.data?.error || 'Error en la importación';
+            setError(errorMessage);
+            return { success: false, error: errorMessage };
         } finally {
             setLoading(false);
         }
@@ -776,6 +813,7 @@ export const useImportacionMasiva = () => {
 
     const obtenerPlantilla = useCallback(async () => {
         try {
+            // Si tienes un endpoint específico para la plantilla
             const result = await almacenesService.getPlantillaImportacion();
             return result;
         } catch (err) {
