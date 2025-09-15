@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import {
     Dialog,
@@ -35,6 +35,7 @@ import {
 } from 'react-icons/io5';
 import { toast } from 'react-hot-toast';
 import { useImportacionMasiva } from '../../hooks/useAlmacenes';
+import api from '../../../../services//api';
 
 const ImportacionMasivaDialog = ({
                                      open,
@@ -62,8 +63,10 @@ const ImportacionMasivaDialog = ({
     const [uploadProgress, setUploadProgress] = useState(0);
     const [itemEquipo, setItemEquipo] = useState('');
 
-    // ✅ NUEVO: Campo para número de entrega
-    const [numeroEntrega, setNumeroEntrega] = useState('');
+    // ✅ ACTUALIZADO: Gestión de entregas parciales
+    const [entregasDisponibles, setEntregasDisponibles] = useState([]);
+    const [entregaSeleccionada, setEntregaSeleccionada] = useState(null);
+    const [loadingEntregas, setLoadingEntregas] = useState(false);
 
     const fileInputRef = useRef(null);
 
@@ -76,13 +79,37 @@ const ImportacionMasivaDialog = ({
         'Resultados'
     ];
 
+    // ✅ NUEVO: Cargar entregas parciales del lote
+    const cargarEntregasParcialesLote = async () => {
+        if (!lote?.id) return;
+
+        setLoadingEntregas(true);
+        try {
+            const response = await api.get(`/almacenes/lotes/${lote.id}/entregas_parciales/`);
+            setEntregasDisponibles(response.data || []);
+        } catch (error) {
+            console.error('Error cargando entregas:', error);
+            setEntregasDisponibles([]);
+            toast.error('Error al cargar entregas parciales');
+        } finally {
+            setLoadingEntregas(false);
+        }
+    };
+
+    // ✅ NUEVO: useEffect para cargar entregas al abrir el dialog
+    useEffect(() => {
+        if (lote?.id && open) {
+            cargarEntregasParcialesLote();
+        }
+    }, [lote?.id, open]);
+
     // ========== HANDLERS ==========
     const handleReset = () => {
         setCurrentStep(0);
         setSelectedFile(null);
         setSelectedModel('');
         setItemEquipo('');
-        setNumeroEntrega(''); // ✅ NUEVO: Reset número entrega
+        setEntregaSeleccionada(null); // ✅ ACTUALIZADO: Reset entrega seleccionada
         setPreviewData(null);
         setValidationErrors([]);
         setUploadProgress(0);
@@ -119,14 +146,23 @@ const ImportacionMasivaDialog = ({
         }
     };
 
+    // ✅ ACTUALIZADO: Validación que incluye entrega seleccionada
     const handleValidateFile = async () => {
-        if (!selectedFile || !selectedModel || !numeroEntrega) { // ✅ ACTUALIZADO: Incluir numeroEntrega
-            toast.error('Selecciona un archivo, modelo y número de entrega');
+        // Validaciones básicas
+        if (!selectedFile || !selectedModel) {
+            toast.error('Selecciona un archivo y modelo');
             return;
         }
+
         // Validar formato ITEM_EQUIPO
         if (!/^\d{6,10}$/.test(itemEquipo)) {
             toast.error('ITEM_EQUIPO debe tener entre 6 y 10 dígitos');
+            return;
+        }
+
+        // ✅ NUEVA VALIDACIÓN: Para lotes parciales debe seleccionar entrega
+        if (lote?.tipo_ingreso_info?.codigo === 'PARCIAL' && !entregaSeleccionada) {
+            toast.error('Debe seleccionar una entrega parcial para este lote');
             return;
         }
 
@@ -141,7 +177,9 @@ const ImportacionMasivaDialog = ({
 
         try {
             setCurrentStep(2);
-            // ✅ ACTUALIZADO: Incluir numeroEntrega en la validación
+
+            // ✅ ACTUALIZADO: Enviar número de entrega si está seleccionada
+            const numeroEntrega = entregaSeleccionada ? entregaSeleccionada.numero_entrega : null;
             const result = await importarArchivo(selectedFile, lote.id, selectedModel, itemEquipoLimpio, true, numeroEntrega);
 
             if (result.success) {
@@ -163,10 +201,17 @@ const ImportacionMasivaDialog = ({
         }
     };
 
+    // ✅ ACTUALIZADO: Importación con entrega seleccionada
     const handleImport = async () => {
-        // ✅ ACTUALIZADO: Incluir numeroEntrega en validaciones
-        if (!selectedFile || !selectedModel || !itemEquipo || !numeroEntrega) {
-            toast.error('Todos los campos son requeridos para la importación');
+        // Validaciones básicas
+        if (!selectedFile || !selectedModel || !itemEquipo) {
+            toast.error('Faltan campos requeridos para la importación');
+            return;
+        }
+
+        // ✅ NUEVA VALIDACIÓN: Para lotes parciales debe seleccionar entrega
+        if (lote?.tipo_ingreso_info?.codigo === 'PARCIAL' && !entregaSeleccionada) {
+            toast.error('Debe seleccionar una entrega parcial para este lote');
             return;
         }
 
@@ -179,20 +224,20 @@ const ImportacionMasivaDialog = ({
             itemEquipoLimpio = itemEquipoLimpio.slice(1, -1);
         }
 
-        console.log('ITEM_EQUIPO limpio:', itemEquipoLimpio);
-
         // Validar formato
         if (!/^\d{6,10}$/.test(itemEquipoLimpio)) {
             toast.error(`ITEM_EQUIPO inválido: "${itemEquipoLimpio}". Debe tener 6-10 dígitos`);
             return;
         }
 
+        const numeroEntrega = entregaSeleccionada ? entregaSeleccionada.numero_entrega : null;
+
         console.log('🔍 COMPONENT DEBUG - Antes de llamar importarArchivo:', {
             selectedFile: selectedFile?.name,
             loteId: lote.id,
             selectedModel,
             itemEquipoLimpio,
-            numeroEntrega, // ✅ NUEVO: Debug número entrega
+            numeroEntrega,
             esValidacion: false
         });
 
@@ -218,7 +263,10 @@ const ImportacionMasivaDialog = ({
 
             if (result.success) {
                 setCurrentStep(4);
-                toast.success(`¡Importación exitosa! ${result.data.resultado.importados} equipos registrados en entrega #${numeroEntrega}`); // ✅ ACTUALIZADO: Mostrar número entrega
+                const mensajeExito = entregaSeleccionada
+                    ? `¡Importación exitosa! ${result.data.resultado.importados} equipos registrados en entrega #${numeroEntrega}`
+                    : `¡Importación exitosa! ${result.data.resultado.importados} equipos registrados`;
+                toast.success(mensajeExito);
                 setTimeout(() => {
                     onSuccess();
                 }, 1500);
@@ -237,7 +285,6 @@ const ImportacionMasivaDialog = ({
         try {
             const result = await obtenerPlantilla();
             if (result.success) {
-                // ✅ ACTUALIZADO: Plantilla con D_SN opcional
                 const data = [
                     ['GPON_SN', 'MAC', 'D_SN'], // Headers
                     ['HWTC12345678', '00:11:22:33:44:55', 'SN123456789'],
@@ -275,9 +322,9 @@ const ImportacionMasivaDialog = ({
                     ['• El sistema aceptará archivos con solo GPON_SN y MAC'],
                     [''],
                     ['📋 ENTREGAS PARCIALES:'],
-                    ['• Asigna un número de entrega (1, 2, 3, etc.)'],
-                    ['• Cada importación se vincula a una entrega específica'],
-                    ['• Permite rastrear el progreso del lote'],
+                    ['• Para lotes parciales, selecciona una entrega existente'],
+                    ['• Los equipos se asociarán a la entrega seleccionada'],
+                    ['• Permite rastrear el progreso del lote por entregas'],
                     [''],
                     ['Ejemplo de datos válidos:'],
                     ['GPON_SN: HWTC12345678 (OBLIGATORIO)'],
@@ -317,7 +364,7 @@ const ImportacionMasivaDialog = ({
                             Lote: {lote?.numero_lote}
                         </Typography>
                         <Typography variant="small">
-                            Proveedor: {lote?.proveedor_info?.nombre_comercial}
+                            Tipo: {lote?.tipo_ingreso_info?.nombre} | Proveedor: {lote?.proveedor_info?.nombre_comercial}
                         </Typography>
                     </div>
                 </div>
@@ -446,13 +493,15 @@ const ImportacionMasivaDialog = ({
                     <li>• D_SN es completamente OPCIONAL</li>
                     <li>• Mantener los encabezados en la primera fila</li>
                     <li>• Todos los valores deben ser únicos (no duplicados)</li>
-                    <li>• Asignar número de entrega en el siguiente paso</li>
+                    {lote?.tipo_ingreso_info?.codigo === 'PARCIAL' && (
+                        <li>• Para lotes parciales, seleccionar entrega existente en el siguiente paso</li>
+                    )}
                 </ul>
             </Alert>
         </div>
     );
 
-    // ✅ ACTUALIZADO: StepConfiguration con número de entrega
+    // ✅ ACTUALIZADO: StepConfiguration con selector de entregas
     const StepConfiguration = () => (
         <div className="space-y-4">
             <Typography variant="h6" color="blue-gray" className="mb-4">
@@ -507,27 +556,80 @@ const ImportacionMasivaDialog = ({
                 />
             </div>
 
-            {/* ✅ NUEVO: Número de entrega parcial */}
-            <div>
-                <Typography variant="small" color="gray" className="mb-2">
-                    Número de Entrega *
-                </Typography>
-                <Input
-                    type="number"
-                    label="Número de entrega (1, 2, 3...)"
-                    value={numeroEntrega}
-                    onChange={(e) => setNumeroEntrega(e.target.value)}
-                    min="1"
-                    placeholder="1"
-                />
-                <Typography variant="small" color="gray" className="mt-1">
-                    Identifica a qué entrega parcial pertenecen estos equipos
-                </Typography>
-            </div>
+            {/* ✅ NUEVO: Selector de entregas parciales (solo para lotes parciales) */}
+            {lote?.tipo_ingreso_info?.codigo === 'PARCIAL' && (
+                <div>
+                    <Typography variant="small" color="gray" className="mb-2">
+                        Entrega Parcial *
+                    </Typography>
+
+                    {loadingEntregas ? (
+                        <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-500"></div>
+                            <Typography variant="small" color="gray">Cargando entregas...</Typography>
+                        </div>
+                    ) : entregasDisponibles.length > 0 ? (
+                        <>
+                            <Select
+                                label="Seleccionar Entrega Parcial"
+                                value={entregaSeleccionada?.id?.toString() || ''}
+                                onChange={(value) => {
+                                    const entrega = entregasDisponibles.find(e => e.id.toString() === value);
+                                    setEntregaSeleccionada(entrega);
+                                }}
+                            >
+                                {entregasDisponibles.map((entrega) => (
+                                    <Option key={entrega.id} value={entrega.id.toString()}>
+                                        <div className="flex justify-between items-center w-full">
+                                            <span>Entrega #{entrega.numero_entrega}</span>
+                                            <div className="text-sm text-gray-600">
+                                                <span>{entrega.cantidad_entregada} equipos</span>
+                                                <span className="ml-2">{new Date(entrega.fecha_entrega).toLocaleDateString()}</span>
+                                            </div>
+                                        </div>
+                                    </Option>
+                                ))}
+                            </Select>
+
+                            {entregaSeleccionada && (
+                                <div className="bg-blue-50 p-3 rounded-lg mt-2">
+                                    <Typography variant="small" color="blue-gray" className="font-medium">
+                                        Entrega Seleccionada: #{entregaSeleccionada.numero_entrega}
+                                    </Typography>
+                                    <Typography variant="small" color="gray">
+                                        Fecha: {new Date(entregaSeleccionada.fecha_entrega).toLocaleDateString()}
+                                    </Typography>
+                                    <Typography variant="small" color="gray">
+                                        Cantidad: {entregaSeleccionada.cantidad_entregada} equipos
+                                    </Typography>
+                                    <Typography variant="small" color="gray">
+                                        Estado: {entregaSeleccionada.estado_entrega_info?.nombre || 'N/A'}
+                                    </Typography>
+                                </div>
+                            )}
+                        </>
+                    ) : (
+                        <Alert color="amber">
+                            <div className="flex items-center gap-2">
+                                <IoWarning className="h-5 w-5" />
+                                <div>
+                                    <Typography variant="small" className="font-medium">
+                                        No hay entregas parciales registradas
+                                    </Typography>
+                                    <Typography variant="small">
+                                        Primero registra una entrega parcial desde el botón "Entregas Parciales".
+                                    </Typography>
+                                </div>
+                            </div>
+                        </Alert>
+                    )}
+                </div>
+            )}
 
             <Alert color="blue">
                 <Typography variant="small">
                     <strong>Lote destino:</strong> {lote?.numero_lote}<br />
+                    <strong>Tipo:</strong> {lote?.tipo_ingreso_info?.nombre}<br />
                     <strong>Almacén:</strong> {lote?.almacen_destino_info?.nombre}<br />
                     <strong>Proveedor:</strong> {lote?.proveedor_info?.nombre_comercial}
                 </Typography>
@@ -548,7 +650,7 @@ const ImportacionMasivaDialog = ({
         </div>
     );
 
-    // ✅ ACTUALIZADO: StepValidation con información sobre D_SN
+    // ✅ ACTUALIZADO: StepValidation con información sobre entregas
     const StepValidation = () => (
         <div className="space-y-4">
             <Typography variant="h6" color="blue-gray" className="mb-4">
@@ -557,7 +659,7 @@ const ImportacionMasivaDialog = ({
 
             {previewData ? (
                 <div className="space-y-4">
-                    {/* Resumen con información sobre D_SN */}
+                    {/* Resumen con información sobre D_SN y entrega */}
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <Card>
                             <CardBody className="text-center">
@@ -582,10 +684,10 @@ const ImportacionMasivaDialog = ({
                         <Card>
                             <CardBody className="text-center">
                                 <Typography color="blue" className="text-2xl font-bold">
-                                    {numeroEntrega}
+                                    {entregaSeleccionada ? `#${entregaSeleccionada.numero_entrega}` : 'N/A'}
                                 </Typography>
                                 <Typography variant="small" color="gray">
-                                    Entrega #
+                                    Entrega
                                 </Typography>
                             </CardBody>
                         </Card>
@@ -600,7 +702,6 @@ const ImportacionMasivaDialog = ({
                             </CardBody>
                         </Card>
                     </div>
-
                     {/* Información sobre D_SN */}
                     <Alert color={previewData.columna_d_sn_presente ? "blue" : "amber"}>
                         <Typography variant="small">
@@ -611,6 +712,16 @@ const ImportacionMasivaDialog = ({
                             )}
                         </Typography>
                     </Alert>
+
+                    {/* Información sobre entrega seleccionada */}
+                    {entregaSeleccionada && (
+                        <Alert color="blue">
+                            <Typography variant="small">
+                                <strong>Entrega seleccionada:</strong> #{entregaSeleccionada.numero_entrega} -
+                                {entregaSeleccionada.cantidad_entregada} equipos registrados el {new Date(entregaSeleccionada.fecha_entrega).toLocaleDateString()}
+                            </Typography>
+                        </Alert>
+                    )}
 
                     {/* Errores de validación */}
                     {validationErrors.length > 0 && (
@@ -752,7 +863,7 @@ const ImportacionMasivaDialog = ({
                         <Card>
                             <CardBody className="text-center">
                                 <Typography color="teal" className="text-xl font-bold">
-                                    #{numeroEntrega}
+                                    {entregaSeleccionada ? `#${entregaSeleccionada.numero_entrega}` : 'N/A'}
                                 </Typography>
                                 <Typography variant="small" color="gray">
                                     Entrega
@@ -766,7 +877,11 @@ const ImportacionMasivaDialog = ({
                 {resultado && (
                     <Alert color="green" className="mt-4">
                         <Typography variant="small">
-                            <strong>Entrega #{numeroEntrega} completada:</strong> Los equipos han sido registrados exitosamente en el lote {lote?.numero_lote}.
+                            {entregaSeleccionada ? (
+                                <span><strong>Entrega #{entregaSeleccionada.numero_entrega} completada:</strong> Los equipos han sido registrados exitosamente en el lote {lote?.numero_lote}.</span>
+                            ) : (
+                                <span><strong>Importación completada:</strong> Los equipos han sido registrados exitosamente en el lote {lote?.numero_lote}.</span>
+                            )}
                             {resultado.equipos_sin_d_sn > 0 && (
                                 <span> Se registraron {resultado.equipos_sin_d_sn} equipos sin D_SN (permitido).</span>
                             )}
@@ -791,7 +906,7 @@ const ImportacionMasivaDialog = ({
                         Importación Masiva de ONUs - v2.0
                     </Typography>
                     <Typography color="gray">
-                        Lote: {lote?.numero_lote} | D_SN Opcional
+                        Lote: {lote?.numero_lote} | D_SN Opcional | {lote?.tipo_ingreso_info?.nombre}
                     </Typography>
                 </div>
                 <Button
@@ -864,7 +979,7 @@ const ImportacionMasivaDialog = ({
                         <Button
                             color="blue"
                             onClick={handleValidateFile}
-                            disabled={!selectedFile || !selectedModel || !numeroEntrega || loading} // ✅ ACTUALIZADO
+                            disabled={!selectedFile || !selectedModel || (lote?.tipo_ingreso_info?.codigo === 'PARCIAL' && !entregaSeleccionada) || loading}
                             className="flex items-center gap-2"
                         >
                             <IoEye className="h-4 w-4" />
@@ -902,5 +1017,3 @@ const ImportacionMasivaDialog = ({
 };
 
 export default ImportacionMasivaDialog;
-
-
