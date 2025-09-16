@@ -1,4 +1,4 @@
-// src/core/almacenes/pages/laboratorio/HistorialInspecciones.jsx
+// src/core/almacenes/pages/laboratorio/HistorialInspecciones.jsx - USANDO API REAL
 import React, { useState, useEffect } from 'react';
 import {
     Card,
@@ -14,7 +14,10 @@ import {
     DialogBody,
     DialogFooter,
     Chip,
-    Spinner
+    Spinner,
+    IconButton,
+    Tooltip,
+    Alert
 } from '@material-tailwind/react';
 import {
     IoSearch,
@@ -25,47 +28,43 @@ import {
     IoClose,
     IoWarning,
     IoTime,
-    IoStatsChart
+    IoStatsChart,
+    IoFilter
 } from 'react-icons/io5';
-import { api } from '../../../../services/api';
 import { toast } from 'react-hot-toast';
+import { useLaboratorio } from '../../hooks/useLaboratorio';
 
-// Componente EstadisticasCard corregido
+// Componente EstadisticasCard reutilizable
 const EstadisticasCard = ({ titulo, valor, icono: Icono, color = "blue", descripcion }) => {
-    const colorClasses = {
-        blue: "bg-blue-50 text-blue-600 border-blue-200",
-        green: "bg-green-50 text-green-600 border-green-200",
-        red: "bg-red-50 text-red-600 border-red-200",
-        orange: "bg-orange-50 text-orange-600 border-orange-200"
+    const colorConfig = {
+        blue: { bg: "bg-blue-50", text: "text-blue-600", border: "border-blue-200" },
+        green: { bg: "bg-green-50", text: "text-green-600", border: "border-green-200" },
+        red: { bg: "bg-red-50", text: "text-red-600", border: "border-red-200" },
+        orange: { bg: "bg-orange-50", text: "text-orange-600", border: "border-orange-200" }
     };
 
-    const textColors = {
-        blue: "text-blue-600",
-        green: "text-green-600",
-        red: "text-red-600",
-        orange: "text-orange-600"
-    };
+    const config = colorConfig[color] || colorConfig.blue;
 
     return (
-        <Card className="hover:shadow-lg transition-shadow">
-            <CardBody className="p-4">
+        <Card className="hover:shadow-lg transition-shadow border border-gray-100">
+            <CardBody className="p-6">
                 <div className="flex items-center justify-between">
                     <div className="flex-1">
-                        <Typography color="gray" className="text-sm font-medium mb-1">
-                            {titulo || "Sin título"}
+                        <Typography color="gray" className="text-sm font-medium mb-2 uppercase tracking-wide">
+                            {titulo}
                         </Typography>
-                        <Typography variant="h4" className={`font-bold ${textColors[color]} mb-1`}>
-                            {valor ?? "0"}
+                        <Typography variant="h3" className={`font-bold ${config.text} mb-1`}>
+                            {valor}
                         </Typography>
                         {descripcion && (
-                            <Typography color="gray" className="text-xs">
+                            <Typography color="gray" className="text-sm">
                                 {descripcion}
                             </Typography>
                         )}
                     </div>
                     {Icono && (
-                        <div className={`p-3 rounded-xl ${colorClasses[color]}`}>
-                            <Icono className="h-6 w-6" />
+                        <div className={`p-4 rounded-xl ${config.bg} border ${config.border}`}>
+                            <Icono className={`h-8 w-8 ${config.text}`} />
                         </div>
                     )}
                 </div>
@@ -74,87 +73,134 @@ const EstadisticasCard = ({ titulo, valor, icono: Icono, color = "blue", descrip
     );
 };
 
-// Componente DetalleInspeccionDialog corregido
+// Modal de detalle
 const DetalleInspeccionDialog = ({ open, onClose, inspeccion }) => {
     if (!inspeccion) return null;
 
     return (
-        <Dialog open={open} handler={onClose} size="lg">
-            <DialogHeader className="flex items-center gap-2">
-                <IoEye className="h-5 w-5" />
-                Detalle de Inspección - {inspeccion.codigo}
+        <Dialog open={open} handler={onClose} size="lg" className="bg-white">
+            <DialogHeader className="flex items-center gap-3 pb-6">
+                <div className="p-2 bg-blue-50 rounded-lg">
+                    <IoEye className="h-6 w-6 text-blue-500" />
+                </div>
+                <div>
+                    <Typography variant="h5" color="blue-gray">
+                        Inspección #{inspeccion.codigo || inspeccion.numero_informe}
+                    </Typography>
+                    <Typography color="gray" className="text-sm">
+                        Detalle completo de la inspección
+                    </Typography>
+                </div>
             </DialogHeader>
-            <DialogBody className="max-h-96 overflow-y-auto">
-                <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <Typography variant="h6" color="blue-gray" className="mb-2">
-                                Información General
+
+            <DialogBody className="space-y-6 max-h-96 overflow-y-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Card className="bg-gray-50 border border-gray-200">
+                        <CardBody className="p-4">
+                            <Typography variant="h6" color="blue-gray" className="mb-3">
+                                📋 Información del Equipo
                             </Typography>
                             <div className="space-y-2">
                                 <div>
-                                    <Typography color="gray" className="text-sm">Código:</Typography>
-                                    <Typography color="blue-gray" className="font-medium">
-                                        {inspeccion.codigo}
+                                    <Typography color="gray" className="text-sm font-medium">Código:</Typography>
+                                    <Typography color="blue-gray" className="font-mono">
+                                        {inspeccion.codigo || inspeccion.numero_informe}
                                     </Typography>
                                 </div>
                                 <div>
-                                    <Typography color="gray" className="text-sm">Modelo:</Typography>
-                                    <Typography color="blue-gray" className="font-medium">
-                                        {inspeccion.modelo}
+                                    <Typography color="gray" className="text-sm font-medium">Modelo:</Typography>
+                                    <Typography color="blue-gray">
+                                        {inspeccion.modelo || inspeccion.material?.modelo || 'N/A'}
                                     </Typography>
                                 </div>
                                 <div>
-                                    <Typography color="gray" className="text-sm">Serie:</Typography>
-                                    <Typography color="blue-gray" className="font-medium">
-                                        {inspeccion.serie}
+                                    <Typography color="gray" className="text-sm font-medium">Serie:</Typography>
+                                    <Typography color="blue-gray" className="font-mono">
+                                        {inspeccion.serie || inspeccion.material?.mac_address || 'N/A'}
                                     </Typography>
                                 </div>
                             </div>
-                        </div>
-                        <div>
-                            <Typography variant="h6" color="blue-gray" className="mb-2">
-                                Estado de Inspección
+                        </CardBody>
+                    </Card>
+
+                    <Card className="bg-gray-50 border border-gray-200">
+                        <CardBody className="p-4">
+                            <Typography variant="h6" color="blue-gray" className="mb-3">
+                                🔍 Resultado de Inspección
                             </Typography>
-                            <div className="space-y-2">
-                                <Chip
-                                    color={inspeccion.resultado === 'aprobado' ? 'green' : 'red'}
-                                    value={inspeccion.resultado || 'Sin resultado'}
-                                    className="w-fit"
-                                />
+                            <div className="space-y-3">
                                 <div>
-                                    <Typography color="gray" className="text-sm">Técnico:</Typography>
-                                    <Typography color="blue-gray" className="font-medium">
-                                        {inspeccion.tecnico || 'No asignado'}
+                                    <Chip
+                                        size="lg"
+                                        color={inspeccion.aprobado ? 'green' : 'red'}
+                                        value={inspeccion.aprobado ? 'APROBADO' : 'RECHAZADO'}
+                                        className="font-bold"
+                                    />
+                                </div>
+                                <div>
+                                    <Typography color="gray" className="text-sm font-medium">Técnico:</Typography>
+                                    <Typography color="blue-gray">
+                                        {inspeccion.tecnico_revisor || 'No asignado'}
                                     </Typography>
                                 </div>
                                 <div>
-                                    <Typography color="gray" className="text-sm">Fecha:</Typography>
-                                    <Typography color="blue-gray" className="font-medium">
-                                        {inspeccion.fecha_inspeccion ?
-                                            new Date(inspeccion.fecha_inspeccion).toLocaleDateString('es-ES')
-                                            : 'No disponible'
+                                    <Typography color="gray" className="text-sm font-medium">Fecha:</Typography>
+                                    <Typography color="blue-gray">
+                                        {inspeccion.fecha_inspeccion || inspeccion.created_at ?
+                                            new Date(inspeccion.fecha_inspeccion || inspeccion.created_at).toLocaleDateString('es-ES', {
+                                                year: 'numeric',
+                                                month: 'long',
+                                                day: 'numeric',
+                                                hour: '2-digit',
+                                                minute: '2-digit'
+                                            }) : 'No disponible'
                                         }
                                     </Typography>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-
-                    {inspeccion.observaciones && (
-                        <div>
-                            <Typography variant="h6" color="blue-gray" className="mb-2">
-                                Observaciones
-                            </Typography>
-                            <Typography color="gray">
-                                {inspeccion.observaciones}
-                            </Typography>
-                        </div>
-                    )}
+                        </CardBody>
+                    </Card>
                 </div>
+
+                {(inspeccion.observaciones_tecnico || inspeccion.comentarios_adicionales) && (
+                    <Card className="bg-amber-50 border border-amber-200">
+                        <CardBody className="p-4">
+                            <Typography variant="h6" color="amber" className="mb-2 flex items-center gap-2">
+                                <IoWarning className="h-5 w-5" />
+                                Observaciones Técnicas
+                            </Typography>
+                            <Typography color="gray" className="text-sm leading-relaxed">
+                                {inspeccion.observaciones_tecnico}
+                                {inspeccion.comentarios_adicionales && (
+                                    <><br/><br/><strong>Comentarios adicionales:</strong> {inspeccion.comentarios_adicionales}</>
+                                )}
+                            </Typography>
+                        </CardBody>
+                    </Card>
+                )}
+
+                {/* Mostrar fallas detectadas si las hay */}
+                {inspeccion.fallas_detectadas && inspeccion.fallas_detectadas.length > 0 && (
+                    <Card className="bg-red-50 border border-red-200">
+                        <CardBody className="p-4">
+                            <Typography variant="h6" color="red" className="mb-2 flex items-center gap-2">
+                                <IoClose className="h-5 w-5" />
+                                Fallas Detectadas
+                            </Typography>
+                            <div className="space-y-1">
+                                {inspeccion.fallas_detectadas.map((falla, index) => (
+                                    <Typography key={index} color="gray" className="text-sm">
+                                        • {falla}
+                                    </Typography>
+                                ))}
+                            </div>
+                        </CardBody>
+                    </Card>
+                )}
             </DialogBody>
+
             <DialogFooter>
-                <Button variant="outlined" color="blue" onClick={onClose}>
+                <Button variant="gradient" color="blue" onClick={onClose}>
                     Cerrar
                 </Button>
             </DialogFooter>
@@ -164,7 +210,6 @@ const DetalleInspeccionDialog = ({ open, onClose, inspeccion }) => {
 
 const HistorialInspecciones = () => {
     const [inspecciones, setInspecciones] = useState([]);
-    const [loading, setLoading] = useState(true);
     const [filtro, setFiltro] = useState('');
     const [estado, setEstado] = useState('todos');
     const [fechaInicio, setFechaInicio] = useState('');
@@ -172,57 +217,55 @@ const HistorialInspecciones = () => {
     const [selectedInspeccion, setSelectedInspeccion] = useState(null);
     const [dialogOpen, setDialogOpen] = useState(false);
 
+    // ✅ Usar hook real de laboratorio
+    const {
+        loading,
+        error,
+        getHistorialInspecciones,
+        exportarHistorial,
+        clearError
+    } = useLaboratorio();
+
     useEffect(() => {
         loadInspecciones();
     }, []);
 
     const loadInspecciones = async () => {
         try {
-            setLoading(true);
-            // const response = await api.get('/almacenes/laboratorio/historial');
-            // setInspecciones(response.data);
+            const filtros = {};
+            if (fechaInicio) filtros.fecha_inicio = fechaInicio;
+            if (fechaFin) filtros.fecha_fin = fechaFin;
+            if (estado !== 'todos') filtros.aprobado = estado === 'aprobado';
 
-            // Datos de ejemplo
-            const mockData = [
-                {
-                    id: 1,
-                    codigo: "ONU-001-2024",
-                    modelo: "GPON-HG8245H",
-                    serie: "SN123456789",
-                    fecha_inspeccion: "2024-01-15T10:00:00Z",
-                    resultado: "aprobado",
-                    tecnico: "Juan Pérez",
-                    observaciones: "Equipo en excelente estado, todas las pruebas pasaron correctamente."
-                },
-                {
-                    id: 2,
-                    codigo: "ONU-002-2024",
-                    modelo: "GPON-HG8546M",
-                    serie: "SN987654321",
-                    fecha_inspeccion: "2024-01-14T14:30:00Z",
-                    resultado: "rechazado",
-                    tecnico: "María García",
-                    observaciones: "Problemas en conectores de fibra, requiere reparación."
-                },
-                {
-                    id: 3,
-                    codigo: "ONU-003-2024",
-                    modelo: "GPON-HG8245Q",
-                    serie: "SN456789123",
-                    fecha_inspeccion: "2024-01-13T09:15:00Z",
-                    resultado: "aprobado",
-                    tecnico: "Carlos López",
-                    observaciones: "Revisión rutinaria completada sin observaciones."
-                }
-            ];
-
-            setInspecciones(mockData);
+            const result = await getHistorialInspecciones(filtros);
+            if (result.success) {
+                setInspecciones(result.data.inspecciones || result.data || []);
+            } else {
+                toast.error(result.error);
+                setInspecciones([]);
+            }
         } catch (error) {
             console.error('Error al cargar historial:', error);
             toast.error('Error al cargar historial de inspecciones');
             setInspecciones([]);
-        } finally {
-            setLoading(false);
+        }
+    };
+
+    const handleExportar = async () => {
+        try {
+            const filtros = {};
+            if (fechaInicio) filtros.fecha_inicio = fechaInicio;
+            if (fechaFin) filtros.fecha_fin = fechaFin;
+            if (estado !== 'todos') filtros.aprobado = estado === 'aprobado';
+
+            const result = await exportarHistorial(filtros);
+            if (result.success) {
+                toast.success('Historial exportado correctamente');
+            } else {
+                toast.error(result.error);
+            }
+        } catch (error) {
+            toast.error('Error al exportar historial');
         }
     };
 
@@ -231,16 +274,14 @@ const HistorialInspecciones = () => {
         setDialogOpen(true);
     };
 
-    const getResultadoColor = (resultado) => {
-        const colores = {
-            aprobado: "green",
-            rechazado: "red",
-            pendiente: "orange"
-        };
-        return colores[resultado] || "gray";
+    const getResultadoConfig = (aprobado) => {
+        return aprobado
+            ? { color: 'green', icon: IoCheckmarkCircle }
+            : { color: 'red', icon: IoClose };
     };
 
     const formatFecha = (fecha) => {
+        if (!fecha) return 'N/A';
         return new Date(fecha).toLocaleDateString('es-ES', {
             day: '2-digit',
             month: '2-digit',
@@ -250,41 +291,71 @@ const HistorialInspecciones = () => {
         });
     };
 
-    // Estadísticas del historial
+    // ✅ Estadísticas calculadas de forma segura
     const estadisticas = {
         total: inspecciones.length,
-        aprobados: inspecciones.filter(i => i.resultado === 'aprobado').length,
-        rechazados: inspecciones.filter(i => i.resultado === 'rechazado').length,
+        aprobados: inspecciones.filter(i => i.aprobado === true).length,
+        rechazados: inspecciones.filter(i => i.aprobado === false).length,
         tasa_aprobacion: inspecciones.length > 0 ?
-            Math.round((inspecciones.filter(i => i.resultado === 'aprobado').length / inspecciones.length) * 100) : 0
+            Math.round((inspecciones.filter(i => i.aprobado === true).length / inspecciones.length) * 100) : 0
     };
 
+    // ✅ Filtros usando campos reales
     const inspeccionesFiltradas = inspecciones.filter(inspeccion => {
-        const cumpleFiltro = inspeccion.codigo?.toLowerCase().includes(filtro.toLowerCase()) ||
-            inspeccion.modelo?.toLowerCase().includes(filtro.toLowerCase()) ||
-            inspeccion.tecnico?.toLowerCase().includes(filtro.toLowerCase());
+        const cumpleFiltro = !filtro ||
+            inspeccion.numero_informe?.toLowerCase().includes(filtro.toLowerCase()) ||
+            inspeccion.material?.modelo?.toLowerCase().includes(filtro.toLowerCase()) ||
+            inspeccion.tecnico_revisor?.toLowerCase().includes(filtro.toLowerCase()) ||
+            inspeccion.material?.mac_address?.toLowerCase().includes(filtro.toLowerCase());
 
-        const cumpleEstado = estado === 'todos' || inspeccion.resultado === estado;
+        const cumpleEstado = estado === 'todos' ||
+            (estado === 'aprobado' && inspeccion.aprobado === true) ||
+            (estado === 'rechazado' && inspeccion.aprobado === false);
 
-        // Filtros de fecha (implementar si es necesario)
         return cumpleFiltro && cumpleEstado;
     });
 
     if (loading) {
         return (
-            <div className="flex justify-center items-center h-64">
-                <Spinner className="h-8 w-8" color="blue" />
-                <Typography color="gray" className="ml-2">
-                    Cargando historial...
+            <div className="flex flex-col justify-center items-center h-64 bg-white rounded-lg border border-gray-200">
+                <Spinner className="h-12 w-12 text-blue-500" />
+                <Typography color="gray" className="mt-4 font-medium">
+                    Cargando historial de inspecciones...
                 </Typography>
             </div>
         );
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-8">
+            {/* ✅ Error handling */}
+            {error && (
+                <Alert color="red" className="border border-red-200">
+                    <div className="flex items-start gap-3">
+                        <IoWarning className="h-5 w-5 mt-0.5" />
+                        <div>
+                            <Typography variant="small" className="font-bold text-red-800 mb-1">
+                                Error al cargar historial
+                            </Typography>
+                            <Typography variant="small" className="text-red-700">
+                                {error}
+                            </Typography>
+                            <Button
+                                size="sm"
+                                color="red"
+                                variant="outlined"
+                                onClick={clearError}
+                                className="mt-2"
+                            >
+                                Cerrar
+                            </Button>
+                        </div>
+                    </div>
+                </Alert>
+            )}
+
             {/* Estadísticas del historial */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <EstadisticasCard
                     titulo="Total Inspecciones"
                     valor={estadisticas.total}
@@ -297,28 +368,53 @@ const HistorialInspecciones = () => {
                     valor={estadisticas.aprobados}
                     icono={IoCheckmarkCircle}
                     color="green"
-                    descripcion="Equipos que pasaron"
+                    descripcion="Equipos aprobados"
                 />
                 <EstadisticasCard
                     titulo="Rechazados"
                     valor={estadisticas.rechazados}
                     icono={IoClose}
                     color="red"
-                    descripcion="Equipos que fallaron"
+                    descripcion="Equipos con fallas"
                 />
                 <EstadisticasCard
-                    titulo="Tasa de Aprobación"
+                    titulo="Tasa de Éxito"
                     valor={`${estadisticas.tasa_aprobacion}%`}
                     icono={IoCheckmarkCircle}
                     color="green"
-                    descripcion="Porcentaje de éxito"
+                    descripcion="Porcentaje de aprobación"
                 />
             </div>
 
             {/* Filtros */}
-            <Card>
-                <CardBody className="p-4">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card className="border border-gray-200">
+                <CardHeader className="pb-4">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-gray-100 rounded-lg">
+                                <IoFilter className="h-5 w-5 text-gray-600" />
+                            </div>
+                            <Typography variant="h6" color="blue-gray">
+                                🔍 Filtros de Búsqueda
+                            </Typography>
+                        </div>
+                        <Button
+                            size="sm"
+                            variant="outlined"
+                            color="gray"
+                            onClick={() => {
+                                setFiltro('');
+                                setEstado('todos');
+                                setFechaInicio('');
+                                setFechaFin('');
+                            }}
+                        >
+                            Limpiar
+                        </Button>
+                    </div>
+                </CardHeader>
+                <CardBody>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                         <Input
                             label="Buscar..."
                             icon={<IoSearch className="h-4 w-4" />}
@@ -337,107 +433,160 @@ const HistorialInspecciones = () => {
                         <Input
                             type="date"
                             label="Fecha inicio"
+                            icon={<IoCalendar className="h-4 w-4" />}
                             value={fechaInicio}
                             onChange={(e) => setFechaInicio(e.target.value)}
                         />
                         <Input
                             type="date"
                             label="Fecha fin"
+                            icon={<IoCalendar className="h-4 w-4" />}
                             value={fechaFin}
                             onChange={(e) => setFechaFin(e.target.value)}
                         />
                     </div>
+                    <Button
+                        size="sm"
+                        color="blue"
+                        variant="gradient"
+                        onClick={loadInspecciones}
+                        disabled={loading}
+                        className="flex items-center gap-2"
+                    >
+                        <IoSearch className="h-4 w-4" />
+                        Aplicar Filtros
+                    </Button>
                 </CardBody>
             </Card>
 
             {/* Lista de inspecciones */}
-            <Card>
-                <CardHeader className="p-4">
-                    <div className="flex justify-between items-center">
-                        <Typography variant="h6" color="blue-gray">
-                            Historial de Inspecciones
+            <Card className="border border-gray-200">
+                <CardHeader className="flex items-center justify-between">
+                    <div>
+                        <Typography variant="h5" color="blue-gray">
+                            📋 Historial de Inspecciones
                         </Typography>
-                        <Button
-                            size="sm"
-                            color="blue"
-                            variant="outlined"
-                            className="flex items-center gap-2"
-                        >
-                            <IoDownload className="h-4 w-4" />
-                            Exportar
-                        </Button>
+                        <Typography color="gray" className="text-sm mt-1">
+                            {inspeccionesFiltradas.length} inspecciones encontradas
+                        </Typography>
                     </div>
+                    <Button
+                        size="sm"
+                        color="blue"
+                        variant="gradient"
+                        className="flex items-center gap-2"
+                        onClick={handleExportar}
+                        disabled={loading}
+                    >
+                        <IoDownload className="h-4 w-4" />
+                        Exportar Excel
+                    </Button>
                 </CardHeader>
+
                 <CardBody className="p-0">
                     {inspeccionesFiltradas.length === 0 ? (
-                        <div className="text-center py-8">
-                            <Typography color="gray" className="mb-2">
+                        <div className="text-center py-16">
+                            <div className="mx-auto w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6">
+                                <IoStatsChart className="h-10 w-10 text-gray-400" />
+                            </div>
+                            <Typography variant="h6" color="gray" className="mb-2">
                                 No se encontraron inspecciones
                             </Typography>
-                            <Typography color="gray" className="text-sm">
+                            <Typography variant="small" color="gray">
                                 Ajusta los filtros para ver más resultados
                             </Typography>
                         </div>
                     ) : (
-                        <div className="space-y-2 p-4">
-                            {inspeccionesFiltradas.map((inspeccion) => (
-                                <div
-                                    key={inspeccion.id}
-                                    className="border rounded-lg p-4 hover:bg-gray-50 transition-colors"
-                                >
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4">
-                                            <div>
-                                                <Typography variant="h6" color="blue-gray" className="font-semibold">
-                                                    {inspeccion.codigo}
-                                                </Typography>
-                                                <Typography color="gray" className="text-sm">
-                                                    {inspeccion.modelo}
-                                                </Typography>
-                                            </div>
-                                            <div>
-                                                <Typography color="gray" className="text-sm">Serie</Typography>
-                                                <Typography color="blue-gray" className="font-medium">
-                                                    {inspeccion.serie}
-                                                </Typography>
-                                            </div>
-                                            <div>
-                                                <Typography color="gray" className="text-sm">Técnico</Typography>
-                                                <Typography color="blue-gray" className="font-medium">
-                                                    {inspeccion.tecnico}
-                                                </Typography>
-                                            </div>
-                                            <div>
-                                                <Typography color="gray" className="text-sm">Fecha</Typography>
-                                                <Typography color="blue-gray" className="font-medium">
-                                                    {formatFecha(inspeccion.fecha_inspeccion)}
-                                                </Typography>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <Chip
-                                                    color={getResultadoColor(inspeccion.resultado)}
-                                                    value={inspeccion.resultado}
-                                                    size="sm"
-                                                />
-                                                <Button
-                                                    size="sm"
-                                                    variant="outlined"
-                                                    color="blue"
-                                                    onClick={() => handleVerDetalle(inspeccion)}
-                                                >
-                                                    <IoEye className="h-4 w-4" />
-                                                </Button>
+                        <div className="divide-y divide-gray-200">
+                            {inspeccionesFiltradas.map((inspeccion, index) => {
+                                const resultadoConfig = getResultadoConfig(inspeccion.aprobado);
+                                const IconoResultado = resultadoConfig.icon;
+
+                                return (
+                                    <div
+                                        key={inspeccion.id}
+                                        className="p-6 hover:bg-gray-50 transition-colors cursor-pointer"
+                                        onClick={() => handleVerDetalle(inspeccion)}
+                                    >
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4">
+                                                <div>
+                                                    <Typography variant="h6" color="blue-gray" className="font-bold mb-1">
+                                                        {inspeccion.numero_informe || `INS-${inspeccion.id}`}
+                                                    </Typography>
+                                                    <Typography color="gray" className="text-sm">
+                                                        {inspeccion.material?.modelo || 'N/A'}
+                                                    </Typography>
+                                                </div>
+
+                                                <div>
+                                                    <Typography color="gray" className="text-sm font-medium">MAC Address</Typography>
+                                                    <Typography color="blue-gray" className="font-mono text-sm">
+                                                        {inspeccion.material?.mac_address || 'N/A'}
+                                                    </Typography>
+                                                </div>
+
+                                                <div>
+                                                    <Typography color="gray" className="text-sm font-medium">Técnico</Typography>
+                                                    <Typography color="blue-gray" className="font-medium">
+                                                        {inspeccion.tecnico_revisor || 'No asignado'}
+                                                    </Typography>
+                                                </div>
+
+                                                <div>
+                                                    <Typography color="gray" className="text-sm font-medium">Fecha</Typography>
+                                                    <Typography color="blue-gray" className="font-medium text-sm">
+                                                        {formatFecha(inspeccion.created_at)}
+                                                    </Typography>
+                                                </div>
+
+                                                <div className="flex items-center justify-between">
+                                                    <Chip
+                                                        size="sm"
+                                                        variant="gradient"
+                                                        color={resultadoConfig.color}
+                                                        value={inspeccion.aprobado ? 'APROBADO' : 'RECHAZADO'}
+                                                        icon={<IconoResultado className="h-3 w-3" />}
+                                                        className="font-bold"
+                                                    />
+
+                                                    <Tooltip content="Ver detalles">
+                                                        <IconButton
+                                                            variant="text"
+                                                            color="blue"
+                                                            size="sm"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleVerDetalle(inspeccion);
+                                                            }}
+                                                        >
+                                                            <IoEye className="h-4 w-4" />
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                </div>
                                             </div>
                                         </div>
+
+                                        {(inspeccion.observaciones_tecnico || inspeccion.comentarios_adicionales) && (
+                                            <div className="mt-4 pt-4 border-t border-gray-100">
+                                                <Typography color="gray" className="text-sm">
+                                                    <strong>Observaciones:</strong> {
+                                                    (inspeccion.observaciones_tecnico || inspeccion.comentarios_adicionales).length > 100
+                                                        ? `${(inspeccion.observaciones_tecnico || inspeccion.comentarios_adicionales).substring(0, 100)}...`
+                                                        : (inspeccion.observaciones_tecnico || inspeccion.comentarios_adicionales)
+                                                }
+                                                </Typography>
+                                            </div>
+                                        )}
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
                 </CardBody>
             </Card>
 
-            {/* Dialog de detalle */}
+            {/* Modal de detalle */}
             <DetalleInspeccionDialog
                 open={dialogOpen}
                 onClose={() => setDialogOpen(false)}

@@ -1,4 +1,4 @@
-// src/core/almacenes/pages/laboratorio/LaboratorioPage.jsx - NUEVO
+// src/core/almacenes/pages/laboratorio/LaboratorioPage.jsx - TABS CORREGIDOS
 import React, { useState, useEffect } from 'react';
 import {
     Card,
@@ -13,7 +13,7 @@ import {
     TabPanel,
     Alert,
     Spinner,
-    Progress
+    Breadcrumbs
 } from '@material-tailwind/react';
 import {
     IoFlask,
@@ -23,21 +23,29 @@ import {
     IoStatsChart,
     IoCube,
     IoList,
-    IoRefresh
+    IoRefresh,
+    IoHome,
+    IoInformationCircle
 } from 'react-icons/io5';
 import { toast } from 'react-hot-toast';
 
-// Componentes de laboratorio
+// Componentes y hooks
 import LaboratorioStats from './LaboratorioStats.jsx';
 import MaterialesEnLaboratorio from './MaterialesEnLaboratorio.jsx';
 import InspeccionDetalle from './InspeccionDetalle.jsx';
 import HistorialInspecciones from './HistorialInspecciones.jsx';
-import { api } from '../../../../services/api';
+import { useLaboratorio } from '../../hooks/useLaboratorio';
 
 const LaboratorioPage = () => {
     const [activeTab, setActiveTab] = useState('dashboard');
     const [dashboardData, setDashboardData] = useState(null);
-    const [loading, setLoading] = useState(false);
+
+    const {
+        loading,
+        error,
+        getDashboard,
+        clearError
+    } = useLaboratorio();
 
     useEffect(() => {
         loadDashboard();
@@ -45,121 +53,216 @@ const LaboratorioPage = () => {
 
     const loadDashboard = async () => {
         try {
-            setLoading(true);
-            const response = await api.get('/almacenes/laboratorio/');
-            setDashboardData(response.data);
+            const result = await getDashboard();
+            if (result.success) {
+                setDashboardData(result.data);
+            } else {
+                toast.error(result.error);
+            }
         } catch (error) {
+            console.error('Error al cargar dashboard:', error);
             toast.error('Error al cargar dashboard de laboratorio');
-        } finally {
-            setLoading(false);
         }
     };
 
+    // ✅ Configuración de tabs mejorada
     const tabs = [
-        { value: 'dashboard', label: 'Dashboard', icon: IoStatsChart },
-        { value: 'pendientes', label: 'Pendientes', icon: IoTime },
-        { value: 'en_proceso', label: 'En Proceso', icon: IoFlask },
-        { value: 'inspeccion', label: 'Inspección', icon: IoCheckmarkCircle },
-        { value: 'historial', label: 'Historial', icon: IoList }
+        {
+            value: 'dashboard',
+            label: 'Panel General',
+            icon: IoStatsChart,
+            badge: null,
+            color: 'blue'
+        },
+        {
+            value: 'pendientes',
+            label: 'Pendientes',
+            icon: IoTime,
+            badge: dashboardData?.resumen?.pendientes_inspeccion || null,
+            color: 'amber'
+        },
+        {
+            value: 'en_proceso',
+            label: 'En Proceso',
+            icon: IoFlask,
+            badge: dashboardData?.resumen?.en_laboratorio_actual || null,
+            color: 'blue'
+        },
+        {
+            value: 'inspeccion',
+            label: 'Nueva Inspección',
+            icon: IoCheckmarkCircle,
+            badge: null,
+            color: 'green'
+        },
+        {
+            value: 'historial',
+            label: 'Historial',
+            icon: IoList,
+            badge: null,
+            color: 'gray'
+        }
     ];
 
     if (loading && !dashboardData) {
         return (
-            <div className="flex justify-center items-center h-64">
-                <Spinner className="h-8 w-8" />
-                <Typography color="gray" className="ml-2">
-                    Cargando laboratorio...
-                </Typography>
+            <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
+                <div className="p-8 bg-white rounded-2xl shadow-lg border border-gray-200">
+                    <Spinner className="h-12 w-12 mx-auto mb-4 text-blue-500" />
+                    <Typography color="gray" className="text-center font-medium">
+                        Cargando laboratorio de calidad...
+                    </Typography>
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="p-6 space-y-6">
-            {/* Header */}
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                <div>
-                    <Typography variant="h4" color="blue-gray">
-                        🔬 Laboratorio de Calidad
-                    </Typography>
-                    <Typography color="gray">
-                        Control de calidad e inspección de equipos ONUs
-                    </Typography>
+        <div className="min-h-screen bg-gray-50">
+            <div className="p-6 space-y-6">
+                {/* Breadcrumb y Header */}
+                <div className="space-y-4">
+                    <Breadcrumbs className="bg-white px-4 py-2 rounded-lg border border-gray-200">
+                        <a href="#" className="flex items-center gap-1 opacity-60 hover:opacity-100 transition-opacity">
+                            <IoHome className="h-4 w-4" />
+                            Almacenes
+                        </a>
+                        <span>Laboratorio</span>
+                    </Breadcrumbs>
+
+                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
+                        <div className="flex items-center gap-4">
+                            <div className="p-4 bg-blue-50 rounded-2xl border border-blue-200">
+                                <IoFlask className="h-10 w-10 text-blue-500" />
+                            </div>
+                            <div>
+                                <Typography variant="h3" color="blue-gray" className="mb-2">
+                                    🔬 Laboratorio de Calidad
+                                </Typography>
+                                <Typography color="gray" className="text-lg">
+                                    Control de calidad e inspección de equipos ONUs
+                                </Typography>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-4">
+                            <Button
+                                variant="gradient"
+                                color="blue"
+                                className="flex items-center gap-2"
+                                onClick={loadDashboard}
+                                disabled={loading}
+                            >
+                                <IoRefresh className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                                Actualizar
+                            </Button>
+                        </div>
+                    </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                    <Button
-                        variant="outlined"
-                        color="blue"
-                        className="flex items-center gap-2"
-                        onClick={loadDashboard}
-                    >
-                        <IoRefresh className="h-4 w-4" />
-                        Actualizar
-                    </Button>
+                {/* Error handling */}
+                {error && (
+                    <Alert color="red" className="border border-red-200">
+                        <div className="flex items-start gap-3">
+                            <IoWarning className="h-5 w-5 mt-0.5" />
+                            <div>
+                                <Typography variant="small" className="font-bold text-red-800 mb-1">
+                                    Error al cargar datos
+                                </Typography>
+                                <Typography variant="small" className="text-red-700">
+                                    {error}
+                                </Typography>
+                            </div>
+                        </div>
+                    </Alert>
+                )}
+
+                {/* Estadísticas rápidas */}
+                {dashboardData && (
+                    <LaboratorioStats data={dashboardData} />
+                )}
+
+                {/* Alertas */}
+                {dashboardData?.alertas && dashboardData.alertas.length > 0 && (
+                    <div className="space-y-2">
+                        {dashboardData.alertas.map((alerta, index) => (
+                            alerta && (
+                                <Alert
+                                    key={index}
+                                    color="amber"
+                                    className="border border-amber-200 bg-amber-50/80 py-3"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <IoInformationCircle className="h-4 w-4 text-amber-600" />
+                                        <Typography variant="small" className="text-amber-800 font-medium">
+                                            {alerta}
+                                        </Typography>
+                                    </div>
+                                </Alert>
+                            )
+                        ))}
+                    </div>
+                )}
+
+                {/* ✅ TABS COMPLETAMENTE REDISEÑADOS */}
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm">
+                    {/* Header de Tabs customizado */}
+                    <div className="border-b border-gray-200 bg-gray-50 rounded-t-2xl">
+                        <div className="flex flex-wrap gap-1 p-2">
+                            {tabs.map(({ value, label, icon: Icon, badge, color }) => (
+                                <button
+                                    key={value}
+                                    onClick={() => setActiveTab(value)}
+                                    className={`
+                                        flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition-all duration-200
+                                        ${activeTab === value
+                                        ? 'bg-white shadow-sm text-blue-600 border border-blue-200'
+                                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
+                                    }
+                                    `}
+                                >
+                                    <Icon className={`h-4 w-4 ${activeTab === value ? 'text-blue-500' : 'text-gray-500'}`} />
+                                    <span>{label}</span>
+                                    {badge && badge > 0 && (
+                                        <span className={`
+                                            inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold rounded-full min-w-[20px] h-5
+                                            ${activeTab === value
+                                            ? 'bg-red-100 text-red-600'
+                                            : 'bg-red-500 text-white'
+                                        }
+                                        `}>
+                                            {badge}
+                                        </span>
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Contenido de Tabs */}
+                    <div className="p-6">
+                        {activeTab === 'dashboard' && (
+                            <LaboratorioStats data={dashboardData} detailed />
+                        )}
+
+                        {activeTab === 'pendientes' && (
+                            <MaterialesEnLaboratorio tipo="pendientes_inspeccion" />
+                        )}
+
+                        {activeTab === 'en_proceso' && (
+                            <MaterialesEnLaboratorio tipo="en_laboratorio" />
+                        )}
+
+                        {activeTab === 'inspeccion' && (
+                            <InspeccionDetalle />
+                        )}
+
+                        {activeTab === 'historial' && (
+                            <HistorialInspecciones />
+                        )}
+                    </div>
                 </div>
             </div>
-
-            {/* Estadísticas rápidas */}
-            {dashboardData && (
-                <LaboratorioStats data={dashboardData} />
-            )}
-
-            {/* Alertas */}
-            {dashboardData?.alertas && dashboardData.alertas.length > 0 && (
-                <div className="space-y-2">
-                    {dashboardData.alertas.map((alerta, index) => (
-                        alerta && (
-                            <Alert key={index} color="amber">
-                                <IoWarning className="h-5 w-5" />
-                                {alerta}
-                            </Alert>
-                        )
-                    ))}
-                </div>
-            )}
-
-            {/* Tabs principales */}
-            <Card>
-                <Tabs value={activeTab} onChange={setActiveTab}>
-                    <CardHeader>
-                        <TabsHeader>
-                            {tabs.map(({ value, label, icon: Icon }) => (
-                                <Tab key={value} value={value}>
-                                    <div className="flex items-center gap-2">
-                                        <Icon className="h-4 w-4" />
-                                        {label}
-                                    </div>
-                                </Tab>
-                            ))}
-                        </TabsHeader>
-                    </CardHeader>
-
-                    <CardBody>
-                        <TabsBody>
-                            <TabPanel value="dashboard">
-                                <LaboratorioStats data={dashboardData} detailed />
-                            </TabPanel>
-
-                            <TabPanel value="pendientes">
-                                <MaterialesEnLaboratorio tipo="pendientes_inspeccion" />
-                            </TabPanel>
-
-                            <TabPanel value="en_proceso">
-                                <MaterialesEnLaboratorio tipo="en_laboratorio" />
-                            </TabPanel>
-
-                            <TabPanel value="inspeccion">
-                                <InspeccionDetalle />
-                            </TabPanel>
-
-                            <TabPanel value="historial">
-                                <HistorialInspecciones />
-                            </TabPanel>
-                        </TabsBody>
-                    </CardBody>
-                </Tabs>
-            </Card>
         </div>
     );
 };

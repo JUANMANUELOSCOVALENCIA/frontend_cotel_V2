@@ -1,4 +1,4 @@
-// src/core/almacenes/pages/laboratorio/InspeccionDetalle.jsx - NUEVO
+// src/core/almacenes/pages/laboratorio/InspeccionDetalle.jsx - USANDO API REAL
 import React, { useState, useEffect } from 'react';
 import {
     Card,
@@ -28,14 +28,21 @@ import {
 } from 'react-icons/io5';
 import { useForm, Controller } from 'react-hook-form';
 import { toast } from 'react-hot-toast';
-import { api } from '../../../../services/api';
+import { useLaboratorio } from '../../hooks/useLaboratorio';
 
 const InspeccionDetalle = () => {
     const [materialesDisponibles, setMaterialesDisponibles] = useState([]);
     const [materialSeleccionado, setMaterialSeleccionado] = useState(null);
-    const [loading, setLoading] = useState(false);
-    const [inspeccionando, setInspeccionando] = useState(false);
     const [tiempoInicio, setTiempoInicio] = useState(null);
+
+    // ✅ Usar hook real de laboratorio
+    const {
+        loading,
+        error,
+        getMaterialesPorTipo,
+        registrarInspeccion,
+        clearError
+    } = useLaboratorio();
 
     const {
         register,
@@ -91,13 +98,17 @@ const InspeccionDetalle = () => {
 
     const loadMaterialesEnLaboratorio = async () => {
         try {
-            setLoading(true);
-            const response = await api.get('/almacenes/laboratorio/consultas/?tipo=en_laboratorio');
-            setMaterialesDisponibles(response.data.materiales || []);
+            const result = await getMaterialesPorTipo('en_laboratorio');
+            if (result.success) {
+                setMaterialesDisponibles(result.data.materiales || result.data || []);
+            } else {
+                toast.error(result.error);
+                setMaterialesDisponibles([]);
+            }
         } catch (error) {
+            console.error('Error al cargar materiales:', error);
             toast.error('Error al cargar materiales en laboratorio');
-        } finally {
-            setLoading(false);
+            setMaterialesDisponibles([]);
         }
     };
 
@@ -137,8 +148,6 @@ const InspeccionDetalle = () => {
         }
 
         try {
-            setInspeccionando(true);
-
             const inspeccionData = {
                 material_id: materialSeleccionado.id,
                 numero_informe: data.numero_informe,
@@ -155,34 +164,55 @@ const InspeccionDetalle = () => {
                 tiempo_inspeccion_minutos: calcularTiempoInspeccion()
             };
 
-            const response = await api.post('/almacenes/laboratorio/inspeccion/', inspeccionData);
+            const result = await registrarInspeccion(inspeccionData);
 
-            if (response.data.success) {
-                toast.success(`Inspección completada: ${response.data.message}`);
+            if (result.success) {
+                toast.success(result.data.message || 'Inspección completada correctamente');
 
                 // Limpiar formulario y recargar lista
                 setMaterialSeleccionado(null);
                 setTiempoInicio(null);
                 reset();
                 loadMaterialesEnLaboratorio();
+            } else {
+                toast.error(result.error);
             }
         } catch (error) {
+            console.error('Error al registrar inspección:', error);
             toast.error('Error al registrar inspección');
-        } finally {
-            setInspeccionando(false);
         }
-    };
-
-    const getResultadoColor = (resultado) => {
-        return resultado ? 'green' : 'red';
-    };
-
-    const getResultadoIcon = (resultado) => {
-        return resultado ? IoCheckmarkCircle : IoClose;
     };
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* ✅ Error handling */}
+            {error && (
+                <div className="lg:col-span-3">
+                    <Alert color="red" className="border border-red-200">
+                        <div className="flex items-start gap-3">
+                            <IoWarning className="h-5 w-5 mt-0.5" />
+                            <div>
+                                <Typography variant="small" className="font-bold text-red-800 mb-1">
+                                    Error en el laboratorio
+                                </Typography>
+                                <Typography variant="small" className="text-red-700">
+                                    {error}
+                                </Typography>
+                                <Button
+                                    size="sm"
+                                    color="red"
+                                    variant="outlined"
+                                    onClick={clearError}
+                                    className="mt-2"
+                                >
+                                    Cerrar
+                                </Button>
+                            </div>
+                        </div>
+                    </Alert>
+                </div>
+            )}
+
             {/* Panel de selección de material */}
             <div className="lg:col-span-1">
                 <Card>
@@ -209,8 +239,8 @@ const InspeccionDetalle = () => {
                                     <Card
                                         key={material.id}
                                         className={`cursor-pointer transition-colors ${
-                                            materialSeleccionado?.id === material.id 
-                                                ? 'bg-blue-50 border-blue-200' 
+                                            materialSeleccionado?.id === material.id
+                                                ? 'bg-blue-50 border-blue-200'
                                                 : 'hover:bg-gray-50'
                                         }`}
                                         onClick={() => handleSeleccionarMaterial(material)}
@@ -230,7 +260,7 @@ const InspeccionDetalle = () => {
                                                     size="sm"
                                                     variant="ghost"
                                                     color={material.dias_en_laboratorio > 10 ? 'red' : 'blue'}
-                                                    value={`${material.dias_en_laboratorio}d`}
+                                                    value={`${material.dias_en_laboratorio || 0}d`}
                                                 />
                                             </div>
                                         </CardBody>
@@ -501,7 +531,7 @@ const InspeccionDetalle = () => {
                                     <Button
                                         type="submit"
                                         color="green"
-                                        loading={inspeccionando}
+                                        loading={loading}
                                         className="flex items-center gap-2"
                                     >
                                         <IoSave className="h-4 w-4" />
