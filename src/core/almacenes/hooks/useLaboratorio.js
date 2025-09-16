@@ -1,4 +1,4 @@
-// src/core/almacenes/hooks/useLaboratorio.js - DATOS EXPANDIDOS COMPLETOS
+// src/core/almacenes/hooks/useLaboratorio.js - SIN DEBUG Y CORREGIDO
 import { useState, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import { api } from '../../../services/api';
@@ -27,37 +27,29 @@ export const useLaboratorio = () => {
         }
     }, []);
 
-    // ✅ CORREGIDO: Materiales con toda la información expandida
+    // ✅ MATERIALES CON INFORMACIÓN EXPANDIDA - SIN DEBUG
     const getMaterialesPorTipo = useCallback(async (tipo) => {
         try {
             setLoading(true);
             setError(null);
 
-            // ✅ Construir parámetros para expandir toda la información necesaria
             const params = new URLSearchParams({
                 tipo: tipo,
-                // Expandir relaciones principales
                 expand_lote: 'true',
                 expand_almacen: 'true',
                 expand_modelo: 'true',
                 expand_proveedor: 'true',
-                // Información de entregas parciales
+                expand_marca: 'true', // ✅ AGREGAR ESTE PARÁMETRO
                 include_entregas_parciales: 'true',
                 include_lote_detalles: 'true',
-                // Información adicional
                 include_marca: 'true',
                 include_tipo_material: 'true'
             });
 
-            console.log('📦 Consultando materiales con parámetros:', params.toString());
-
             const response = await api.get(`/almacenes/laboratorio/consultas/?${params.toString()}`);
-
-            console.log('📦 Respuesta de materiales expandidos:', response.data);
 
             return { success: true, data: response.data };
         } catch (error) {
-            console.error('❌ Error al cargar materiales:', error.response?.data || error.message);
             const errorMessage = error.response?.data?.error || 'Error al cargar materiales';
             setError(errorMessage);
             return { success: false, error: errorMessage };
@@ -66,7 +58,7 @@ export const useLaboratorio = () => {
         }
     }, []);
 
-    // ✅ NUEVO: Obtener materiales agrupados por lote y entrega parcial
+    // ✅ MATERIALES AGRUPADOS POR LOTE - SIN DEBUG
     const getMaterialesAgrupadosPorLote = useCallback(async (tipo) => {
         try {
             setLoading(true);
@@ -76,12 +68,11 @@ export const useLaboratorio = () => {
                 tipo: tipo,
                 agrupado_por_lote: 'true',
                 incluir_entregas_parciales: 'true',
-                expand_all: 'true'
+                expand_all: 'true',
+                expand_marca: 'true' // ✅ AGREGAR ESTE PARÁMETRO
             });
 
             const response = await api.get(`/almacenes/laboratorio/consultas/?${params.toString()}`);
-
-            console.log('📦 Materiales agrupados por lote:', response.data);
 
             return { success: true, data: response.data };
         } catch (error) {
@@ -93,7 +84,7 @@ export const useLaboratorio = () => {
         }
     }, []);
 
-    // ✅ NUEVO: Obtener información completa de lotes con entregas
+    // ✅ INFORMACIÓN COMPLETA DE LOTES CON ENTREGAS - SIN DEBUG
     const getLotesConEntregas = useCallback(async (filtros = {}) => {
         try {
             setLoading(true);
@@ -104,7 +95,8 @@ export const useLaboratorio = () => {
                 include_entregas: 'true',
                 include_materiales_count: 'true',
                 expand_proveedor: 'true',
-                expand_almacen: 'true'
+                expand_almacen: 'true',
+                expand_marca: 'true'
             });
 
             const response = await api.get(`/almacenes/laboratorio/lotes/?${params.toString()}`);
@@ -157,7 +149,7 @@ export const useLaboratorio = () => {
         }
     }, []);
 
-    // ✅ NUEVO: Operación masiva por lote/entrega parcial
+    // ✅ OPERACIÓN MASIVA POR LOTE/ENTREGA - SIN DEBUG
     const operacionMasivaPorLote = useCallback(async (accion, loteId, entregaId = null, criterios = {}) => {
         try {
             setLoading(true);
@@ -229,7 +221,6 @@ export const useLaboratorio = () => {
                 responseType: 'blob'
             });
 
-            // Crear y descargar archivo
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement('a');
             link.href = url;
@@ -255,9 +246,9 @@ export const useLaboratorio = () => {
         clearError,
         getDashboard,
         getMaterialesPorTipo,
-        getMaterialesAgrupadosPorLote, // ✅ NUEVA
-        getLotesConEntregas, // ✅ NUEVA
-        operacionMasivaPorLote, // ✅ NUEVA
+        getMaterialesAgrupadosPorLote,
+        getLotesConEntregas,
+        operacionMasivaPorLote,
         enviarMaterialLaboratorio,
         operacionMasiva,
         registrarInspeccion,

@@ -1,4 +1,4 @@
-// src/core/almacenes/pages/laboratorio/LaboratorioStats.jsx - MEJORADO
+// src/core/almacenes/pages/laboratorio/LaboratorioStats.jsx - LIMPIO
 import React from 'react';
 import {
     Card,
@@ -19,7 +19,6 @@ import {
     IoTrendingDown
 } from 'react-icons/io5';
 
-// ✅ Componente EstadisticasCard corregido y mejorado
 const EstadisticasCard = ({
                               titulo = "Sin título",
                               valor = "0",
@@ -112,17 +111,14 @@ const EstadisticasCard = ({
 };
 
 const LaboratorioStats = ({ data, detailed = false }) => {
-    // ✅ Manejo seguro de datos con valores por defecto
     const resumen = data?.resumen || {};
     const resultados_recientes = data?.resultados_recientes || {};
 
-    // ✅ Función helper para formatear porcentajes de forma segura
     const formatPercentage = (value) => {
         const num = parseFloat(value);
         return isNaN(num) ? '0.0' : num.toFixed(1);
     };
 
-    // ✅ Función helper para obtener colores de eficiencia
     const getEfficiencyColor = (percentage) => {
         const num = parseFloat(percentage);
         if (isNaN(num)) return 'gray';
@@ -131,14 +127,12 @@ const LaboratorioStats = ({ data, detailed = false }) => {
         return 'red';
     };
 
-    // ✅ Calcular eficiencia de forma segura
     const total = resultados_recientes?.total || 0;
     const exitosos = resultados_recientes?.exitosos || 0;
     const eficiencia = total > 0 ? (exitosos / total) * 100 : 0;
 
     return (
         <div className="space-y-8">
-            {/* ✅ Estadísticas principales con mejor grid y spacing */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 <EstadisticasCard
                     titulo="En Laboratorio"
@@ -178,7 +172,6 @@ const LaboratorioStats = ({ data, detailed = false }) => {
                 />
             </div>
 
-            {/* ✅ Progreso de eficiencia mejorado */}
             <Card className="border border-gray-100">
                 <CardBody className="p-6">
                     <div className="flex items-center justify-between mb-6">
@@ -248,7 +241,6 @@ const LaboratorioStats = ({ data, detailed = false }) => {
                 </CardBody>
             </Card>
 
-            {/* ✅ Alerta de tiempo excesivo mejorada */}
             {resumen?.tiempo_excesivo > 0 && (
                 <Alert color="amber" className="border border-amber-200">
                     <div className="flex items-start gap-4">
@@ -270,7 +262,6 @@ const LaboratorioStats = ({ data, detailed = false }) => {
                 </Alert>
             )}
 
-            {/* ✅ Vista detallada mejorada */}
             {detailed && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <Card className="border border-gray-100">

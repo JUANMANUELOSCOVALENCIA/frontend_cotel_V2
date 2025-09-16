@@ -1,4 +1,4 @@
-// src/core/almacenes/pages/laboratorio/HistorialInspecciones.jsx - USANDO API REAL
+// src/core/almacenes/pages/laboratorio/HistorialInspecciones.jsx - LIMPIO
 import React, { useState, useEffect } from 'react';
 import {
     Card,
@@ -29,12 +29,12 @@ import {
     IoWarning,
     IoTime,
     IoStatsChart,
-    IoFilter
+    IoFilter,
+    IoInformationCircle
 } from 'react-icons/io5';
 import { toast } from 'react-hot-toast';
 import { useLaboratorio } from '../../hooks/useLaboratorio';
 
-// Componente EstadisticasCard reutilizable
 const EstadisticasCard = ({ titulo, valor, icono: Icono, color = "blue", descripcion }) => {
     const colorConfig = {
         blue: { bg: "bg-blue-50", text: "text-blue-600", border: "border-blue-200" },
@@ -73,7 +73,6 @@ const EstadisticasCard = ({ titulo, valor, icono: Icono, color = "blue", descrip
     );
 };
 
-// Modal de detalle
 const DetalleInspeccionDialog = ({ open, onClose, inspeccion }) => {
     if (!inspeccion) return null;
 
@@ -117,6 +116,12 @@ const DetalleInspeccionDialog = ({ open, onClose, inspeccion }) => {
                                     <Typography color="gray" className="text-sm font-medium">Serie:</Typography>
                                     <Typography color="blue-gray" className="font-mono">
                                         {inspeccion.serie || inspeccion.material?.mac_address || 'N/A'}
+                                    </Typography>
+                                </div>
+                                <div>
+                                    <Typography color="gray" className="text-sm font-medium">Marca:</Typography>
+                                    <Typography color="blue-gray">
+                                        {inspeccion.marca || inspeccion.material?.marca || 'N/A'}
                                     </Typography>
                                 </div>
                             </div>
@@ -179,7 +184,6 @@ const DetalleInspeccionDialog = ({ open, onClose, inspeccion }) => {
                     </Card>
                 )}
 
-                {/* Mostrar fallas detectadas si las hay */}
                 {inspeccion.fallas_detectadas && inspeccion.fallas_detectadas.length > 0 && (
                     <Card className="bg-red-50 border border-red-200">
                         <CardBody className="p-4">
@@ -217,7 +221,6 @@ const HistorialInspecciones = () => {
     const [selectedInspeccion, setSelectedInspeccion] = useState(null);
     const [dialogOpen, setDialogOpen] = useState(false);
 
-    // ✅ Usar hook real de laboratorio
     const {
         loading,
         error,
@@ -245,7 +248,6 @@ const HistorialInspecciones = () => {
                 setInspecciones([]);
             }
         } catch (error) {
-            console.error('Error al cargar historial:', error);
             toast.error('Error al cargar historial de inspecciones');
             setInspecciones([]);
         }
@@ -291,7 +293,6 @@ const HistorialInspecciones = () => {
         });
     };
 
-    // ✅ Estadísticas calculadas de forma segura
     const estadisticas = {
         total: inspecciones.length,
         aprobados: inspecciones.filter(i => i.aprobado === true).length,
@@ -300,7 +301,6 @@ const HistorialInspecciones = () => {
             Math.round((inspecciones.filter(i => i.aprobado === true).length / inspecciones.length) * 100) : 0
     };
 
-    // ✅ Filtros usando campos reales
     const inspeccionesFiltradas = inspecciones.filter(inspeccion => {
         const cumpleFiltro = !filtro ||
             inspeccion.numero_informe?.toLowerCase().includes(filtro.toLowerCase()) ||
@@ -328,7 +328,6 @@ const HistorialInspecciones = () => {
 
     return (
         <div className="space-y-8">
-            {/* ✅ Error handling */}
             {error && (
                 <Alert color="red" className="border border-red-200">
                     <div className="flex items-start gap-3">
@@ -498,7 +497,7 @@ const HistorialInspecciones = () => {
                         </div>
                     ) : (
                         <div className="divide-y divide-gray-200">
-                            {inspeccionesFiltradas.map((inspeccion, index) => {
+                            {inspeccionesFiltradas.map((inspeccion) => {
                                 const resultadoConfig = getResultadoConfig(inspeccion.aprobado);
                                 const IconoResultado = resultadoConfig.icon;
 
@@ -509,13 +508,20 @@ const HistorialInspecciones = () => {
                                         onClick={() => handleVerDetalle(inspeccion)}
                                     >
                                         <div className="flex items-center justify-between">
-                                            <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4">
+                                            <div className="flex-1 grid grid-cols-1 md:grid-cols-6 gap-4">
                                                 <div>
                                                     <Typography variant="h6" color="blue-gray" className="font-bold mb-1">
                                                         {inspeccion.numero_informe || `INS-${inspeccion.id}`}
                                                     </Typography>
                                                     <Typography color="gray" className="text-sm">
                                                         {inspeccion.material?.modelo || 'N/A'}
+                                                    </Typography>
+                                                </div>
+
+                                                <div>
+                                                    <Typography color="gray" className="text-sm font-medium">Marca</Typography>
+                                                    <Typography color="blue-gray" className="font-medium">
+                                                        {inspeccion.material?.marca || inspeccion.marca || 'N/A'}
                                                     </Typography>
                                                 </div>
 
@@ -527,42 +533,51 @@ const HistorialInspecciones = () => {
                                                 </div>
 
                                                 <div>
+                                                    <Typography color="gray" className="text-sm font-medium">Lote</Typography>
+                                                    <Typography color="blue-gray" className="font-medium">
+                                                        {inspeccion.material?.lote || inspeccion.lote || 'N/A'}
+                                                    </Typography>
+                                                </div>
+
+                                                <div>
                                                     <Typography color="gray" className="text-sm font-medium">Técnico</Typography>
                                                     <Typography color="blue-gray" className="font-medium">
                                                         {inspeccion.tecnico_revisor || 'No asignado'}
                                                     </Typography>
                                                 </div>
 
-                                                <div>
-                                                    <Typography color="gray" className="text-sm font-medium">Fecha</Typography>
-                                                    <Typography color="blue-gray" className="font-medium text-sm">
-                                                        {formatFecha(inspeccion.created_at)}
-                                                    </Typography>
-                                                </div>
-
                                                 <div className="flex items-center justify-between">
-                                                    <Chip
-                                                        size="sm"
-                                                        variant="gradient"
-                                                        color={resultadoConfig.color}
-                                                        value={inspeccion.aprobado ? 'APROBADO' : 'RECHAZADO'}
-                                                        icon={<IconoResultado className="h-3 w-3" />}
-                                                        className="font-bold"
-                                                    />
+                                                    <div>
+                                                        <Typography color="gray" className="text-sm font-medium">Fecha</Typography>
+                                                        <Typography color="blue-gray" className="font-medium text-sm">
+                                                            {formatFecha(inspeccion.created_at)}
+                                                        </Typography>
+                                                    </div>
 
-                                                    <Tooltip content="Ver detalles">
-                                                        <IconButton
-                                                            variant="text"
-                                                            color="blue"
+                                                    <div className="flex items-center gap-2">
+                                                        <Chip
                                                             size="sm"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleVerDetalle(inspeccion);
-                                                            }}
-                                                        >
-                                                            <IoEye className="h-4 w-4" />
-                                                        </IconButton>
-                                                    </Tooltip>
+                                                            variant="gradient"
+                                                            color={resultadoConfig.color}
+                                                            value={inspeccion.aprobado ? 'APROBADO' : 'RECHAZADO'}
+                                                            icon={<IconoResultado className="h-3 w-3" />}
+                                                            className="font-bold"
+                                                        />
+
+                                                        <Tooltip content="Ver detalles">
+                                                            <IconButton
+                                                                variant="text"
+                                                                color="blue"
+                                                                size="sm"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleVerDetalle(inspeccion);
+                                                                }}
+                                                            >
+                                                                <IoEye className="h-4 w-4" />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -586,7 +601,6 @@ const HistorialInspecciones = () => {
                 </CardBody>
             </Card>
 
-            {/* Modal de detalle */}
             <DetalleInspeccionDialog
                 open={dialogOpen}
                 onClose={() => setDialogOpen(false)}
