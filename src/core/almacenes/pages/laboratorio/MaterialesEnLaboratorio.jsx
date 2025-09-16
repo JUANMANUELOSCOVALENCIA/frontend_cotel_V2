@@ -25,7 +25,7 @@ import {
     IoSend
 } from 'react-icons/io5';
 import { toast } from 'react-hot-toast';
-import api from '../../../../services/api';
+import { api } from '../../../../services/api';
 
 const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
     const [materiales, setMateriales] = useState([]);

@@ -29,7 +29,7 @@ import {
 } from 'react-icons/io5';
 import { useForm, Controller } from 'react-hook-form';
 import { toast } from 'react-hot-toast';
-import api from '../../../../services/api';
+import { api } from '../../../../services/api';
 import { useDevolucion } from '../../hooks/useDevolucion';
 
 const CrearDevolucionDialog = ({ open, onClose, opciones, onSuccess }) => {

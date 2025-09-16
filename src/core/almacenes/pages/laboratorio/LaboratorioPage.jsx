@@ -32,6 +32,7 @@ import LaboratorioStats from './LaboratorioStats.jsx';
 import MaterialesEnLaboratorio from './MaterialesEnLaboratorio.jsx';
 import InspeccionDetalle from './InspeccionDetalle.jsx';
 import HistorialInspecciones from './HistorialInspecciones.jsx';
+import { api } from '../../../../services/api';
 
 const LaboratorioPage = () => {
     const [activeTab, setActiveTab] = useState('dashboard');

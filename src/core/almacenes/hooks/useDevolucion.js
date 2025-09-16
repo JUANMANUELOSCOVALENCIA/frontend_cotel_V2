@@ -1,7 +1,7 @@
 // src/core/almacenes/hooks/useDevolucion.js - NUEVO
 import { useState, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
-import api from '../../../services/api';
+import { api } from '../../../services/api';
 
 export const useDevolucion = () => {
     const [devoluciones, setDevoluciones] = useState([]);

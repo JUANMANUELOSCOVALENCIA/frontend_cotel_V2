@@ -31,7 +31,7 @@ import {
 } from 'react-icons/io5';
 import { useForm } from 'react-hook-form';
 import { toast } from 'react-hot-toast';
-import api from '../../../../services/api';
+import { api } from '../../../../services/api';
 
 const ReingresoMaterialDialog = ({ open, onClose, devolucion, opciones, onSuccess }) => {
     const [loading, setLoading] = useState(false);

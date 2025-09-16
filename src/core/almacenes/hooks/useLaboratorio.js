@@ -1,7 +1,7 @@
 // src/core/almacenes/hooks/useLaboratorio.js - NUEVO
 import { useState, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
-import api from '../../services/api';
+import { api } from '../../../services/api';
 
 export const useLaboratorio = () => {
     const [loading, setLoading] = useState(false);
