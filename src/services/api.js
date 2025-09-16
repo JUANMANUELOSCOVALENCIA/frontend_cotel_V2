@@ -15,9 +15,6 @@ if (!API_BASE_URL) {
 export const api = axios.create({
     baseURL: API_BASE_URL,
     timeout: 15000,
-    headers: {
-        'Content-Type': 'application/json',
-    },
 });
 
 console.log('🌐 API configurada en:', API_BASE_URL);
@@ -44,6 +41,16 @@ api.interceptors.request.use(
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
+
+        // Configurar Content-Type basado en el tipo de datos
+        if (config.data instanceof FormData) {
+            // Para FormData, dejar que el navegador configure automáticamente
+            delete config.headers['Content-Type'];
+        } else if (config.data && typeof config.data === 'object') {
+            // Para objetos JSON
+            config.headers['Content-Type'] = 'application/json';
+        }
+
         return config;
     },
     (error) => {

@@ -1,5 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
-import * as XLSX from 'xlsx';
+// ImportacionMasivaDialog.jsx - Componente completo con selección de entregas parciales
+
+import React, { useState, useEffect } from 'react';
 import {
     Dialog,
     DialogHeader,
@@ -7,86 +8,68 @@ import {
     DialogFooter,
     Button,
     Typography,
-    Alert,
-    Progress,
-    Card,
-    CardBody,
     Input,
     Select,
     Option,
-    Chip,
-    List,
-    ListItem,
-    Stepper,
-    Step
+    Alert,
+    Card,
+    CardBody,
+    Progress,
+    IconButton,
+    Chip
 } from '@material-tailwind/react';
 import {
+    IoClose,
     IoCloudUpload,
-    IoDocument,
-    IoDownload,
     IoCheckmarkCircle,
     IoWarning,
-    IoCloseCircle,
     IoInformationCircle,
-    IoPlay,
-    IoEye,
-    IoRefresh,
-    IoTrash
+    IoRefresh
 } from 'react-icons/io5';
 import { toast } from 'react-hot-toast';
-import { useImportacionMasiva } from '../../hooks/useAlmacenes';
-import api from '../../../../services//api';
+import { api } from '../../../../services/api.js';
 
 const ImportacionMasivaDialog = ({
-                                     open,
-                                     onClose,
-                                     lote,
-                                     opciones,
-                                     onSuccess
+                                     open = false,
+                                     onClose = () => {},
+                                     onSuccess = () => {},
+                                     opciones = {}
                                  }) => {
-    const {
-        loading,
-        error,
-        resultado,
-        importarArchivo,
-        obtenerPlantilla,
-        clearError,
-        clearResultado
-    } = useImportacionMasiva();
+    // Estados principales
+    const [loading, setLoading] = useState(false);
+    const [step, setStep] = useState(1); // 1: Config, 2: Archivo, 3: Validación, 4: Resultados
 
-    // ========== ESTADO LOCAL ==========
-    const [currentStep, setCurrentStep] = useState(0);
-    const [selectedFile, setSelectedFile] = useState(null);
-    const [selectedModel, setSelectedModel] = useState('');
-    const [previewData, setPreviewData] = useState(null);
-    const [validationErrors, setValidationErrors] = useState([]);
-    const [uploadProgress, setUploadProgress] = useState(0);
+    // Estados de configuración
+    const [selectedLote, setSelectedLote] = useState('');
+    const [selectedModelo, setSelectedModelo] = useState('');
     const [itemEquipo, setItemEquipo] = useState('');
+    const [selectedFile, setSelectedFile] = useState(null);
 
-    // ✅ ACTUALIZADO: Gestión de entregas parciales
+    // Estados de entregas parciales
     const [entregasDisponibles, setEntregasDisponibles] = useState([]);
-    const [entregaSeleccionada, setEntregaSeleccionada] = useState(null);
+    const [entregaSeleccionada, setEntregaSeleccionada] = useState('');
     const [loadingEntregas, setLoadingEntregas] = useState(false);
 
-    const fileInputRef = useRef(null);
+    // Estados de validación
+    const [validationData, setValidationData] = useState(null);
+    const [importResult, setImportResult] = useState(null);
 
-    // ========== PASOS DEL WIZARD ==========
-    const steps = [
-        'Seleccionar Archivo',
-        'Configurar Importación',
-        'Validar Datos',
-        'Importar',
-        'Resultados'
-    ];
+    // Cargar entregas disponibles cuando se selecciona un lote
+    const cargarEntregasDisponibles = async (loteId) => {
+        if (!loteId) {
+            setEntregasDisponibles([]);
+            return;
+        }
 
-    // ✅ NUEVO: Cargar entregas parciales del lote
-    const cargarEntregasParcialesLote = async () => {
-        if (!lote?.id) return;
-
-        setLoadingEntregas(true);
         try {
-            const response = await api.get(`/almacenes/lotes/${lote.id}/entregas_parciales/`);
-            setEntregasDisponibles(response.data || []);
+            setLoadingEntregas(true);
+            console.log(`Cargando entregas para lote ${loteId}`);
+
+            const response = await api.get(`/almacenes/lotes/${loteId}/entregas_parciales_disponibles/`);
+
+            console.log('Entregas disponibles:', response.data);
+            setEntregasDisponibles(response.data.entregas || []);
+
         } catch (error) {
             console.error('Error cargando entregas:', error);
             setEntregasDisponibles([]);
@@ -96,918 +79,532 @@ const ImportacionMasivaDialog = ({
         }
     };
 
-    // ✅ NUEVO: useEffect para cargar entregas al abrir el dialog
+    // Efecto para cargar entregas cuando cambia el lote
     useEffect(() => {
-        if (lote?.id && open) {
-            cargarEntregasParcialesLote();
+        if (selectedLote) {
+            cargarEntregasDisponibles(selectedLote);
+            setEntregaSeleccionada(''); // Reset selección de entrega
+        } else {
+            setEntregasDisponibles([]);
+            setEntregaSeleccionada('');
         }
-    }, [lote?.id, open]);
+    }, [selectedLote]);
 
-    // ========== HANDLERS ==========
-    const handleReset = () => {
-        setCurrentStep(0);
-        setSelectedFile(null);
-        setSelectedModel('');
-        setItemEquipo('');
-        setEntregaSeleccionada(null); // ✅ ACTUALIZADO: Reset entrega seleccionada
-        setPreviewData(null);
-        setValidationErrors([]);
-        setUploadProgress(0);
-        clearError();
-        clearResultado();
-        if (fileInputRef.current) {
-            fileInputRef.current.value = '';
+    // Reset al abrir/cerrar modal
+    useEffect(() => {
+        if (open) {
+            resetForm();
         }
+    }, [open]);
+
+    const resetForm = () => {
+        setStep(1);
+        setSelectedLote('');
+        setSelectedModelo('');
+        setItemEquipo('');
+        setSelectedFile(null);
+        setEntregaSeleccionada('');
+        setEntregasDisponibles([]);
+        setValidationData(null);
+        setImportResult(null);
+        setLoading(false);
     };
 
     const handleClose = () => {
-        handleReset();
-        onClose();
+        if (!loading) {
+            resetForm();
+            onClose();
+        }
     };
 
-    const handleFileSelect = (event) => {
+    const handleFileChange = (event) => {
         const file = event.target.files[0];
         if (file) {
-            // Validar tipo de archivo
-            const validTypes = ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'text/csv'];
-            if (!validTypes.includes(file.type) && !file.name.toLowerCase().endsWith('.xlsx') && !file.name.toLowerCase().endsWith('.csv')) {
-                toast.error('Solo se permiten archivos Excel (.xlsx) o CSV');
-                return;
-            }
+            const validTypes = [
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'application/vnd.ms-excel',
+                'text/csv'
+            ];
 
-            // Validar tamaño (5MB máximo)
-            if (file.size > 5 * 1024 * 1024) {
-                toast.error('El archivo no puede ser mayor a 5MB');
-                return;
+            if (validTypes.includes(file.type)) {
+                setSelectedFile(file);
+                toast.success(`Archivo seleccionado: ${file.name}`);
+            } else {
+                toast.error('Tipo de archivo no válido. Use Excel (.xlsx) o CSV');
+                event.target.value = '';
             }
-
-            setSelectedFile(file);
-            setCurrentStep(1);
         }
     };
 
-    // ✅ ACTUALIZADO: Validación que incluye entrega seleccionada
-    const handleValidateFile = async () => {
-        // Validaciones básicas
-        if (!selectedFile || !selectedModel) {
-            toast.error('Selecciona un archivo y modelo');
-            return;
+    const validateForm = () => {
+        if (!selectedLote) {
+            toast.error('Seleccione un lote');
+            return false;
         }
+        if (!selectedModelo) {
+            toast.error('Seleccione un modelo');
+            return false;
+        }
+        if (!itemEquipo) {
+            toast.error('Ingrese el código de item equipo');
+            return false;
+        }
+        if (!selectedFile) {
+            toast.error('Seleccione un archivo');
+            return false;
+        }
+        return true;
+    };
 
-        // Validar formato ITEM_EQUIPO
-        if (!/^\d{6,10}$/.test(itemEquipo)) {
-            toast.error('ITEM_EQUIPO debe tener entre 6 y 10 dígitos');
-            return;
-        }
-
-        // ✅ NUEVA VALIDACIÓN: Para lotes parciales debe seleccionar entrega
-        if (lote?.tipo_ingreso_info?.codigo === 'PARCIAL' && !entregaSeleccionada) {
-            toast.error('Debe seleccionar una entrega parcial para este lote');
-            return;
-        }
-
-        // Limpiar ITEM_EQUIPO
-        let itemEquipoLimpio = itemEquipo.toString().trim();
-        if (itemEquipoLimpio.startsWith('"') && itemEquipoLimpio.endsWith('"')) {
-            itemEquipoLimpio = itemEquipoLimpio.slice(1, -1);
-        }
-        if (itemEquipoLimpio.startsWith("'") && itemEquipoLimpio.endsWith("'")) {
-            itemEquipoLimpio = itemEquipoLimpio.slice(1, -1);
-        }
+    const handleValidation = async () => {
+        if (!validateForm()) return;
 
         try {
-            setCurrentStep(2);
+            setLoading(true);
 
-            // ✅ ACTUALIZADO: Enviar número de entrega si está seleccionada
-            const numeroEntrega = entregaSeleccionada ? entregaSeleccionada.numero_entrega : null;
-            const result = await importarArchivo(selectedFile, lote.id, selectedModel, itemEquipoLimpio, true, numeroEntrega);
+            const formData = new FormData();
+            formData.append('lote_id', selectedLote);
+            formData.append('modelo_id', selectedModelo);
+            formData.append('item_equipo', itemEquipo);
+            formData.append('archivo', selectedFile);
+            formData.append('validacion', 'true');
 
-            if (result.success) {
-                setPreviewData(result.data.resultado);
-                if (result.data.resultado.errores > 0) {
-                    setValidationErrors(result.data.resultado.detalles_errores || []);
-                    toast.warning(`Se encontraron ${result.data.resultado.errores} errores en el archivo`);
-                } else {
-                    toast.success(`Validación exitosa: ${result.data.resultado.validados} equipos listos para importar`);
-                    setCurrentStep(3);
+            if (entregaSeleccionada) {
+                formData.append('entrega_seleccionada', entregaSeleccionada);
+            }
+
+            const response = await api.post('/almacenes/importacion/masiva/', formData);
+
+            if (response.data.success) {
+                setValidationData(response.data.resultado);
+                setStep(3);
+                toast.success('Validación completada');
+            }
+
+        } catch (error) {
+            console.error('Error en validación:', error);
+            const errorMsg = error.response?.data?.error || 'Error en validación';
+            toast.error(errorMsg);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleImportacion = async () => {
+        if (!validateForm()) return;
+
+        try {
+            setLoading(true);
+
+            const formData = new FormData();
+            formData.append('lote_id', selectedLote);
+            formData.append('modelo_id', selectedModelo);
+            formData.append('item_equipo', itemEquipo);
+            formData.append('archivo', selectedFile);
+            formData.append('validacion', 'false');
+
+            // NUEVO: Agregar entrega seleccionada
+            if (entregaSeleccionada) {
+                formData.append('entrega_seleccionada', entregaSeleccionada);
+            }
+
+            const response = await api.post('/almacenes/importacion/masiva/', formData);
+
+            if (response.data.success) {
+                setImportResult(response.data.resultado);
+                setStep(4);
+                toast.success('Importación completada exitosamente');
+
+                // Actualizar entregas disponibles
+                if (selectedLote) {
+                    await cargarEntregasDisponibles(selectedLote);
                 }
-            } else {
-                toast.error(result.error);
-                setCurrentStep(1);
+
+                // Notificar éxito al componente padre
+                onSuccess();
             }
+
         } catch (error) {
-            toast.error('Error al validar archivo');
-            setCurrentStep(1);
+            console.error('Error en importación:', error);
+            const errorMsg = error.response?.data?.error || 'Error en importación';
+            toast.error(errorMsg);
+        } finally {
+            setLoading(false);
         }
     };
 
-    // ✅ ACTUALIZADO: Importación con entrega seleccionada
-    const handleImport = async () => {
-        // Validaciones básicas
-        if (!selectedFile || !selectedModel || !itemEquipo) {
-            toast.error('Faltan campos requeridos para la importación');
-            return;
-        }
+    // Obtener información de la entrega seleccionada
+    const getEntregaInfo = () => {
+        if (!entregaSeleccionada || !entregasDisponibles.length) return null;
 
-        // ✅ NUEVA VALIDACIÓN: Para lotes parciales debe seleccionar entrega
-        if (lote?.tipo_ingreso_info?.codigo === 'PARCIAL' && !entregaSeleccionada) {
-            toast.error('Debe seleccionar una entrega parcial para este lote');
-            return;
-        }
+        const entrega = entregasDisponibles.find(e =>
+            e.numero_entrega.toString() === entregaSeleccionada
+        );
 
-        // Limpiar ITEM_EQUIPO
-        let itemEquipoLimpio = itemEquipo.toString().trim();
-        if (itemEquipoLimpio.startsWith('"') && itemEquipoLimpio.endsWith('"')) {
-            itemEquipoLimpio = itemEquipoLimpio.slice(1, -1);
-        }
-        if (itemEquipoLimpio.startsWith("'") && itemEquipoLimpio.endsWith("'")) {
-            itemEquipoLimpio = itemEquipoLimpio.slice(1, -1);
-        }
-
-        // Validar formato
-        if (!/^\d{6,10}$/.test(itemEquipoLimpio)) {
-            toast.error(`ITEM_EQUIPO inválido: "${itemEquipoLimpio}". Debe tener 6-10 dígitos`);
-            return;
-        }
-
-        const numeroEntrega = entregaSeleccionada ? entregaSeleccionada.numero_entrega : null;
-
-        console.log('🔍 COMPONENT DEBUG - Antes de llamar importarArchivo:', {
-            selectedFile: selectedFile?.name,
-            loteId: lote.id,
-            selectedModel,
-            itemEquipoLimpio,
-            numeroEntrega,
-            esValidacion: false
-        });
-
-        try {
-            setCurrentStep(4);
-            setUploadProgress(0);
-
-            const progressInterval = setInterval(() => {
-                setUploadProgress(prev => {
-                    if (prev >= 90) {
-                        clearInterval(progressInterval);
-                        return 90;
-                    }
-                    return prev + 10;
-                });
-            }, 200);
-
-            // ✅ ACTUALIZADO: Incluir numeroEntrega en la importación
-            const result = await importarArchivo(selectedFile, lote.id, selectedModel, itemEquipoLimpio, false, numeroEntrega);
-
-            clearInterval(progressInterval);
-            setUploadProgress(100);
-
-            if (result.success) {
-                setCurrentStep(4);
-                const mensajeExito = entregaSeleccionada
-                    ? `¡Importación exitosa! ${result.data.resultado.importados} equipos registrados en entrega #${numeroEntrega}`
-                    : `¡Importación exitosa! ${result.data.resultado.importados} equipos registrados`;
-                toast.success(mensajeExito);
-                setTimeout(() => {
-                    onSuccess();
-                }, 1500);
-            } else {
-                toast.error(result.error);
-                setCurrentStep(3);
-            }
-        } catch (error) {
-            toast.error('Error durante la importación');
-            setCurrentStep(3);
-        }
+        return entrega;
     };
 
-    // ✅ ACTUALIZADO: Plantilla con D_SN opcional
-    const handleDownloadTemplate = async () => {
-        try {
-            const result = await obtenerPlantilla();
-            if (result.success) {
-                const data = [
-                    ['GPON_SN', 'MAC', 'D_SN'], // Headers
-                    ['HWTC12345678', '00:11:22:33:44:55', 'SN123456789'],
-                    ['HWTC87654321', '00:11:22:33:44:56', 'SN987654321'],
-                    ['HWTC56789123', '00:11:22:33:44:57', ''], // ✅ D_SN vacío permitido
-                    ['', '', ''], // Filas para llenar
-                    ['', '', ''],
-                ];
+    const entregaInfo = getEntregaInfo();
 
-                const worksheet = XLSX.utils.aoa_to_sheet(data);
-
-                // Configurar anchos
-                worksheet['!cols'] = [
-                    { width: 25 }, // GPON_SN
-                    { width: 20 }, // MAC
-                    { width: 20 }  // D_SN
-                ];
-
-                const workbook = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(workbook, worksheet, 'Plantilla ONUs');
-
-                // ✅ ACTUALIZAR instrucciones
-                const instrucciones = [
-                    ['INSTRUCCIONES PARA IMPORTACIÓN MASIVA DE ONUs - ACTUALIZADO'],
-                    [''],
-                    ['Formato requerido:'],
-                    ['• Columna A: GPON_SN - Serial GPON (OBLIGATORIO, mínimo 8 caracteres)'],
-                    ['• Columna B: MAC - Dirección MAC formato XX:XX:XX:XX:XX:XX (OBLIGATORIO)'],
-                    ['• Columna C: D_SN - Serial del fabricante (OPCIONAL, puede estar vacío)'],
-                    [''],
-                    ['✅ NUEVAS CARACTERÍSTICAS:'],
-                    ['• D_SN es completamente opcional'],
-                    ['• Puedes omitir la columna D_SN si no tienes esos datos'],
-                    ['• Puedes dejar celdas D_SN vacías'],
-                    ['• El sistema aceptará archivos con solo GPON_SN y MAC'],
-                    [''],
-                    ['📋 ENTREGAS PARCIALES:'],
-                    ['• Para lotes parciales, selecciona una entrega existente'],
-                    ['• Los equipos se asociarán a la entrega seleccionada'],
-                    ['• Permite rastrear el progreso del lote por entregas'],
-                    [''],
-                    ['Ejemplo de datos válidos:'],
-                    ['GPON_SN: HWTC12345678 (OBLIGATORIO)'],
-                    ['MAC: 00:11:22:33:44:55 (OBLIGATORIO)'],
-                    ['D_SN: SN123456789 o vacío (OPCIONAL)'],
-                ];
-
-                const worksheetInstrucciones = XLSX.utils.aoa_to_sheet(instrucciones);
-                XLSX.utils.book_append_sheet(workbook, worksheetInstrucciones, 'Instrucciones');
-
-                XLSX.writeFile(workbook, 'Plantilla_Importacion_ONUs_v2.xlsx');
-                toast.success('Plantilla Excel actualizada descargada');
-            }
-        } catch (error) {
-            toast.error('Error al generar plantilla Excel');
-        }
-    };
-
-    // ========== COMPONENTES DE PASOS ==========
-    const StepFileSelection = () => (
-        <div className="space-y-4">
-            <div className="text-center">
-                <Typography variant="h6" color="blue-gray" className="mb-2">
-                    Seleccionar Archivo de Importación
-                </Typography>
-                <Typography color="gray" className="mb-4">
-                    Sube un archivo Excel (.xlsx) o CSV con los datos de las ONUs
-                </Typography>
-            </div>
-
-            {/* Información del lote */}
-            <Alert color="blue">
-                <div className="flex items-center gap-2">
-                    <IoInformationCircle className="h-5 w-5" />
-                    <div>
-                        <Typography variant="small" className="font-medium">
-                            Lote: {lote?.numero_lote}
-                        </Typography>
-                        <Typography variant="small">
-                            Tipo: {lote?.tipo_ingreso_info?.nombre} | Proveedor: {lote?.proveedor_info?.nombre_comercial}
-                        </Typography>
-                    </div>
-                </div>
-            </Alert>
-
-            {/* Plantilla */}
-            <Card>
-                <CardBody>
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <Typography variant="h6" color="blue-gray">
-                                Plantilla de Importación Actualizada
-                            </Typography>
-                            <Typography variant="small" color="gray">
-                                Descarga la nueva plantilla con D_SN opcional
-                            </Typography>
-                        </div>
-                        <Button
-                            size="sm"
-                            variant="outlined"
-                            color="blue"
-                            className="flex items-center gap-2"
-                            onClick={handleDownloadTemplate}
-                        >
-                            <IoDownload className="h-4 w-4" />
-                            Descargar Plantilla v2
-                        </Button>
-                    </div>
-                </CardBody>
-            </Card>
-
-            {/* Área de subida */}
-            <div
-                className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-                    selectedFile ? 'border-green-300 bg-green-50' : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50'
-                }`}
-                onClick={() => fileInputRef.current?.click()}
-            >
-                <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".xlsx,.csv"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                />
-
-                {selectedFile ? (
-                    <div className="space-y-2">
-                        <IoCheckmarkCircle className="mx-auto h-12 w-12 text-green-500" />
-                        <Typography variant="h6" color="green">
-                            Archivo Seleccionado
-                        </Typography>
-                        <Typography color="gray">
-                            {selectedFile.name}
-                        </Typography>
-                        <Typography variant="small" color="gray">
-                            Tamaño: {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                        </Typography>
-                        <Button
-                            size="sm"
-                            variant="text"
-                            color="red"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedFile(null);
-                                fileInputRef.current.value = '';
-                            }}
-                        >
-                            Cambiar archivo
-                        </Button>
-                    </div>
-                ) : (
-                    <div className="space-y-2">
-                        <IoCloudUpload className="mx-auto h-12 w-12 text-gray-400" />
-                        <Typography variant="h6" color="blue-gray">
-                            Arrastra un archivo aquí o haz clic para seleccionar
-                        </Typography>
-                        <Typography color="gray">
-                            Soporta archivos .xlsx y .csv (máximo 5MB)
-                        </Typography>
-                    </div>
-                )}
-            </div>
-
-            {/* ✅ ACTUALIZADO: Requisitos con D_SN opcional */}
-            <Alert color="blue" className="mb-4">
-                <Typography variant="small" className="font-medium mb-2">
-                    📋 Formato del archivo Excel (ACTUALIZADO):
-                </Typography>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm">
-                    <div className="bg-white bg-opacity-50 p-2 rounded">
-                        <strong>Columna A:</strong> GPON_SN<br/>
-                        <span className="text-xs text-red-600">OBLIGATORIO</span>
-                    </div>
-                    <div className="bg-white bg-opacity-50 p-2 rounded">
-                        <strong>Columna B:</strong> MAC<br/>
-                        <span className="text-xs text-red-600">OBLIGATORIO</span>
-                    </div>
-                    <div className="bg-white bg-opacity-50 p-2 rounded">
-                        <strong>Columna C:</strong> D_SN<br/>
-                        <span className="text-xs text-green-600">OPCIONAL</span>
-                    </div>
-                </div>
-            </Alert>
-
-            {/* ✅ ACTUALIZADO: Información sobre D_SN opcional */}
-            <Alert color="green">
-                <Typography variant="small" className="font-medium mb-2">
-                    ✅ D_SN ahora es OPCIONAL:
-                </Typography>
-                <ul className="text-sm space-y-1 ml-4">
-                    <li>• Puedes usar archivos con solo GPON_SN y MAC</li>
-                    <li>• Puedes dejar celdas D_SN vacías</li>
-                    <li>• Puedes omitir completamente la columna D_SN</li>
-                    <li>• El sistema validará automáticamente el formato</li>
-                </ul>
-            </Alert>
-
-            <Alert color="amber">
-                <Typography variant="small" className="font-medium mb-2">
-                    ⚠️ Requisitos importantes:
-                </Typography>
-                <ul className="text-sm space-y-1 ml-4">
-                    <li>• Descargar y usar la plantilla Excel actualizada</li>
-                    <li>• GPON_SN y MAC son OBLIGATORIOS</li>
-                    <li>• D_SN es completamente OPCIONAL</li>
-                    <li>• Mantener los encabezados en la primera fila</li>
-                    <li>• Todos los valores deben ser únicos (no duplicados)</li>
-                    {lote?.tipo_ingreso_info?.codigo === 'PARCIAL' && (
-                        <li>• Para lotes parciales, seleccionar entrega existente en el siguiente paso</li>
-                    )}
-                </ul>
-            </Alert>
-        </div>
-    );
-
-    // ✅ ACTUALIZADO: StepConfiguration con selector de entregas
-    const StepConfiguration = () => (
-        <div className="space-y-4">
-            <Typography variant="h6" color="blue-gray" className="mb-4">
-                Configurar Importación
-            </Typography>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <Typography variant="small" color="gray" className="mb-2">
-                        Archivo Seleccionado
-                    </Typography>
-                    <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg">
-                        <IoDocument className="h-5 w-5 text-blue-500" />
-                        <Typography variant="small" color="blue-gray">
-                            {selectedFile?.name}
-                        </Typography>
-                    </div>
-                </div>
-
-                <div>
-                    <Typography variant="small" color="gray" className="mb-2">
-                        Modelo de Equipo *
-                    </Typography>
-                    <Select
-                        label="Seleccionar Modelo"
-                        value={selectedModel}
-                        onChange={(value) => setSelectedModel(value)}
-                    >
-                        {opciones.modelos?.filter(modelo =>
-                            modelo.tipo_material_info?.es_unico === true
-                        ).map((modelo) => (
-                            <Option key={modelo.id} value={modelo.id.toString()}>
-                                {modelo.marca_info?.nombre} {modelo.nombre}
-                            </Option>
-                        ))}
-                    </Select>
-                </div>
-            </div>
-
-            {/* Código ITEM_EQUIPO */}
-            <div>
-                <Typography variant="small" color="gray" className="mb-2">
-                    Código ITEM_EQUIPO del Lote *
-                </Typography>
-                <Input
-                    label="ITEM_EQUIPO (6-10 dígitos)"
-                    value={itemEquipo}
-                    onChange={(e) => setItemEquipo(e.target.value)}
-                    pattern="[0-9]{6,10}"
-                    maxLength="10"
-                    placeholder="1234567890"
-                />
-            </div>
-
-            {/* ✅ NUEVO: Selector de entregas parciales (solo para lotes parciales) */}
-            {lote?.tipo_ingreso_info?.codigo === 'PARCIAL' && (
-                <div>
-                    <Typography variant="small" color="gray" className="mb-2">
-                        Entrega Parcial *
-                    </Typography>
-
-                    {loadingEntregas ? (
-                        <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-500"></div>
-                            <Typography variant="small" color="gray">Cargando entregas...</Typography>
-                        </div>
-                    ) : entregasDisponibles.length > 0 ? (
-                        <>
-                            <Select
-                                label="Seleccionar Entrega Parcial"
-                                value={entregaSeleccionada?.id?.toString() || ''}
-                                onChange={(value) => {
-                                    const entrega = entregasDisponibles.find(e => e.id.toString() === value);
-                                    setEntregaSeleccionada(entrega);
-                                }}
-                            >
-                                {entregasDisponibles.map((entrega) => (
-                                    <Option key={entrega.id} value={entrega.id.toString()}>
-                                        <div className="flex justify-between items-center w-full">
-                                            <span>Entrega #{entrega.numero_entrega}</span>
-                                            <div className="text-sm text-gray-600">
-                                                <span>{entrega.cantidad_entregada} equipos</span>
-                                                <span className="ml-2">{new Date(entrega.fecha_entrega).toLocaleDateString()}</span>
-                                            </div>
-                                        </div>
-                                    </Option>
-                                ))}
-                            </Select>
-
-                            {entregaSeleccionada && (
-                                <div className="bg-blue-50 p-3 rounded-lg mt-2">
-                                    <Typography variant="small" color="blue-gray" className="font-medium">
-                                        Entrega Seleccionada: #{entregaSeleccionada.numero_entrega}
-                                    </Typography>
-                                    <Typography variant="small" color="gray">
-                                        Fecha: {new Date(entregaSeleccionada.fecha_entrega).toLocaleDateString()}
-                                    </Typography>
-                                    <Typography variant="small" color="gray">
-                                        Cantidad: {entregaSeleccionada.cantidad_entregada} equipos
-                                    </Typography>
-                                    <Typography variant="small" color="gray">
-                                        Estado: {entregaSeleccionada.estado_entrega_info?.nombre || 'N/A'}
-                                    </Typography>
-                                </div>
-                            )}
-                        </>
-                    ) : (
-                        <Alert color="amber">
-                            <div className="flex items-center gap-2">
-                                <IoWarning className="h-5 w-5" />
-                                <div>
-                                    <Typography variant="small" className="font-medium">
-                                        No hay entregas parciales registradas
-                                    </Typography>
-                                    <Typography variant="small">
-                                        Primero registra una entrega parcial desde el botón "Entregas Parciales".
-                                    </Typography>
-                                </div>
-                            </div>
-                        </Alert>
-                    )}
-                </div>
-            )}
-
-            <Alert color="blue">
-                <Typography variant="small">
-                    <strong>Lote destino:</strong> {lote?.numero_lote}<br />
-                    <strong>Tipo:</strong> {lote?.tipo_ingreso_info?.nombre}<br />
-                    <strong>Almacén:</strong> {lote?.almacen_destino_info?.nombre}<br />
-                    <strong>Proveedor:</strong> {lote?.proveedor_info?.nombre_comercial}
-                </Typography>
-            </Alert>
-
-            {/* ✅ NUEVO: Información sobre D_SN opcional */}
-            <Alert color="green">
-                <Typography variant="small" className="font-medium mb-2">
-                    ✅ D_SN ahora es OPCIONAL:
-                </Typography>
-                <ul className="text-sm space-y-1 ml-4">
-                    <li>• Puedes usar archivos con solo GPON_SN y MAC</li>
-                    <li>• Puedes dejar celdas D_SN vacías</li>
-                    <li>• Puedes omitir completamente la columna D_SN</li>
-                    <li>• El sistema validará automáticamente el formato</li>
-                </ul>
-            </Alert>
-        </div>
-    );
-
-    // ✅ ACTUALIZADO: StepValidation con información sobre entregas
-    const StepValidation = () => (
-        <div className="space-y-4">
-            <Typography variant="h6" color="blue-gray" className="mb-4">
-                Validación de Datos
-            </Typography>
-
-            {previewData ? (
-                <div className="space-y-4">
-                    {/* Resumen con información sobre D_SN y entrega */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <Card>
-                            <CardBody className="text-center">
-                                <Typography color="green" className="text-2xl font-bold">
-                                    {previewData.validados || 0}
-                                </Typography>
-                                <Typography variant="small" color="gray">
-                                    Válidos
-                                </Typography>
-                            </CardBody>
-                        </Card>
-                        <Card>
-                            <CardBody className="text-center">
-                                <Typography color="red" className="text-2xl font-bold">
-                                    {previewData.errores || 0}
-                                </Typography>
-                                <Typography variant="small" color="gray">
-                                    Con Errores
-                                </Typography>
-                            </CardBody>
-                        </Card>
-                        <Card>
-                            <CardBody className="text-center">
-                                <Typography color="blue" className="text-2xl font-bold">
-                                    {entregaSeleccionada ? `#${entregaSeleccionada.numero_entrega}` : 'N/A'}
-                                </Typography>
-                                <Typography variant="small" color="gray">
-                                    Entrega
-                                </Typography>
-                            </CardBody>
-                        </Card>
-                        <Card>
-                            <CardBody className="text-center">
-                                <Typography color="teal" className="text-2xl font-bold">
-                                    {previewData.columna_d_sn_presente ? 'SÍ' : 'NO'}
-                                </Typography>
-                                <Typography variant="small" color="gray">
-                                    D_SN Presente
-                                </Typography>
-                            </CardBody>
-                        </Card>
-                    </div>
-                    {/* Información sobre D_SN */}
-                    <Alert color={previewData.columna_d_sn_presente ? "blue" : "amber"}>
-                        <Typography variant="small">
-                            {previewData.columna_d_sn_presente ? (
-                                <span>✅ <strong>D_SN detectado:</strong> El archivo incluye columna D_SN. Algunos valores pueden estar vacíos (permitido).</span>
-                            ) : (
-                                <span>📋 <strong>Sin D_SN:</strong> El archivo no incluye columna D_SN. Los equipos se registrarán sin serial del fabricante.</span>
-                            )}
-                        </Typography>
-                    </Alert>
-
-                    {/* Información sobre entrega seleccionada */}
-                    {entregaSeleccionada && (
-                        <Alert color="blue">
-                            <Typography variant="small">
-                                <strong>Entrega seleccionada:</strong> #{entregaSeleccionada.numero_entrega} -
-                                {entregaSeleccionada.cantidad_entregada} equipos registrados el {new Date(entregaSeleccionada.fecha_entrega).toLocaleDateString()}
-                            </Typography>
-                        </Alert>
-                    )}
-
-                    {/* Errores de validación */}
-                    {validationErrors.length > 0 && (
-                        <Card>
-                            <CardBody>
-                                <Typography variant="h6" color="red" className="mb-3">
-                                    Errores Encontrados ({validationErrors.length})
-                                </Typography>
-                                <div className="max-h-60 overflow-y-auto space-y-2">
-                                    {validationErrors.map((error, index) => (
-                                        <Alert key={index} color="red" className="py-2">
-                                            <div className="flex items-start gap-2">
-                                                <IoWarning className="h-4 w-4 mt-0.5" />
-                                                <div>
-                                                    <Typography variant="small" className="font-medium">
-                                                        Fila {error.fila}: {error.mac || 'Sin MAC'}
-                                                    </Typography>
-                                                    <Typography variant="small">
-                                                        {error.errores?.join(', ')}
-                                                    </Typography>
-                                                </div>
-                                            </div>
-                                        </Alert>
-                                    ))}
-                                </div>
-                            </CardBody>
-                        </Card>
-                    )}
-
-                    {/* Preview de datos válidos */}
-                    {previewData.equipos_validos && previewData.equipos_validos.length > 0 && (
-                        <Card>
-                            <CardBody>
-                                <Typography variant="h6" color="green" className="mb-3">
-                                    Preview de Equipos Válidos ({previewData.equipos_validos.length})
-                                </Typography>
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-sm">
-                                        <thead>
-                                        <tr className="border-b">
-                                            <th className="text-left p-2">GPON Serial</th>
-                                            <th className="text-left p-2">MAC Address</th>
-                                            <th className="text-left p-2">D-SN</th>
-                                            <th className="text-left p-2">Item Equipo</th>
-                                        </tr>
-                                        </thead>
-                                        <tbody>
-                                        {previewData.equipos_validos.slice(0, 5).map((equipo, index) => (
-                                            <tr key={index} className="border-b">
-                                                <td className="p-2 font-mono text-xs">{equipo.gpon_serial}</td>
-                                                <td className="p-2 font-mono text-xs">{equipo.mac_address}</td>
-                                                <td className="p-2 font-mono text-xs">{equipo.serial_manufacturer || '—'}</td>
-                                                <td className="p-2 font-mono text-xs">{equipo.codigo_item_equipo}</td>
-                                            </tr>
-                                        ))}
-                                        </tbody>
-                                    </table>
-                                    {previewData.equipos_validos.length > 5 && (
-                                        <Typography variant="small" color="gray" className="text-center mt-2">
-                                            ... y {previewData.equipos_validos.length - 5} equipos más
-                                        </Typography>
-                                    )}
-                                </div>
-                            </CardBody>
-                        </Card>
-                    )}
-                </div>
-            ) : (
-                <div className="text-center py-8">
-                    <Typography color="gray">
-                        Ejecutando validación...
-                    </Typography>
-                </div>
-            )}
-        </div>
-    );
-
-    const StepImport = () => (
-        <div className="space-y-4">
-            <Typography variant="h6" color="blue-gray" className="mb-4">
-                Importando Equipos
-            </Typography>
-
-            <div className="text-center space-y-4">
-                <div className="flex justify-center">
-                    {uploadProgress < 100 ? (
-                        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-orange-500"></div>
-                    ) : (
-                        <IoCheckmarkCircle className="h-16 w-16 text-green-500" />
-                    )}
-                </div>
-
-                <div className="space-y-2">
-                    <Typography color="blue-gray">
-                        {uploadProgress < 100 ? 'Procesando equipos...' : '¡Importación completada!'}
-                    </Typography>
-                    <Progress
-                        value={uploadProgress}
-                        color={uploadProgress < 100 ? "orange" : "green"}
-                        className="w-full"
-                    />
-                    <Typography variant="small" color="gray">
-                        {uploadProgress}% completado
-                    </Typography>
-                </div>
-
-                {resultado && (
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
-                        <Card>
-                            <CardBody className="text-center">
-                                <Typography color="green" className="text-xl font-bold">
-                                    {resultado.importados || 0}
-                                </Typography>
-                                <Typography variant="small" color="gray">
-                                    Importados
-                                </Typography>
-                            </CardBody>
-                        </Card>
-                        <Card>
-                            <CardBody className="text-center">
-                                <Typography color="blue" className="text-xl font-bold">
-                                    {resultado.validados || 0}
-                                </Typography>
-                                <Typography variant="small" color="gray">
-                                    Validados
-                                </Typography>
-                            </CardBody>
-                        </Card>
-                        <Card>
-                            <CardBody className="text-center">
-                                <Typography color="red" className="text-xl font-bold">
-                                    {resultado.errores || 0}
-                                </Typography>
-                                <Typography variant="small" color="gray">
-                                    Errores
-                                </Typography>
-                            </CardBody>
-                        </Card>
-                        <Card>
-                            <CardBody className="text-center">
-                                <Typography color="teal" className="text-xl font-bold">
-                                    {entregaSeleccionada ? `#${entregaSeleccionada.numero_entrega}` : 'N/A'}
-                                </Typography>
-                                <Typography variant="small" color="gray">
-                                    Entrega
-                                </Typography>
-                            </CardBody>
-                        </Card>
-                    </div>
-                )}
-
-                {/* ✅ NUEVO: Información adicional sobre la importación */}
-                {resultado && (
-                    <Alert color="green" className="mt-4">
-                        <Typography variant="small">
-                            {entregaSeleccionada ? (
-                                <span><strong>Entrega #{entregaSeleccionada.numero_entrega} completada:</strong> Los equipos han sido registrados exitosamente en el lote {lote?.numero_lote}.</span>
-                            ) : (
-                                <span><strong>Importación completada:</strong> Los equipos han sido registrados exitosamente en el lote {lote?.numero_lote}.</span>
-                            )}
-                            {resultado.equipos_sin_d_sn > 0 && (
-                                <span> Se registraron {resultado.equipos_sin_d_sn} equipos sin D_SN (permitido).</span>
-                            )}
-                        </Typography>
-                    </Alert>
-                )}
-            </div>
-        </div>
-    );
-
-    // ========== RENDER PRINCIPAL ==========
     return (
         <Dialog
             open={open}
             handler={handleClose}
             size="xl"
-            className="min-h-[600px]"
+            dismiss={{ escapeKey: !loading, outsidePress: !loading }}
         >
             <DialogHeader className="flex items-center justify-between">
                 <div>
                     <Typography variant="h5" color="blue-gray">
-                        Importación Masiva de ONUs - v2.0
+                        Importación Masiva de Equipos
                     </Typography>
-                    <Typography color="gray">
-                        Lote: {lote?.numero_lote} | D_SN Opcional | {lote?.tipo_ingreso_info?.nombre}
+                    <Typography color="gray" className="text-sm">
+                        Paso {step} de 4 - {
+                        step === 1 ? 'Configuración inicial' :
+                            step === 2 ? 'Selección de archivo' :
+                                step === 3 ? 'Validación' : 'Resultados'
+                    }
                     </Typography>
                 </div>
-                <Button
-                    variant="text"
-                    color="gray"
-                    onClick={handleClose}
-                    className="p-2"
-                >
-                    <IoCloseCircle className="h-5 w-5" />
-                </Button>
+                <IconButton variant="text" color="gray" onClick={handleClose} disabled={loading}>
+                    <IoClose className="h-5 w-5" />
+                </IconButton>
             </DialogHeader>
 
             <DialogBody divider className="max-h-[70vh] overflow-y-auto">
-                {/* Stepper */}
-                <div className="mb-6">
-                    <Stepper activeStep={currentStep}>
-                        {steps.map((step, index) => (
-                            <Step key={index}>
-                                <div className="text-center">
-                                    <Typography variant="small" color={index <= currentStep ? "blue-gray" : "gray"}>
-                                        {step}
-                                    </Typography>
-                                </div>
-                            </Step>
-                        ))}
-                    </Stepper>
-                </div>
+                {step === 1 && (
+                    <div className="space-y-4">
+                        <Typography variant="h6" color="blue-gray">
+                            Configuración Inicial
+                        </Typography>
 
-                {/* Error global */}
-                {error && (
-                    <Alert color="red" className="mb-4">
-                        <IoWarning className="h-5 w-5" />
-                        {error}
-                    </Alert>
+                        {/* Selección de Lote y Modelo */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <Select
+                                    label="Lote de Destino *"
+                                    value={selectedLote}
+                                    onChange={setSelectedLote}
+                                >
+                                    {opciones?.lotes?.map((lote) => (
+                                        <Option key={lote.id} value={lote.id.toString()}>
+                                            {lote.numero_lote} ({lote.proveedor_info?.nombre})
+                                        </Option>
+                                    ))}
+                                </Select>
+                            </div>
+
+                            <div>
+                                <Select
+                                    label="Modelo *"
+                                    value={selectedModelo}
+                                    onChange={setSelectedModelo}
+                                >
+                                    {opciones?.modelos?.map((modelo) => (
+                                        <Option key={modelo.id} value={modelo.id.toString()}>
+                                            {modelo.nombre}
+                                        </Option>
+                                    ))}
+                                </Select>
+                            </div>
+                        </div>
+
+                        {/* Código Item Equipo */}
+                        <div>
+                            <Input
+                                label="Código Item Equipo *"
+                                value={itemEquipo}
+                                onChange={(e) => setItemEquipo(e.target.value)}
+                                placeholder="Ej: 1234567890"
+                            />
+                        </div>
+
+                        {/* Selector de Entrega Parcial */}
+                        {selectedLote && (
+                            <div>
+                                <div className="flex items-center gap-2 mb-2">
+                                    <Select
+                                        label="Entrega Parcial (Opcional)"
+                                        value={entregaSeleccionada}
+                                        onChange={setEntregaSeleccionada}
+                                        disabled={loadingEntregas}
+                                    >
+                                        <Option value="">Nueva entrega automática</Option>
+                                        {entregasDisponibles.map((entrega) => (
+                                            <Option key={entrega.id} value={entrega.numero_entrega.toString()}>
+                                                Entrega #{entrega.numero_entrega} - {entrega.cantidad_entregada} equipos registrados
+                                                {entrega.materiales_count > 0 && ` (${entrega.materiales_count} cargados)`}
+                                            </Option>
+                                        ))}
+                                    </Select>
+                                    {loadingEntregas && (
+                                        <IconButton size="sm" variant="text" disabled>
+                                            <IoRefresh className="h-4 w-4 animate-spin" />
+                                        </IconButton>
+                                    )}
+                                </div>
+
+                                {/* Información de la entrega seleccionada */}
+                                {entregaInfo && (
+                                    <Alert color={entregaInfo.equipos_restantes > 0 ? "blue" : "amber"} className="mt-2">
+                                        <div className="flex items-start gap-2">
+                                            <IoInformationCircle className="h-5 w-5 mt-0.5 flex-shrink-0" />
+                                            <div>
+                                                <Typography variant="small" className="font-medium mb-1">
+                                                    Entrega #{entregaInfo.numero_entrega} seleccionada
+                                                </Typography>
+                                                <div className="space-y-1 text-sm">
+                                                    <div>• Cantidad registrada: {entregaInfo.cantidad_entregada} equipos</div>
+                                                    <div>• Ya cargados: {entregaInfo.materiales_count || 0} equipos</div>
+                                                    <div className={entregaInfo.equipos_restantes > 0 ? "text-green-700" : "text-red-700"}>
+                                                        • Restantes por cargar: {entregaInfo.equipos_restantes} equipos
+                                                    </div>
+                                                    <div>• Fecha: {new Date(entregaInfo.fecha_entrega).toLocaleDateString()}</div>
+                                                    {entregaInfo.observaciones && (
+                                                        <div>• Observaciones: {entregaInfo.observaciones}</div>
+                                                    )}
+                                                </div>
+
+                                                {entregaInfo.equipos_restantes <= 0 && (
+                                                    <Typography variant="small" color="red" className="mt-2 font-medium">
+                                                        ⚠️ Esta entrega ya está completa. No puede recibir más equipos.
+                                                    </Typography>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </Alert>
+                                )}
+
+                                {/* Resumen de entregas disponibles */}
+                                {entregasDisponibles.length > 0 && !entregaSeleccionada && (
+                                    <Card className="mt-4">
+                                        <CardBody>
+                                            <Typography variant="small" className="font-medium mb-2">
+                                                Entregas parciales disponibles:
+                                            </Typography>
+                                            <div className="space-y-2">
+                                                {entregasDisponibles.map((entrega) => (
+                                                    <div key={entrega.id} className="flex items-center justify-between">
+                                                        <span className="text-sm">
+                                                            Entrega #{entrega.numero_entrega}
+                                                        </span>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-sm text-gray-600">
+                                                                {entrega.materiales_count}/{entrega.cantidad_entregada}
+                                                            </span>
+                                                            <Chip
+                                                                size="sm"
+                                                                variant="ghost"
+                                                                color={entrega.equipos_restantes > 0 ? "green" : "gray"}
+                                                                value={
+                                                                    entrega.equipos_restantes > 0
+                                                                        ? `${entrega.equipos_restantes} libres`
+                                                                        : "Completa"
+                                                                }
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </CardBody>
+                                    </Card>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 )}
 
-                {/* Contenido del paso actual */}
-                <div>
-                    {currentStep === 0 && <StepFileSelection />}
-                    {currentStep === 1 && <StepConfiguration />}
-                    {currentStep === 2 && <StepValidation />}
-                    {currentStep === 3 && <StepImport />}
-                    {currentStep === 4 && <StepImport />}
-                </div>
+                {step === 2 && (
+                    <div className="space-y-4">
+                        <Typography variant="h6" color="blue-gray">
+                            Selección de Archivo
+                        </Typography>
+
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 transition-colors">
+                            <IoCloudUpload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                            <Typography color="gray" className="mb-4">
+                                Seleccione un archivo Excel (.xlsx) o CSV
+                            </Typography>
+
+                            {/* Versión simple que funciona */}
+                            <div className="relative inline-block">
+                                <input
+                                    type="file"
+                                    accept=".xlsx,.xls,.csv"
+                                    onChange={handleFileChange}
+                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                    id="file-upload"
+                                />
+                                <div className="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors cursor-pointer">
+                                    <IoCloudUpload className="mr-2 h-4 w-4" />
+                                    Seleccionar Archivo
+                                </div>
+                            </div>
+
+                            <Typography variant="small" color="gray" className="mt-2">
+                                Archivos soportados: .xlsx, .xls, .csv
+                            </Typography>
+                        </div>
+
+                        {selectedFile && (
+                            <Alert color="green">
+                                <div className="flex items-center gap-2">
+                                    <IoCheckmarkCircle className="h-5 w-5" />
+                                    <div>
+                                        <Typography variant="small" className="font-medium">
+                                            Archivo seleccionado: {selectedFile.name}
+                                        </Typography>
+                                        <Typography variant="small">
+                                            Tamaño: {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                                        </Typography>
+                                    </div>
+                                </div>
+                            </Alert>
+                        )}
+                    </div>
+                )}
+
+                {step === 3 && validationData && (
+                    <div className="space-y-4">
+                        <Typography variant="h6" color="blue-gray">
+                            Resultado de Validación
+                        </Typography>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <Card>
+                                <CardBody className="text-center">
+                                    <Typography variant="h4" color="green">
+                                        {validationData.validados}
+                                    </Typography>
+                                    <Typography color="gray">Equipos válidos</Typography>
+                                </CardBody>
+                            </Card>
+                            <Card>
+                                <CardBody className="text-center">
+                                    <Typography variant="h4" color="red">
+                                        {validationData.errores}
+                                    </Typography>
+                                    <Typography color="gray">Equipos con errores</Typography>
+                                </CardBody>
+                            </Card>
+                        </div>
+
+                        {validationData.detalles_errores?.length > 0 && (
+                            <Alert color="red">
+                                <Typography variant="small" className="font-medium mb-2">
+                                    Errores encontrados:
+                                </Typography>
+                                <div className="max-h-40 overflow-y-auto text-sm">
+                                    {validationData.detalles_errores.slice(0, 10).map((error, index) => (
+                                        <div key={index} className="mb-1">
+                                            Fila {error.fila}: {error.errores.join(', ')}
+                                        </div>
+                                    ))}
+                                </div>
+                            </Alert>
+                        )}
+                    </div>
+                )}
+
+                {step === 4 && importResult && (
+                    <div className="space-y-4">
+                        <Typography variant="h6" color="blue-gray">
+                            Resultado de Importación
+                        </Typography>
+
+                        <Alert color="green">
+                            <div className="flex items-center gap-2">
+                                <IoCheckmarkCircle className="h-5 w-5" />
+                                <div>
+                                    <Typography variant="small" className="font-medium">
+                                        Importación completada exitosamente
+                                    </Typography>
+                                    <Typography variant="small">
+                                        Se importaron {importResult.importados} equipos
+                                        {entregaSeleccionada && ` en la entrega #${entregaSeleccionada}`}
+                                    </Typography>
+                                </div>
+                            </div>
+                        </Alert>
+
+                        <div className="grid grid-cols-3 gap-4">
+                            <Card>
+                                <CardBody className="text-center">
+                                    <Typography variant="h4" color="green">
+                                        {importResult.importados}
+                                    </Typography>
+                                    <Typography color="gray">Importados</Typography>
+                                </CardBody>
+                            </Card>
+                            <Card>
+                                <CardBody className="text-center">
+                                    <Typography variant="h4" color="blue">
+                                        {importResult.total_filas}
+                                    </Typography>
+                                    <Typography color="gray">Total filas</Typography>
+                                </CardBody>
+                            </Card>
+                            <Card>
+                                <CardBody className="text-center">
+                                    <Typography variant="h4" color="red">
+                                        {importResult.errores || 0}
+                                    </Typography>
+                                    <Typography color="gray">Errores</Typography>
+                                </CardBody>
+                            </Card>
+                        </div>
+                    </div>
+                )}
             </DialogBody>
 
             <DialogFooter className="flex justify-between">
                 <div>
-                    <Button
-                        variant="text"
-                        color="gray"
-                        onClick={handleReset}
-                        disabled={loading}
-                    >
-                        Reiniciar
-                    </Button>
+                    {step > 1 && step < 4 && (
+                        <Button
+                            variant="text"
+                            color="gray"
+                            onClick={() => setStep(step - 1)}
+                            disabled={loading}
+                        >
+                            Anterior
+                        </Button>
+                    )}
                 </div>
 
                 <div className="flex gap-2">
-                    <Button
-                        variant="text"
-                        color="gray"
-                        onClick={handleClose}
-                        disabled={loading}
-                    >
-                        {currentStep === 4 ? 'Cerrar' : 'Cancelar'}
+                    <Button variant="text" color="gray" onClick={handleClose} disabled={loading}>
+                        {step === 4 ? 'Cerrar' : 'Cancelar'}
                     </Button>
 
-                    {currentStep === 1 && (
+                    {step === 1 && (
                         <Button
                             color="blue"
-                            onClick={handleValidateFile}
-                            disabled={!selectedFile || !selectedModel || (lote?.tipo_ingreso_info?.codigo === 'PARCIAL' && !entregaSeleccionada) || loading}
-                            className="flex items-center gap-2"
+                            onClick={() => setStep(2)}
+                            disabled={!selectedLote || !selectedModelo || !itemEquipo}
                         >
-                            <IoEye className="h-4 w-4" />
+                            Siguiente
+                        </Button>
+                    )}
+
+                    {step === 2 && (
+                        <Button
+                            color="blue"
+                            onClick={handleValidation}
+                            disabled={!selectedFile}
+                            loading={loading}
+                        >
                             Validar Archivo
                         </Button>
                     )}
 
-                    {currentStep === 2 && validationErrors.length === 0 && (
-                        <Button
-                            color="orange"
-                            onClick={() => setCurrentStep(3)}
-                            className="flex items-center gap-2"
-                        >
-                            <IoPlay className="h-4 w-4" />
-                            Continuar
-                        </Button>
-                    )}
-
-                    {currentStep === 3 && (
+                    {step === 3 && (
                         <Button
                             color="green"
-                            onClick={handleImport}
-                            disabled={loading}
+                            onClick={handleImportacion}
+                            disabled={!validationData || validationData.validados === 0}
                             loading={loading}
-                            className="flex items-center gap-2"
                         >
-                            <IoCloudUpload className="h-4 w-4" />
-                            Importar Equipos
+                            Importar {validationData?.validados || 0} Equipos
                         </Button>
                     )}
                 </div>

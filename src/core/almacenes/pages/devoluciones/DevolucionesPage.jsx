@@ -206,7 +206,7 @@ const DevolucionesPage = () => {
                                 <Typography color="gray" className="mb-1 text-sm">
                                     Pendientes
                                 </Typography>
-                                <Typography variant="h4" color="amber-800">
+                                <Typography variant="h4" color="amber">
                                     {stats.pendientes}
                                 </Typography>
                             </div>
@@ -224,7 +224,7 @@ const DevolucionesPage = () => {
                                 <Typography color="gray" className="mb-1 text-sm">
                                     Enviadas
                                 </Typography>
-                                <Typography variant="h4" color="blue-800">
+                                <Typography variant="h4" color="blue">
                                     {stats.enviadas}
                                 </Typography>
                             </div>
@@ -242,7 +242,7 @@ const DevolucionesPage = () => {
                                 <Typography color="gray" className="mb-1 text-sm">
                                     Confirmadas
                                 </Typography>
-                                <Typography variant="h4" color="green-800">
+                                <Typography variant="h4" color="green">
                                     {stats.confirmadas}
                                 </Typography>
                             </div>
@@ -264,8 +264,8 @@ const DevolucionesPage = () => {
 
             {/* Tabs principales */}
             <Card>
-                <CardHeader>
-                    <Tabs value={activeTab} onChange={setActiveTab}>
+                <Tabs value={activeTab} onChange={setActiveTab}>
+                    <CardHeader>
                         <TabsHeader>
                             {tabs.map(({ value, label, icon: Icon }) => (
                                 <Tab key={value} value={value}>
@@ -276,57 +276,57 @@ const DevolucionesPage = () => {
                                 </Tab>
                             ))}
                         </TabsHeader>
-                    </Tabs>
-                </CardHeader>
+                    </CardHeader>
 
-                <CardBody>
-                    <TabsBody>
-                        <TabPanel value="lista">
-                            <DevolucionesList
-                                devoluciones={devoluciones}
-                                loading={loading}
-                                onView={handleViewDevolucion}
-                                onReingreso={handleReingresoMaterial}
-                                permissions={permissions}
-                                filtros={filtros}
-                                setFiltros={setFiltros}
-                            />
-                        </TabPanel>
+                    <CardBody>
+                        <TabsBody>
+                            <TabPanel value="lista">
+                                <DevolucionesList
+                                    devoluciones={devoluciones}
+                                    loading={loading}
+                                    onView={handleViewDevolucion}
+                                    onReingreso={handleReingresoMaterial}
+                                    permissions={permissions}
+                                    filtros={filtros}
+                                    setFiltros={setFiltros}
+                                />
+                            </TabPanel>
 
-                        <TabPanel value="pendientes">
-                            <DevolucionesList
-                                devoluciones={devoluciones.filter(d => d.estado_info?.codigo === 'PENDIENTE')}
-                                loading={loading}
-                                onView={handleViewDevolucion}
-                                onReingreso={handleReingresoMaterial}
-                                permissions={permissions}
-                                showFilters={false}
-                                title="📋 Devoluciones Pendientes"
-                                subtitle="Devoluciones que requieren ser enviadas al proveedor"
-                            />
-                        </TabPanel>
+                            <TabPanel value="pendientes">
+                                <DevolucionesList
+                                    devoluciones={devoluciones.filter(d => d.estado_info?.codigo === 'PENDIENTE')}
+                                    loading={loading}
+                                    onView={handleViewDevolucion}
+                                    onReingreso={handleReingresoMaterial}
+                                    permissions={permissions}
+                                    showFilters={false}
+                                    title="📋 Devoluciones Pendientes"
+                                    subtitle="Devoluciones que requieren ser enviadas al proveedor"
+                                />
+                            </TabPanel>
 
-                        <TabPanel value="enviadas">
-                            <DevolucionesList
-                                devoluciones={devoluciones.filter(d => d.estado_info?.codigo === 'ENVIADO')}
-                                loading={loading}
-                                onView={handleViewDevolucion}
-                                onReingreso={handleReingresoMaterial}
-                                permissions={permissions}
-                                showFilters={false}
-                                title="📤 Devoluciones Enviadas"
-                                subtitle="Devoluciones enviadas esperando respuesta del proveedor"
-                            />
-                        </TabPanel>
+                            <TabPanel value="enviadas">
+                                <DevolucionesList
+                                    devoluciones={devoluciones.filter(d => d.estado_info?.codigo === 'ENVIADO')}
+                                    loading={loading}
+                                    onView={handleViewDevolucion}
+                                    onReingreso={handleReingresoMaterial}
+                                    permissions={permissions}
+                                    showFilters={false}
+                                    title="📤 Devoluciones Enviadas"
+                                    subtitle="Devoluciones enviadas esperando respuesta del proveedor"
+                                />
+                            </TabPanel>
 
-                        <TabPanel value="estadisticas">
-                            <DevolucionesStats
-                                devoluciones={devoluciones}
-                                stats={stats}
-                            />
-                        </TabPanel>
-                    </TabsBody>
-                </CardBody>
+                            <TabPanel value="estadisticas">
+                                <DevolucionesStats
+                                    devoluciones={devoluciones}
+                                    stats={stats}
+                                />
+                            </TabPanel>
+                        </TabsBody>
+                    </CardBody>
+                </Tabs>
             </Card>
 
             {/* Diálogos */}

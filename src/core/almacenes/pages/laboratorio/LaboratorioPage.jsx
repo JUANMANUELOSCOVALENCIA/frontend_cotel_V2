@@ -120,8 +120,8 @@ const LaboratorioPage = () => {
 
             {/* Tabs principales */}
             <Card>
-                <CardHeader>
-                    <Tabs value={activeTab} onChange={setActiveTab}>
+                <Tabs value={activeTab} onChange={setActiveTab}>
+                    <CardHeader>
                         <TabsHeader>
                             {tabs.map(({ value, label, icon: Icon }) => (
                                 <Tab key={value} value={value}>
@@ -132,32 +132,32 @@ const LaboratorioPage = () => {
                                 </Tab>
                             ))}
                         </TabsHeader>
-                    </Tabs>
-                </CardHeader>
+                    </CardHeader>
 
-                <CardBody>
-                    <TabsBody>
-                        <TabPanel value="dashboard">
-                            <LaboratorioStats data={dashboardData} detailed />
-                        </TabPanel>
+                    <CardBody>
+                        <TabsBody>
+                            <TabPanel value="dashboard">
+                                <LaboratorioStats data={dashboardData} detailed />
+                            </TabPanel>
 
-                        <TabPanel value="pendientes">
-                            <MaterialesEnLaboratorio tipo="pendientes_inspeccion" />
-                        </TabPanel>
+                            <TabPanel value="pendientes">
+                                <MaterialesEnLaboratorio tipo="pendientes_inspeccion" />
+                            </TabPanel>
 
-                        <TabPanel value="en_proceso">
-                            <MaterialesEnLaboratorio tipo="en_laboratorio" />
-                        </TabPanel>
+                            <TabPanel value="en_proceso">
+                                <MaterialesEnLaboratorio tipo="en_laboratorio" />
+                            </TabPanel>
 
-                        <TabPanel value="inspeccion">
-                            <InspeccionDetalle />
-                        </TabPanel>
+                            <TabPanel value="inspeccion">
+                                <InspeccionDetalle />
+                            </TabPanel>
 
-                        <TabPanel value="historial">
-                            <HistorialInspecciones />
-                        </TabPanel>
-                    </TabsBody>
-                </CardBody>
+                            <TabPanel value="historial">
+                                <HistorialInspecciones />
+                            </TabPanel>
+                        </TabsBody>
+                    </CardBody>
+                </Tabs>
             </Card>
         </div>
     );
