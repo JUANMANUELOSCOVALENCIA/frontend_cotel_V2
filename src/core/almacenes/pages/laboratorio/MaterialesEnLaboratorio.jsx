@@ -1,4 +1,4 @@
-// src/core/almacenes/pages/laboratorio/MaterialesEnLaboratorio.jsx - SIN EMOJIS
+// src/core/almacenes/pages/laboratorio/MaterialesEnLaboratorio.jsx - CÓDIGO COMPLETO CORREGIDO
 import React, { useState, useEffect } from 'react';
 import {
     Card,
@@ -36,41 +36,22 @@ import { useLaboratorio } from '../../hooks/useLaboratorio';
 const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
     const [materiales, setMateriales] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
-    const [selectedMaterials, setSelectedMaterials] = useState([]);
     const [vistaLotes, setVistaLotes] = useState(false);
     const [lotesAbiertos, setLotesAbiertos] = useState(new Set());
 
+    // ✅ USAR EL HOOK IMPORTADO CORRECTAMENTE
     const {
         loading,
         error,
         getMaterialesPorTipo,
-        getMaterialesAgrupadosPorLote,
         enviarMaterialLaboratorio,
         operacionMasiva,
-        operacionMasivaPorLote,
         clearError
     } = useLaboratorio();
 
-    useEffect(() => {
-        loadMateriales();
-    }, [tipo, vistaLotes]);
-
-    // TEMPORAL - Debug para ver estructura
-    useEffect(() => {
-        if (materiales.length > 0) {
-            console.log('🔍 PRIMER MATERIAL COMPLETO:', materiales[0]);
-            console.log('🔍 MODELO INFO:', materiales[0].modelo_info || materiales[0].modelo);
-            console.log('🔍 MARCA INFO DIRECTO:', materiales[0].marca_info);
-            console.log('🔍 TODAS LAS PROPIEDADES:', Object.keys(materiales[0]));
-        }
-    }, [materiales]);
-
     const loadMateriales = async () => {
         try {
-            const result = vistaLotes
-                ? await getMaterialesAgrupadosPorLote(tipo)
-                : await getMaterialesPorTipo(tipo);
-
+            const result = await getMaterialesPorTipo(tipo);
             if (result.success) {
                 setMateriales(result.data.materiales || result.data || []);
             } else {
@@ -78,146 +59,88 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
                 setMateriales([]);
             }
         } catch (error) {
-            console.error('Error al cargar materiales:', error);
             toast.error('Error al cargar materiales');
             setMateriales([]);
         }
     };
 
-    // FUNCIÓN MEJORADA PARA OBTENER MARCA - MAS UBICACIONES
+    useEffect(() => {
+        loadMateriales();
+    }, [tipo]);
+
+    useEffect(() => {
+        if (materiales.length > 0) {
+            const material = materiales[0];
+            console.log('📦 MATERIAL COMPLETO:', material);
+            console.log('📦 numero_entrega_parcial:', material.numero_entrega_parcial);
+            console.log('📦 CAMPOS DISPONIBLES:', Object.keys(material));
+            console.log('📦 MODELO INFO:', material.modelo_info);
+            console.log('📦 LOTE INFO:', material.lote_info);
+            console.log('📦 ALMACEN INFO:', material.almacen_info);
+            console.log('📦 ENTREGA INFO:', material.entrega_parcial_info);
+        }
+    }, [materiales]);
+
+    // ✅ FUNCIONES HELPER CORREGIDAS PARA LA ESTRUCTURA REAL
     const obtenerModeloInfo = (material) => {
-        console.log('🔍 DEBUG MATERIAL:', material); // TEMPORAL
-
-        // Buscar modelo en múltiples ubicaciones
-        const modeloInfo = material.modelo_info ||
-            material.modelo_detalle ||
-            material.modelo ||
-            material.modelo_data ||
-            {};
-
-        // BUSCAR MARCA EN TODAS LAS UBICACIONES POSIBLES
-        let marcaInfo = null;
-        let marcaNombre = 'Sin Marca';
-
-        // 1. Desde modelo expandido
-        if (modeloInfo.marca_info?.nombre) {
-            marcaInfo = modeloInfo.marca_info;
-            marcaNombre = modeloInfo.marca_info.nombre;
-        }
-        // 2. Desde modelo.marca
-        else if (modeloInfo.marca?.nombre) {
-            marcaInfo = modeloInfo.marca;
-            marcaNombre = modeloInfo.marca.nombre;
-        }
-        // 3. Desde material directo marca_info
-        else if (material.marca_info?.nombre) {
-            marcaInfo = material.marca_info;
-            marcaNombre = material.marca_info.nombre;
-        }
-        // 4. Desde material.marca
-        else if (material.marca?.nombre) {
-            marcaInfo = material.marca;
-            marcaNombre = material.marca.nombre;
-        }
-        // 5. Campo directo marca_nombre
-        else if (material.marca_nombre) {
-            marcaNombre = material.marca_nombre;
-        }
-        // 6. Campo directo en modelo
-        else if (modeloInfo.marca_nombre) {
-            marcaNombre = modeloInfo.marca_nombre;
-        }
-        // 7. Buscar en propiedades planas
-        else if (material.modelo_marca) {
-            marcaNombre = material.modelo_marca;
-        }
-
-        const modeloNombre =
-            modeloInfo.nombre ||
-            material.modelo_nombre ||
-            material.modelo ||
-            'Sin Modelo';
-
-        console.log('🔍 MARCA ENCONTRADA:', marcaNombre, 'MODELO:', modeloNombre); // TEMPORAL
+        const modeloInfo = material.modelo_info || {};
 
         return {
-            id: modeloInfo.id || material.modelo_id,
-            nombre: modeloNombre,
-            codigo: modeloInfo.codigo_modelo || material.codigo_modelo,
-            marca: marcaNombre,
-            marca_id: marcaInfo?.id || material.marca_id,
-            tipo_material: modeloInfo.tipo_material_info?.nombre ||
-                modeloInfo.tipo_material?.nombre ||
-                material.tipo_material_info?.nombre ||
-                material.tipo_material ||
-                'Sin Tipo',
-            nombre_completo: `${marcaNombre} ${modeloNombre}`
+            id: modeloInfo.id,
+            nombre: modeloInfo.nombre || 'Sin Modelo',
+            codigo: modeloInfo.codigo_modelo,
+            marca: modeloInfo.marca || 'Sin Marca',
+            tipo_material: material.tipo_material_info?.nombre || 'ONU',
+            nombre_completo: `${modeloInfo.marca || 'Sin Marca'} ${modeloInfo.nombre || 'Sin Modelo'}`
         };
     };
 
     const obtenerLoteInfo = (material) => {
-        const loteInfo = material.lote_info ||
-            material.lote_detalle ||
-            material.lote ||
-            material.lote_principal_info ||
-            {};
+        const loteInfo = material.lote_info || {};
 
         return {
-            id: loteInfo.id || material.lote_id,
-            numero_lote: loteInfo.numero_lote || material.numero_lote || 'Sin Lote',
-            proveedor: loteInfo.proveedor_info?.nombre_comercial ||
-                loteInfo.proveedor?.nombre_comercial ||
-                material.proveedor_info?.nombre_comercial ||
-                'Sin Proveedor',
-            fecha_recepcion: loteInfo.fecha_recepcion || material.fecha_recepcion,
-            almacen_destino: loteInfo.almacen_destino_info?.nombre ||
-                loteInfo.almacen_destino?.nombre ||
-                material.almacen_destino_info?.nombre ||
-                'Sin Almacén Destino'
-        };
-    };
-
-    const obtenerEntregaInfo = (material) => {
-        const entregaInfo = material.entrega_parcial_info ||
-            material.entrega_info ||
-            material.entrega_parcial ||
-            {};
-
-        const numeroEntrega = entregaInfo.numero_entrega ||
-            material.numero_entrega_parcial ||
-            material.numero_entrega;
-
-        return {
-            id: entregaInfo.id,
-            numero_entrega: numeroEntrega,
-            fecha_entrega: entregaInfo.fecha_entrega,
-            cantidad_entregada: entregaInfo.cantidad_entregada,
-            descripcion: numeroEntrega ?
-                `Entrega Parcial #${numeroEntrega}` :
-                'Lote Principal'
+            id: loteInfo.id,
+            numero_lote: loteInfo.numero_lote || 'Sin Lote',
+            proveedor: loteInfo.proveedor || 'Sin Proveedor',
+            fecha_recepcion: loteInfo.fecha_recepcion,
+            almacen_destino: 'Principal'
         };
     };
 
     const obtenerAlmacenInfo = (material) => {
-        const almacenInfo = material.almacen_actual_info ||
-            material.almacen_info ||
-            material.ubicacion_actual_info ||
-            material.almacen_actual ||
-            {};
+        const almacenInfo = material.almacen_info || {};
 
         return {
-            id: almacenInfo.id || material.almacen_id,
-            nombre: almacenInfo.nombre || material.almacen_nombre || 'Sin Almacén',
-            codigo: almacenInfo.codigo || material.almacen_codigo
+            id: almacenInfo.id,
+            nombre: almacenInfo.nombre || 'Sin Almacén',
+            codigo: almacenInfo.codigo,
+            ciudad: almacenInfo.ciudad
         };
     };
 
-    // ENVÍO A LABORATORIO - INDIVIDUAL
-    const handleEnviarLaboratorio = async (materialId) => {
+    const obtenerEntregaInfo = (material) => {
+        const numeroEntrega = material.numero_entrega_parcial;
+        const esEntregaParcial = numeroEntrega && numeroEntrega > 0;
+
+        return {
+            id: null,
+            numero_entrega: numeroEntrega || 0,
+            fecha_entrega: null,
+            cantidad_entregada: 1,
+            observaciones: '',
+            descripcion: esEntregaParcial ?
+                `Entrega #${numeroEntrega}` :
+                'Recepción Inicial',
+            es_parcial: esEntregaParcial
+        };
+    };
+
+    // ✅ FUNCIONES DE ENVÍO
+    const handleEnviarLaboratorio = async (materialId, codigoEquipo = null) => {
         try {
             const result = await enviarMaterialLaboratorio(materialId);
             if (result.success) {
-                toast.success(result.data.message || 'Material enviado a laboratorio');
+                toast.success(`Equipo ${codigoEquipo || materialId} enviado a laboratorio`);
                 loadMateriales();
             } else {
                 toast.error(result.error);
@@ -227,21 +150,12 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
         }
     };
 
-    // ENVÍO MASIVO - TODOS LOS SELECCIONADOS
-    const handleEnviarMasivo = async () => {
-        if (selectedMaterials.length === 0) {
-            toast.warning('Selecciona al menos un material');
-            return;
-        }
-
+    const handleEnviarMasivo = async (criterios = {}) => {
         try {
-            const result = await operacionMasiva('enviar_pendientes', {
-                materiales_ids: selectedMaterials
-            });
+            const result = await operacionMasiva('enviar_pendientes', criterios);
 
             if (result.success) {
-                toast.success(result.data.message || `${selectedMaterials.length} materiales enviados a laboratorio`);
-                setSelectedMaterials([]);
+                toast.success(result.data.message || 'Materiales enviados a laboratorio');
                 loadMateriales();
             } else {
                 toast.error(result.error);
@@ -251,10 +165,11 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
         }
     };
 
-    // ENVÍO LOTE COMPLETO A LABORATORIO
     const handleEnviarLoteCompleto = async (loteId, numeroLote) => {
         try {
-            const result = await operacionMasivaPorLote('enviar_laboratorio', loteId);
+            const result = await operacionMasiva('enviar_lote_completo', {
+                lote_id: loteId
+            });
 
             if (result.success) {
                 toast.success(`Lote ${numeroLote} enviado completo a laboratorio`);
@@ -264,25 +179,6 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
             }
         } catch (error) {
             toast.error('Error al enviar lote completo');
-        }
-    };
-
-    // ENVÍO ENTREGA PARCIAL ESPECÍFICA A LABORATORIO
-    const handleEnviarEntregaParcial = async (loteId, numeroEntrega, numeroLote) => {
-        try {
-            // Enviar con criterios específicos de la entrega parcial
-            const result = await operacionMasivaPorLote('enviar_laboratorio', loteId, null, {
-                numero_entrega_parcial: numeroEntrega
-            });
-
-            if (result.success) {
-                toast.success(`Entrega #${numeroEntrega} del lote ${numeroLote} enviada a laboratorio`);
-                loadMateriales();
-            } else {
-                toast.error(result.error);
-            }
-        } catch (error) {
-            toast.error('Error al enviar entrega parcial');
         }
     };
 
@@ -325,33 +221,23 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
             almacenInfo.nombre?.toLowerCase().includes(searchTerm.toLowerCase());
     });
 
-    // Agrupación por lote y entrega
-    const materialesPorLoteYEntrega = filteredMateriales.reduce((acc, material) => {
+    // ✅ AGRUPACIÓN POR LOTE
+    const materialesPorLote = filteredMateriales.reduce((acc, material) => {
         const loteInfo = obtenerLoteInfo(material);
-        const entregaInfo = obtenerEntregaInfo(material);
-
         const loteKey = loteInfo.numero_lote;
-        const entregaKey = entregaInfo.descripcion;
 
         if (!acc[loteKey]) {
             acc[loteKey] = {
                 lote_info: loteInfo,
-                entregas: {}
-            };
-        }
-
-        if (!acc[loteKey].entregas[entregaKey]) {
-            acc[loteKey].entregas[entregaKey] = {
-                entrega_info: entregaInfo,
                 materiales: []
             };
         }
 
-        acc[loteKey].entregas[entregaKey].materiales.push(material);
+        acc[loteKey].materiales.push(material);
         return acc;
     }, {});
 
-    const lotesReales = Object.keys(materialesPorLoteYEntrega).filter(lote => lote !== 'Sin Lote');
+    const lotesReales = Object.keys(materialesPorLote).filter(lote => lote !== 'Sin Lote');
     const tieneLotesReales = lotesReales.length > 0;
 
     const toggleLoteAbierto = (loteKey) => {
@@ -362,12 +248,6 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
             nuevosAbiertos.add(loteKey);
         }
         setLotesAbiertos(nuevosAbiertos);
-    };
-
-    const getAlertaColor = (dias) => {
-        if (dias > 15) return 'red';
-        if (dias > 10) return 'amber';
-        return 'blue';
     };
 
     if (loading) {
@@ -449,6 +329,18 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
 
                     <Button
                         size="sm"
+                        color="green"
+                        variant="gradient"
+                        className="flex items-center gap-2"
+                        onClick={() => handleEnviarMasivo()}
+                        disabled={loading}
+                    >
+                        <IoSend className="h-4 w-4" />
+                        Enviar Todos
+                    </Button>
+
+                    <Button
+                        size="sm"
                         variant="outlined"
                         color="blue"
                         className="flex items-center gap-2"
@@ -478,9 +370,6 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
                     value={`${filteredMateriales.length} equipos${vistaLotes && tieneLotesReales ? ` en ${lotesReales.length} lotes` : ''}`}
                     className="px-3 py-1.5 font-medium"
                 />
-                <IconButton variant="outlined" color={config.color} size="sm">
-                    <IoFilter className="h-4 w-4" />
-                </IconButton>
             </div>
 
             {/* Alertas contextuales */}
@@ -489,7 +378,7 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
                     <div className="flex items-center gap-3">
                         <IoTime className="h-4 w-4 text-blue-600" />
                         <Typography variant="small" className="text-blue-800">
-                            <span className="font-medium">Inspección Requerida:</span> Estos equipos nuevos requieren inspección inicial antes de estar disponibles
+                            <span className="font-medium">📋 Inspección Requerida:</span> Estos equipos nuevos requieren inspección inicial antes de estar disponibles
                             {vistaLotes && tieneLotesReales && ` • Organizados en ${lotesReales.length} lotes`}
                         </Typography>
                     </div>
@@ -498,14 +387,11 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
 
             {/* Contenido principal */}
             {vistaLotes && tipo === 'pendientes_inspeccion' && tieneLotesReales ? (
-                // VISTA POR LOTES
+                // ✅ VISTA POR LOTES
                 <div className="space-y-4">
                     {lotesReales.map((numeroLote) => {
-                        const loteData = materialesPorLoteYEntrega[numeroLote];
-                        const totalMaterialesLote = Object.values(loteData.entregas).reduce(
-                            (sum, entrega) => sum + entrega.materiales.length, 0
-                        );
-                        const entregasCount = Object.keys(loteData.entregas).length;
+                        const loteData = materialesPorLote[numeroLote];
+                        const totalMateriales = loteData.materiales.length;
                         const loteAbierto = lotesAbiertos.has(numeroLote);
 
                         return (
@@ -525,13 +411,11 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
                                                 </Typography>
                                                 <div className="flex items-center gap-4 mt-1">
                                                     <Typography variant="small" color="gray">
-                                                        {totalMaterialesLote} equipos en {entregasCount} entrega(s)
+                                                        {totalMateriales} equipos
                                                     </Typography>
-                                                    {loteData.lote_info.proveedor && (
-                                                        <Typography variant="small" color="gray">
-                                                            • {loteData.lote_info.proveedor}
-                                                        </Typography>
-                                                    )}
+                                                    <Typography variant="small" color="gray">
+                                                        • {loteData.lote_info.proveedor}
+                                                    </Typography>
                                                     {loteData.lote_info.fecha_recepcion && (
                                                         <Typography variant="small" color="gray">
                                                             • {new Date(loteData.lote_info.fecha_recepcion).toLocaleDateString('es-ES')}
@@ -546,7 +430,7 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
                                                 size="sm"
                                                 variant="ghost"
                                                 color="blue"
-                                                value={`${totalMaterialesLote} equipos`}
+                                                value={`${totalMateriales} equipos`}
                                                 className="font-medium"
                                             />
                                             <Button
@@ -561,7 +445,7 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
                                                 disabled={loading}
                                             >
                                                 <IoSend className="h-4 w-4" />
-                                                Enviar Lote Completo
+                                                Enviar Lote
                                             </Button>
                                             <IconButton variant="text" color="blue" size="sm">
                                                 {loteAbierto ? <IoChevronUp className="h-4 w-4" /> : <IoChevronDown className="h-4 w-4" />}
@@ -570,114 +454,77 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
                                     </div>
                                 </CardHeader>
 
-                                {/* Contenido del lote (acordeón) */}
+                                {/* Contenido del lote */}
                                 {loteAbierto && (
                                     <CardBody className="pt-0">
-                                        <div className="space-y-4">
-                                            {Object.entries(loteData.entregas).map(([nombreEntrega, entregaData]) => (
-                                                <div key={nombreEntrega} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                                                    {/* Header de entrega parcial */}
-                                                    <div className="flex items-center justify-between mb-3">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="p-1.5 bg-amber-50 rounded-lg border border-amber-200">
-                                                                <IoGitBranch className="h-4 w-4 text-amber-600" />
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                            {loteData.materiales.map((material) => {
+                                                const modeloInfo = obtenerModeloInfo(material);
+                                                const almacenInfo = obtenerAlmacenInfo(material);
+                                                const entregaInfo = obtenerEntregaInfo(material);
+
+                                                return (
+                                                    <Card key={material.id} className="bg-white border border-gray-200 hover:bg-gray-50 transition-colors">
+                                                        <CardBody className="p-3">
+                                                            <div className="flex items-start justify-between mb-2">
+                                                                <div className="flex-1">
+                                                                    <Typography variant="small" color="blue-gray" className="font-bold mb-1">
+                                                                        {material.codigo_interno}
+                                                                    </Typography>
+                                                                    <Typography variant="small" color="gray" className="font-mono text-xs">
+                                                                        MAC: {material.mac_address}
+                                                                    </Typography>
+                                                                </div>
+                                                                <div className="flex gap-1">
+                                                                    <Tooltip content="Ver detalles">
+                                                                        <IconButton variant="text" color="blue" size="sm">
+                                                                            <IoEye className="h-3 w-3" />
+                                                                        </IconButton>
+                                                                    </Tooltip>
+                                                                    <Tooltip content="Enviar individual">
+                                                                        <IconButton
+                                                                            variant="text"
+                                                                            color="green"
+                                                                            size="sm"
+                                                                            onClick={() => handleEnviarLaboratorio(material.id, material.codigo_interno)}
+                                                                            disabled={loading}
+                                                                        >
+                                                                            <IoPlay className="h-3 w-3" />
+                                                                        </IconButton>
+                                                                    </Tooltip>
+                                                                </div>
                                                             </div>
-                                                            <div>
-                                                                <Typography variant="small" color="blue-gray" className="font-bold">
-                                                                    {nombreEntrega}
+                                                            <div className="space-y-1">
+                                                                <Typography variant="small" color="blue-gray" className="font-medium">
+                                                                    {modeloInfo.nombre_completo}
                                                                 </Typography>
-                                                                <Typography variant="small" color="gray">
-                                                                    {entregaData.materiales.length} equipos
-                                                                    {entregaData.entrega_info.fecha_entrega &&
-                                                                        ` • ${new Date(entregaData.entrega_info.fecha_entrega).toLocaleDateString('es-ES')}`
-                                                                    }
-                                                                </Typography>
+                                                                <div className="flex items-center justify-between">
+                                                                    <Typography variant="small" color="gray">
+                                                                        {almacenInfo.nombre}
+                                                                    </Typography>
+                                                                    {entregaInfo.es_parcial ? (
+                                                                        <Chip
+                                                                            size="sm"
+                                                                            variant="ghost"
+                                                                            color="amber"
+                                                                            value={`#${entregaInfo.numero_entrega}`}
+                                                                            className="text-xs"
+                                                                        />
+                                                                    ) : (
+                                                                        <Chip
+                                                                            size="sm"
+                                                                            variant="ghost"
+                                                                            color="blue"
+                                                                            value="Inicial"
+                                                                            className="text-xs"
+                                                                        />
+                                                                    )}
+                                                                </div>
                                                             </div>
-                                                        </div>
-
-                                                        {/* BOTÓN PARA ENVIAR ENTREGA ESPECÍFICA */}
-                                                        {entregaData.entrega_info.numero_entrega && (
-                                                            <Button
-                                                                size="sm"
-                                                                color="blue"
-                                                                variant="gradient"
-                                                                className="flex items-center gap-1"
-                                                                onClick={() => handleEnviarEntregaParcial(
-                                                                    loteData.lote_info.id,
-                                                                    entregaData.entrega_info.numero_entrega,
-                                                                    numeroLote
-                                                                )}
-                                                                disabled={loading}
-                                                            >
-                                                                <IoSend className="h-3 w-3" />
-                                                                Enviar Entrega #{entregaData.entrega_info.numero_entrega}
-                                                            </Button>
-                                                        )}
-                                                    </div>
-
-                                                    {/* Lista de equipos de la entrega */}
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                                        {entregaData.materiales.map((material) => {
-                                                            const modeloInfo = obtenerModeloInfo(material);
-                                                            const almacenInfo = obtenerAlmacenInfo(material);
-
-                                                            return (
-                                                                <Card key={material.id} className="bg-white border border-gray-200 hover:bg-gray-50 transition-colors">
-                                                                    <CardBody className="p-3">
-                                                                        <div className="flex items-start justify-between mb-2">
-                                                                            <div className="flex-1">
-                                                                                <Typography variant="small" color="blue-gray" className="font-bold mb-1">
-                                                                                    {material.codigo_interno}
-                                                                                </Typography>
-                                                                                <Typography variant="small" color="gray" className="font-mono text-xs">
-                                                                                    MAC: {material.mac_address}
-                                                                                </Typography>
-                                                                            </div>
-                                                                            <div className="flex gap-1">
-                                                                                <Tooltip content="Ver detalles">
-                                                                                    <IconButton variant="text" color="blue" size="sm">
-                                                                                        <IoEye className="h-3 w-3" />
-                                                                                    </IconButton>
-                                                                                </Tooltip>
-                                                                                <Tooltip content="Enviar individual a laboratorio">
-                                                                                    <IconButton
-                                                                                        variant="text"
-                                                                                        color="green"
-                                                                                        size="sm"
-                                                                                        onClick={() => handleEnviarLaboratorio(material.id)}
-                                                                                        disabled={loading}
-                                                                                    >
-                                                                                        <IoPlay className="h-3 w-3" />
-                                                                                    </IconButton>
-                                                                                </Tooltip>
-                                                                            </div>
-                                                                        </div>
-                                                                        <div className="space-y-1">
-                                                                            <div className="flex items-center justify-between">
-                                                                                <Typography variant="small" color="blue-gray" className="font-medium">
-                                                                                    {modeloInfo.nombre_completo}
-                                                                                </Typography>
-                                                                            </div>
-                                                                            <div className="flex items-center justify-between">
-                                                                                <Typography variant="small" color="gray">
-                                                                                    {almacenInfo.nombre}
-                                                                                </Typography>
-                                                                                <Chip
-                                                                                    size="sm"
-                                                                                    variant="ghost"
-                                                                                    color="blue"
-                                                                                    value={modeloInfo.tipo_material || 'N/A'}
-                                                                                    className="font-mono text-xs"
-                                                                                />
-                                                                            </div>
-                                                                        </div>
-                                                                    </CardBody>
-                                                                </Card>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                </div>
-                                            ))}
+                                                        </CardBody>
+                                                    </Card>
+                                                );
+                                            })}
                                         </div>
                                     </CardBody>
                                 )}
@@ -686,7 +533,7 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
                     })}
                 </div>
             ) : (
-                // Vista de lista normal
+                // ✅ VISTA DE TABLA
                 <div className="border border-gray-200 rounded-xl bg-white shadow-sm">
                     {filteredMateriales.length === 0 ? (
                         <div className="text-center py-12">
@@ -784,18 +631,22 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
                                                 />
                                             </td>
                                             <td className="px-4 py-3">
-                                                {entregaInfo.numero_entrega ? (
+                                                {entregaInfo.es_parcial ? (
                                                     <Chip
                                                         size="sm"
-                                                        variant="ghost"
+                                                        variant="gradient"
                                                         color="amber"
                                                         value={`#${entregaInfo.numero_entrega}`}
                                                         className="font-bold"
                                                     />
                                                 ) : (
-                                                    <Typography variant="small" color="gray">
-                                                        Principal
-                                                    </Typography>
+                                                    <Chip
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        color="blue"
+                                                        value="Inicial"
+                                                        className="font-medium"
+                                                    />
                                                 )}
                                             </td>
                                             <td className="px-4 py-3">
@@ -803,11 +654,9 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
                                                     <Typography variant="small" color="blue-gray" className="font-medium">
                                                         {almacenInfo.nombre}
                                                     </Typography>
-                                                    {almacenInfo.codigo && (
-                                                        <Typography variant="small" color="gray" className="text-xs mt-0.5">
-                                                            {almacenInfo.codigo}
-                                                        </Typography>
-                                                    )}
+                                                    <Typography variant="small" color="gray" className="text-xs mt-0.5">
+                                                        {almacenInfo.codigo} • {almacenInfo.ciudad}
+                                                    </Typography>
                                                 </div>
                                             </td>
                                             <td className="px-4 py-3">
@@ -824,7 +673,7 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
                                                                 variant="text"
                                                                 color="green"
                                                                 size="sm"
-                                                                onClick={() => handleEnviarLaboratorio(material.id)}
+                                                                onClick={() => handleEnviarLaboratorio(material.id, material.codigo_interno)}
                                                                 disabled={loading}
                                                             >
                                                                 <IoPlay className="h-4 w-4" />
