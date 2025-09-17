@@ -187,6 +187,24 @@ export const useDevolucion = () => {
         }
     }, []);
 
+    const getMaterialesParaDevolucion = useCallback(async () => {
+        try {
+            setLoading(true);
+            setError(null);
+
+            const response = await api.get('/almacenes/devoluciones/materiales_disponibles/');
+
+            return { success: true, data: response.data };
+        } catch (error) {
+            console.error('Error al cargar materiales para devolución:', error);
+            const errorMessage = error.response?.data?.error || 'Error al cargar materiales defectuosos';
+            setError(errorMessage);
+            return { success: false, error: errorMessage };
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
     return {
         devoluciones,
         loading,
@@ -200,7 +218,8 @@ export const useDevolucion = () => {
         getDevolucionMateriales,
         getDevolucionSeguimiento,
         getEstadisticasDevoluciones,
-        registrarReingreso
+        registrarReingreso,
+        getMaterialesParaDevolucion,
     };
 };
 

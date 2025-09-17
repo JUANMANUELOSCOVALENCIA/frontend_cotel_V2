@@ -89,6 +89,65 @@ export const useLaboratorio = () => {
         }
     }, []);
 
+    const registrarInspeccion = useCallback(async (inspeccionData) => {
+        try {
+            setLoading(true);
+            setError(null);
+
+            // ✅ CORREGIR: Usar 'api' en lugar de 'apiService'
+            const response = await api.post('/almacenes/laboratorio/inspeccion/', inspeccionData);
+
+            if (response.data) {
+                return {
+                    success: true,
+                    data: response.data
+                };
+            } else {
+                return {
+                    success: false,
+                    error: 'No se recibió respuesta del servidor'
+                };
+            }
+        } catch (error) {
+            console.error('Error en registrarInspeccion:', error);
+            const errorMessage = error.response?.data?.error ||
+                error.response?.data?.message ||
+                'Error al registrar inspección';
+            setError(errorMessage);
+            return {
+                success: false,
+                error: errorMessage
+            };
+        } finally {
+            setLoading(false);
+        }
+    }, []); // ✅ AGREGAR: useCallback con dependencias vacías
+
+    const getHistorialInspecciones = useCallback(async (params = {}) => {
+        try {
+            setLoading(true);
+            setError(null);
+
+            // Construir query params
+            const queryParams = new URLSearchParams();
+            if (params.material_id) queryParams.append('material_id', params.material_id);
+            if (params.days) queryParams.append('days', params.days);
+
+            const response = await api.get(`/almacenes/laboratorio/inspeccion/?${queryParams}`);
+
+            return { success: true, data: response.data };
+        } catch (error) {
+            console.error('Error al cargar historial de inspecciones:', error);
+            const errorMessage = error.response?.data?.error || 'Error al cargar historial de inspecciones';
+            setError(errorMessage);
+            return { success: false, error: errorMessage };
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+
+// ✅ AGREGAR: Exportar la función en el return
     return {
         loading,
         error,
@@ -96,8 +155,9 @@ export const useLaboratorio = () => {
         getDashboard,
         getMaterialesPorTipo,
         enviarMaterialLaboratorio,
-        operacionMasiva
-        // Remover las funciones que no necesitas por ahora
+        operacionMasiva,
+        registrarInspeccion,
+        getHistorialInspecciones,
     };
 };
 

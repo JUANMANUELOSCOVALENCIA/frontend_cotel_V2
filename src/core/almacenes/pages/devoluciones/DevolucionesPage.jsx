@@ -1,4 +1,4 @@
-// src/core/almacenes/pages/devoluciones/DevolucionesPage.jsx - NUEVO
+// src/core/almacenes/pages/devoluciones/DevolucionesPage.jsx - SOLUCIÓN DEFINITIVA
 import React, { useState, useEffect } from 'react';
 import {
     Card,
@@ -143,23 +143,23 @@ const DevolucionesPage = () => {
     }
 
     return (
-        <div className="p-6 space-y-6">
+        <div className="p-6">
             {/* Header */}
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                <div>
-                    <Typography variant="h4" color="blue-gray">
+            <div className="mb-6 flex flex-col space-y-4 lg:space-y-0 lg:flex-row lg:items-center lg:justify-between">
+                <div className="min-w-0 flex-1">
+                    <Typography variant="h4" color="blue-gray" className="truncate">
                         🔄 Gestión de Devoluciones
                     </Typography>
-                    <Typography color="gray">
+                    <Typography color="gray" className="mt-1">
                         Devoluciones de equipos defectuosos a proveedores y reingresos
                     </Typography>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-shrink-0">
                     {permissions?.canCreate && (
                         <Button
                             color="red"
-                            className="flex items-center gap-2"
+                            className="flex items-center gap-2 whitespace-nowrap"
                             onClick={handleCreateDevolucion}
                         >
                             <IoArrowBack className="h-5 w-5" />
@@ -170,7 +170,7 @@ const DevolucionesPage = () => {
                     <Button
                         variant="outlined"
                         color="blue-gray"
-                        className="flex items-center gap-2"
+                        className="flex items-center gap-2 whitespace-nowrap"
                         onClick={loadDevoluciones}
                     >
                         <IoRefresh className="h-5 w-5" />
@@ -180,19 +180,19 @@ const DevolucionesPage = () => {
             </div>
 
             {/* Estadísticas rápidas */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="mb-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <Card>
                     <CardBody className="p-4">
                         <div className="flex items-center justify-between">
-                            <div>
-                                <Typography color="gray" className="mb-1 text-sm">
+                            <div className="min-w-0 flex-1">
+                                <Typography color="gray" className="mb-1 text-sm font-medium">
                                     Total Devoluciones
                                 </Typography>
-                                <Typography variant="h4" color="blue-gray">
+                                <Typography variant="h4" color="blue-gray" className="truncate">
                                     {stats.total}
                                 </Typography>
                             </div>
-                            <div className="rounded-full p-3 bg-blue-50">
+                            <div className="rounded-full p-3 bg-blue-50 flex-shrink-0">
                                 <IoList className="h-6 w-6 text-blue-500" />
                             </div>
                         </div>
@@ -202,15 +202,15 @@ const DevolucionesPage = () => {
                 <Card>
                     <CardBody className="p-4">
                         <div className="flex items-center justify-between">
-                            <div>
-                                <Typography color="gray" className="mb-1 text-sm">
+                            <div className="min-w-0 flex-1">
+                                <Typography color="gray" className="mb-1 text-sm font-medium">
                                     Pendientes
                                 </Typography>
-                                <Typography variant="h4" color="amber">
+                                <Typography variant="h4" color="amber" className="truncate">
                                     {stats.pendientes}
                                 </Typography>
                             </div>
-                            <div className="rounded-full p-3 bg-amber-50">
+                            <div className="rounded-full p-3 bg-amber-50 flex-shrink-0">
                                 <IoTime className="h-6 w-6 text-amber-500" />
                             </div>
                         </div>
@@ -220,15 +220,15 @@ const DevolucionesPage = () => {
                 <Card>
                     <CardBody className="p-4">
                         <div className="flex items-center justify-between">
-                            <div>
-                                <Typography color="gray" className="mb-1 text-sm">
+                            <div className="min-w-0 flex-1">
+                                <Typography color="gray" className="mb-1 text-sm font-medium">
                                     Enviadas
                                 </Typography>
-                                <Typography variant="h4" color="blue">
+                                <Typography variant="h4" color="blue" className="truncate">
                                     {stats.enviadas}
                                 </Typography>
                             </div>
-                            <div className="rounded-full p-3 bg-blue-50">
+                            <div className="rounded-full p-3 bg-blue-50 flex-shrink-0">
                                 <IoSend className="h-6 w-6 text-blue-500" />
                             </div>
                         </div>
@@ -238,15 +238,15 @@ const DevolucionesPage = () => {
                 <Card>
                     <CardBody className="p-4">
                         <div className="flex items-center justify-between">
-                            <div>
-                                <Typography color="gray" className="mb-1 text-sm">
+                            <div className="min-w-0 flex-1">
+                                <Typography color="gray" className="mb-1 text-sm font-medium">
                                     Confirmadas
                                 </Typography>
-                                <Typography variant="h4" color="green">
+                                <Typography variant="h4" color="green" className="truncate">
                                     {stats.confirmadas}
                                 </Typography>
                             </div>
-                            <div className="rounded-full p-3 bg-green-50">
+                            <div className="rounded-full p-3 bg-green-50 flex-shrink-0">
                                 <IoCheckmarkCircle className="h-6 w-6 text-green-500" />
                             </div>
                         </div>
@@ -256,31 +256,54 @@ const DevolucionesPage = () => {
 
             {/* Alertas */}
             {error && (
-                <Alert color="red">
-                    <IoWarning className="h-5 w-5" />
-                    {error}
-                </Alert>
+                <div className="mb-6">
+                    <Alert color="red" className="flex items-center gap-3">
+                        <IoWarning className="h-5 w-5 flex-shrink-0" />
+                        <span className="truncate">{error}</span>
+                    </Alert>
+                </div>
             )}
 
-            {/* Tabs principales */}
-            <Card>
-                <Tabs value={activeTab} onChange={setActiveTab}>
-                    <CardHeader>
-                        <TabsHeader>
+            {/* TABS - Completamente aislados */}
+            <div className="w-full" style={{ position: 'relative', zIndex: 50 }}>
+                <Card className="border border-gray-200 shadow-lg">
+                    <CardHeader
+                        floated={false}
+                        shadow={false}
+                        className="rounded-t-lg border-b border-gray-200 p-0"
+                        style={{ position: 'relative', zIndex: 51 }}
+                    >
+                        <div
+                            className="grid grid-cols-2 lg:grid-cols-4 bg-gray-50"
+                            style={{ position: 'relative', zIndex: 52 }}
+                        >
                             {tabs.map(({ value, label, icon: Icon }) => (
-                                <Tab key={value} value={value}>
-                                    <div className="flex items-center gap-2">
-                                        <Icon className="h-4 w-4" />
+                                <button
+                                    key={value}
+                                    onClick={() => setActiveTab(value)}
+                                    className={`
+                                        px-4 py-4 flex items-center justify-center gap-2 
+                                        border-r border-gray-200 last:border-r-0
+                                        transition-all duration-200 hover:bg-gray-100
+                                        ${activeTab === value
+                                        ? 'bg-blue-500 text-white border-blue-500'
+                                        : 'text-gray-600 hover:text-gray-800'
+                                    }
+                                    `}
+                                    style={{ position: 'relative', zIndex: 53 }}
+                                >
+                                    <Icon className="h-4 w-4" />
+                                    <span className="text-sm lg:text-base font-medium">
                                         {label}
-                                    </div>
-                                </Tab>
+                                    </span>
+                                </button>
                             ))}
-                        </TabsHeader>
+                        </div>
                     </CardHeader>
 
-                    <CardBody>
-                        <TabsBody>
-                            <TabPanel value="lista">
+                    <CardBody className="p-6">
+                        <div className="min-h-96">
+                            {activeTab === 'lista' && (
                                 <DevolucionesList
                                     devoluciones={devoluciones}
                                     loading={loading}
@@ -290,9 +313,9 @@ const DevolucionesPage = () => {
                                     filtros={filtros}
                                     setFiltros={setFiltros}
                                 />
-                            </TabPanel>
+                            )}
 
-                            <TabPanel value="pendientes">
+                            {activeTab === 'pendientes' && (
                                 <DevolucionesList
                                     devoluciones={devoluciones.filter(d => d.estado_info?.codigo === 'PENDIENTE')}
                                     loading={loading}
@@ -303,9 +326,9 @@ const DevolucionesPage = () => {
                                     title="📋 Devoluciones Pendientes"
                                     subtitle="Devoluciones que requieren ser enviadas al proveedor"
                                 />
-                            </TabPanel>
+                            )}
 
-                            <TabPanel value="enviadas">
+                            {activeTab === 'enviadas' && (
                                 <DevolucionesList
                                     devoluciones={devoluciones.filter(d => d.estado_info?.codigo === 'ENVIADO')}
                                     loading={loading}
@@ -316,18 +339,18 @@ const DevolucionesPage = () => {
                                     title="📤 Devoluciones Enviadas"
                                     subtitle="Devoluciones enviadas esperando respuesta del proveedor"
                                 />
-                            </TabPanel>
+                            )}
 
-                            <TabPanel value="estadisticas">
+                            {activeTab === 'estadisticas' && (
                                 <DevolucionesStats
                                     devoluciones={devoluciones}
                                     stats={stats}
                                 />
-                            </TabPanel>
-                        </TabsBody>
+                            )}
+                        </div>
                     </CardBody>
-                </Tabs>
-            </Card>
+                </Card>
+            </div>
 
             {/* Diálogos */}
             <CrearDevolucionDialog

@@ -24,13 +24,16 @@ import {
     IoFlask,
     IoWifi,
     IoHardwareChip,
-    IoTimerOutline
+    IoTimerOutline,
+    IoPersonCircle,
 } from 'react-icons/io5';
 import { useForm, Controller } from 'react-hook-form';
 import { toast } from 'react-hot-toast';
 import { useLaboratorio } from '../../hooks/useLaboratorio';
+import { useAuth } from '../../../auth/context/AuthContext';
 
 const InspeccionDetalle = () => {
+    const { user } = useAuth();
     const [materialesDisponibles, setMaterialesDisponibles] = useState([]);
     const [materialSeleccionado, setMaterialSeleccionado] = useState(null);
     const [tiempoInicio, setTiempoInicio] = useState(null);
@@ -60,7 +63,7 @@ const InspeccionDetalle = () => {
             puerto_ethernet_ok: true,
             puerto_lan_ok: true,
             aprobado: true,
-            tecnico_revisor: '',
+            tecnico_revisor: user?.codigocotel || '',
             observaciones_tecnico: '',
             comentarios_adicionales: '',
             fallas_detectadas: []
@@ -129,7 +132,7 @@ const InspeccionDetalle = () => {
             puerto_ethernet_ok: true,
             puerto_lan_ok: true,
             aprobado: true,
-            tecnico_revisor: '',
+            tecnico_revisor: user?.codigocotel || '',
             observaciones_tecnico: '',
             comentarios_adicionales: '',
             fallas_detectadas: []
@@ -160,7 +163,7 @@ const InspeccionDetalle = () => {
                 observaciones_tecnico: data.observaciones_tecnico || '',
                 comentarios_adicionales: data.comentarios_adicionales || '',
                 fallas_detectadas: data.fallas_detectadas || [],
-                tecnico_revisor: data.tecnico_revisor || '',
+                tecnico_revisor: user?.codigocotel || '',
                 tiempo_inspeccion_minutos: calcularTiempoInspeccion()
             };
 
@@ -172,7 +175,9 @@ const InspeccionDetalle = () => {
                 // Limpiar formulario y recargar lista
                 setMaterialSeleccionado(null);
                 setTiempoInicio(null);
-                reset();
+                reset({
+                    tecnico_revisor: user?.codigocotel || '',
+                });
                 loadMaterialesEnLaboratorio();
             } else {
                 toast.error(result.error);
@@ -246,12 +251,18 @@ const InspeccionDetalle = () => {
                                         onClick={() => handleSeleccionarMaterial(material)}
                                     >
                                         <CardBody className="p-3">
-                                            <Typography variant="small" color="blue-gray" className="font-medium">
+                                            <Typography variant="small" color="blue-gray" className="font-medium mb-2">
                                                 {material.codigo_interno}
                                             </Typography>
-                                            <Typography variant="small" color="gray" className="font-mono">
-                                                {material.mac_address}
-                                            </Typography>
+                                            {/* ✅ MODIFICAR: Mostrar MAC y GPON */}
+                                            <div className="space-y-1 mb-2">
+                                                <Typography variant="small" color="gray" className="font-mono text-xs">
+                                                    MAC: {material.mac_address}
+                                                </Typography>
+                                                <Typography variant="small" color="gray" className="font-mono text-xs">
+                                                    GPON: {material.gpon_serial}
+                                                </Typography>
+                                            </div>
                                             <div className="flex items-center justify-between mt-2">
                                                 <Typography variant="small" color="gray">
                                                     {material.modelo}
@@ -311,9 +322,14 @@ const InspeccionDetalle = () => {
                                             <Typography variant="small" className="font-medium">
                                                 Inspeccionando: {materialSeleccionado.codigo_interno}
                                             </Typography>
-                                            <Typography variant="small">
-                                                MAC: {materialSeleccionado.mac_address} | Modelo: {materialSeleccionado.modelo}
-                                            </Typography>
+                                            <div className="flex flex-col gap-1 mt-1">
+                                                <Typography variant="small">
+                                                    MAC: {materialSeleccionado.mac_address}
+                                                </Typography>
+                                                <Typography variant="small">
+                                                    GPON: {materialSeleccionado.gpon_serial} | Modelo: {materialSeleccionado.modelo}
+                                                </Typography>
+                                            </div>
                                         </div>
                                     </div>
                                 </Alert>
@@ -325,11 +341,37 @@ const InspeccionDetalle = () => {
                                         {...register('numero_informe', { required: true })}
                                         error={!!errors.numero_informe}
                                     />
-                                    <Input
-                                        label="Técnico Revisor"
-                                        {...register('tecnico_revisor')}
-                                        placeholder="Código o nombre del técnico"
-                                    />
+
+                                    {/* ✅ CAMPO MEJORADO: Mostrar código + nombre completo */}
+                                    <div>
+                                        <Typography variant="small" color="blue-gray" className="font-medium mb-2">
+                                            Técnico Revisor
+                                        </Typography>
+                                        <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                            <div className="p-2 bg-blue-100 rounded-full">
+                                                <IoPersonCircle className="h-6 w-6 text-blue-600" />
+                                            </div>
+                                            <div className="flex-1">
+                                                <Typography variant="small" color="blue-gray" className="font-bold">
+                                                    {user?.codigocotel || 'Sin código'} - {user?.nombres || 'Usuario actual'}
+                                                </Typography>
+                                                <Typography variant="small" color="gray" className="text-xs">
+                                                    Técnico responsable de la inspección
+                                                </Typography>
+                                            </div>
+                                            <div className="bg-green-100 px-2 py-1 rounded-full">
+                                                <Typography variant="small" color="green" className="text-xs font-medium">
+                                                    Auto-asignado
+                                                </Typography>
+                                            </div>
+                                        </div>
+                                        {/* Campo oculto para el formulario */}
+                                        <input
+                                            type="hidden"
+                                            {...register('tecnico_revisor')}
+                                            value={user?.codigocotel || ''}
+                                        />
+                                    </div>
                                 </div>
 
                                 {/* Pruebas técnicas */}

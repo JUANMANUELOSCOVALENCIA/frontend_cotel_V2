@@ -1,4 +1,4 @@
-// src/core/almacenes/pages/laboratorio/HistorialInspecciones.jsx - LIMPIO
+// src/core/almacenes/pages/laboratorio/HistorialInspecciones.jsx - DISEÑO ORIGINAL MEJORADO
 import React, { useState, useEffect } from 'react';
 import {
     Card,
@@ -103,25 +103,31 @@ const DetalleInspeccionDialog = ({ open, onClose, inspeccion }) => {
                                 <div>
                                     <Typography color="gray" className="text-sm font-medium">Código:</Typography>
                                     <Typography color="blue-gray" className="font-mono">
-                                        {inspeccion.codigo || inspeccion.numero_informe}
+                                        {inspeccion.material?.codigo_interno || inspeccion.numero_informe}
                                     </Typography>
                                 </div>
                                 <div>
                                     <Typography color="gray" className="text-sm font-medium">Modelo:</Typography>
                                     <Typography color="blue-gray">
-                                        {inspeccion.modelo || inspeccion.material?.modelo || 'N/A'}
+                                        {inspeccion.material?.modelo?.marca} {inspeccion.material?.modelo?.nombre || 'N/A'}
                                     </Typography>
                                 </div>
                                 <div>
-                                    <Typography color="gray" className="text-sm font-medium">Serie:</Typography>
+                                    <Typography color="gray" className="text-sm font-medium">MAC:</Typography>
                                     <Typography color="blue-gray" className="font-mono">
-                                        {inspeccion.serie || inspeccion.material?.mac_address || 'N/A'}
+                                        {inspeccion.material?.mac_address || 'N/A'}
                                     </Typography>
                                 </div>
                                 <div>
-                                    <Typography color="gray" className="text-sm font-medium">Marca:</Typography>
+                                    <Typography color="gray" className="text-sm font-medium">GPON:</Typography>
+                                    <Typography color="blue-gray" className="font-mono">
+                                        {inspeccion.material?.gpon_serial || 'N/A'}
+                                    </Typography>
+                                </div>
+                                <div>
+                                    <Typography color="gray" className="text-sm font-medium">Lote:</Typography>
                                     <Typography color="blue-gray">
-                                        {inspeccion.marca || inspeccion.material?.marca || 'N/A'}
+                                        {inspeccion.material?.lote?.numero_lote || 'N/A'}
                                     </Typography>
                                 </div>
                             </div>
@@ -304,9 +310,12 @@ const HistorialInspecciones = () => {
     const inspeccionesFiltradas = inspecciones.filter(inspeccion => {
         const cumpleFiltro = !filtro ||
             inspeccion.numero_informe?.toLowerCase().includes(filtro.toLowerCase()) ||
-            inspeccion.material?.modelo?.toLowerCase().includes(filtro.toLowerCase()) ||
+            inspeccion.material?.modelo?.nombre?.toLowerCase().includes(filtro.toLowerCase()) ||
+            inspeccion.material?.modelo?.marca?.toLowerCase().includes(filtro.toLowerCase()) ||
             inspeccion.tecnico_revisor?.toLowerCase().includes(filtro.toLowerCase()) ||
-            inspeccion.material?.mac_address?.toLowerCase().includes(filtro.toLowerCase());
+            inspeccion.material?.mac_address?.toLowerCase().includes(filtro.toLowerCase()) ||
+            inspeccion.material?.gpon_serial?.toLowerCase().includes(filtro.toLowerCase()) ||
+            inspeccion.material?.lote?.numero_lote?.toLowerCase().includes(filtro.toLowerCase());
 
         const cumpleEstado = estado === 'todos' ||
             (estado === 'aprobado' && inspeccion.aprobado === true) ||
@@ -504,81 +513,79 @@ const HistorialInspecciones = () => {
                                 return (
                                     <div
                                         key={inspeccion.id}
-                                        className="p-6 hover:bg-gray-50 transition-colors cursor-pointer"
-                                        onClick={() => handleVerDetalle(inspeccion)}
+                                        className="p-6 hover:bg-gray-50 transition-colors"
                                     >
                                         <div className="flex items-center justify-between">
-                                            <div className="flex-1 grid grid-cols-1 md:grid-cols-6 gap-4">
-                                                <div>
-                                                    <Typography variant="h6" color="blue-gray" className="font-bold mb-1">
-                                                        {inspeccion.numero_informe || `INS-${inspeccion.id}`}
-                                                    </Typography>
-                                                    <Typography color="gray" className="text-sm">
-                                                        {inspeccion.material?.modelo || 'N/A'}
-                                                    </Typography>
-                                                </div>
-
-                                                <div>
-                                                    <Typography color="gray" className="text-sm font-medium">Marca</Typography>
-                                                    <Typography color="blue-gray" className="font-medium">
-                                                        {inspeccion.material?.marca || inspeccion.marca || 'N/A'}
-                                                    </Typography>
-                                                </div>
-
-                                                <div>
-                                                    <Typography color="gray" className="text-sm font-medium">MAC Address</Typography>
-                                                    <Typography color="blue-gray" className="font-mono text-sm">
-                                                        {inspeccion.material?.mac_address || 'N/A'}
-                                                    </Typography>
-                                                </div>
-
-                                                <div>
-                                                    <Typography color="gray" className="text-sm font-medium">Lote</Typography>
-                                                    <Typography color="blue-gray" className="font-medium">
-                                                        {inspeccion.material?.lote || inspeccion.lote || 'N/A'}
-                                                    </Typography>
-                                                </div>
-
-                                                <div>
-                                                    <Typography color="gray" className="text-sm font-medium">Técnico</Typography>
-                                                    <Typography color="blue-gray" className="font-medium">
-                                                        {inspeccion.tecnico_revisor || 'No asignado'}
-                                                    </Typography>
-                                                </div>
-
-                                                <div className="flex items-center justify-between">
-                                                    <div>
-                                                        <Typography color="gray" className="text-sm font-medium">Fecha</Typography>
-                                                        <Typography color="blue-gray" className="font-medium text-sm">
-                                                            {formatFecha(inspeccion.created_at)}
+                                            <div className="flex-1 min-w-0">
+                                                <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+                                                    <div className="md:col-span-1">
+                                                        <Typography variant="h6" color="blue-gray" className="font-bold mb-1 truncate">
+                                                            {inspeccion.numero_informe || `INS-${inspeccion.id}`}
+                                                        </Typography>
+                                                        <Typography color="gray" className="text-sm truncate">
+                                                            {inspeccion.material?.modelo?.nombre}
                                                         </Typography>
                                                     </div>
 
-                                                    <div className="flex items-center gap-2">
-                                                        <Chip
-                                                            size="sm"
-                                                            variant="gradient"
-                                                            color={resultadoConfig.color}
-                                                            value={inspeccion.aprobado ? 'APROBADO' : 'RECHAZADO'}
-                                                            icon={<IconoResultado className="h-3 w-3" />}
-                                                            className="font-bold"
-                                                        />
+                                                    <div className="md:col-span-1">
+                                                        <Typography color="gray" className="text-sm font-medium">Marca</Typography>
+                                                        <Typography color="blue-gray" className="font-medium truncate">
+                                                            {inspeccion.material?.modelo?.marca || 'N/A'}
+                                                        </Typography>
+                                                    </div>
 
-                                                        <Tooltip content="Ver detalles">
-                                                            <IconButton
-                                                                variant="text"
-                                                                color="blue"
-                                                                size="sm"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleVerDetalle(inspeccion);
-                                                                }}
-                                                            >
-                                                                <IoEye className="h-4 w-4" />
-                                                            </IconButton>
-                                                        </Tooltip>
+                                                    <div className="md:col-span-1">
+                                                        <Typography color="gray" className="text-sm font-medium">MAC Address</Typography>
+                                                        <Typography color="blue-gray" className="font-mono text-sm truncate">
+                                                            {inspeccion.material?.mac_address || 'N/A'}
+                                                        </Typography>
+                                                    </div>
+
+                                                    <div className="md:col-span-1">
+                                                        <Typography color="gray" className="text-sm font-medium">Lote</Typography>
+                                                        <Typography color="blue-gray" className="font-medium truncate">
+                                                            {inspeccion.material?.lote?.numero_lote || 'N/A'}
+                                                        </Typography>
+                                                    </div>
+
+                                                    <div className="md:col-span-1">
+                                                        <Typography color="gray" className="text-sm font-medium">Técnico</Typography>
+                                                        <Typography color="blue-gray" className="font-medium truncate">
+                                                            {inspeccion.tecnico_revisor || 'No asignado'}
+                                                        </Typography>
+                                                    </div>
+
+                                                    <div className="md:col-span-1">
+                                                        <Typography color="gray" className="text-sm font-medium">Fecha</Typography>
+                                                        <Typography color="blue-gray" className="font-medium text-sm">
+                                                            {formatFecha(inspeccion.fecha_inspeccion)}
+                                                        </Typography>
                                                     </div>
                                                 </div>
+                                            </div>
+
+                                            {/* Columna de acciones fija */}
+                                            <div className="flex items-center gap-3 ml-4 flex-shrink-0">
+                                                <Chip
+                                                    size="sm"
+                                                    variant="gradient"
+                                                    color={resultadoConfig.color}
+                                                    value={inspeccion.aprobado ? 'APROBADO' : 'RECHAZADO'}
+                                                    icon={<IconoResultado className="h-3 w-3" />}
+                                                    className="font-bold"
+                                                />
+
+                                                <Tooltip content="Ver detalles">
+                                                    <IconButton
+                                                        variant="text"
+                                                        color="blue"
+                                                        size="sm"
+                                                        onClick={() => handleVerDetalle(inspeccion)}
+                                                        className="flex-shrink-0"
+                                                    >
+                                                        <IoEye className="h-4 w-4" />
+                                                    </IconButton>
+                                                </Tooltip>
                                             </div>
                                         </div>
 
