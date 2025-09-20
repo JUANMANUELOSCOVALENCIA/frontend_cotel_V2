@@ -250,17 +250,7 @@ const ModeloRow = React.memo(({
 
     return (
         <tr className="hover:bg-blue-gray-50/50">
-            <td className={classes}>
-                <div>
-                    <Typography variant="small" color="blue-gray" className="font-semibold">
-                        {modelo.nombre}
-                    </Typography>
-                    <Typography variant="small" color="gray" className="font-mono">
-                        {modelo.codigo_modelo}
-                    </Typography>
-                </div>
-            </td>
-
+            {/* PRIMERA COLUMNA: Marca & Tipo */}
             <td className={classes}>
                 <div>
                     <Typography variant="small" color="blue-gray" className="font-medium">
@@ -277,6 +267,19 @@ const ModeloRow = React.memo(({
                 </div>
             </td>
 
+            {/* SEGUNDA COLUMNA: Modelo */}
+            <td className={classes}>
+                <div>
+                    <Typography variant="small" color="blue-gray" className="font-semibold">
+                        {modelo.nombre}
+                    </Typography>
+                    <Typography variant="small" color="gray" className="font-mono">
+                        {modelo.codigo_modelo}
+                    </Typography>
+                </div>
+            </td>
+
+            {/* TERCERA COLUMNA: Especificaciones */}
             <td className={classes}>
                 <div>
                     <Typography variant="small" color="blue-gray">
@@ -297,6 +300,7 @@ const ModeloRow = React.memo(({
                 </div>
             </td>
 
+            {/* CUARTA COLUMNA: Materiales */}
             <td className={classes}>
                 <div className="flex flex-col">
                     <Typography variant="small" color="blue-gray" className="font-medium">
@@ -308,6 +312,7 @@ const ModeloRow = React.memo(({
                 </div>
             </td>
 
+            {/* QUINTA COLUMNA: Estado */}
             <td className={classes}>
                 <Chip
                     variant="ghost"
@@ -324,6 +329,7 @@ const ModeloRow = React.memo(({
                 />
             </td>
 
+            {/* SEXTA COLUMNA: Acciones */}
             <td className={classes}>
                 <div className="flex items-center gap-2">
                     {canEdit && (
@@ -414,7 +420,7 @@ const ModelosTable = React.memo(({
                                         color="blue-gray"
                                         className="font-normal leading-none opacity-70"
                                     >
-                                        Modelo
+                                        Marca & Tipo
                                     </Typography>
                                 </th>
                                 <th className="border-b border-blue-gray-100 bg-blue-gray-50 p-4">
@@ -423,7 +429,7 @@ const ModelosTable = React.memo(({
                                         color="blue-gray"
                                         className="font-normal leading-none opacity-70"
                                     >
-                                        Marca & Tipo
+                                        Modelo
                                     </Typography>
                                 </th>
                                 <th className="border-b border-blue-gray-100 bg-blue-gray-50 p-4">

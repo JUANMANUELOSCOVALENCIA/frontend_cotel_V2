@@ -186,20 +186,6 @@ const Navbar = () => {
             type: 'dropdown',
             submenu: [
                 {
-                    label: 'Gestión de Lotes',
-                    href: '/almacenes/lotes',
-                    icon: IoArchive,
-                    permissions: [{ recurso: 'almacenes', accion: 'leer' }],
-                    description: 'Administrar inventario y almacenes'
-                },
-                {
-                    label: 'Equipos ONU',
-                    href: '/almacenes/onus',
-                    icon: IoCloudUpload,
-                    permissions: [{ recurso: 'almacenes', accion: 'leer' }],
-                    description: 'Equipos ONU'
-                },
-                {
                     label: 'Descripciones',
                     icon: IoDocument,
                     permissions: [{ recurso: 'almacenes', accion: 'leer' }],
@@ -234,6 +220,20 @@ const Navbar = () => {
                             description: 'Gestión de almacenes'
                         }
                     ]
+                },
+                {
+                    label: 'Gestión de Lotes',
+                    href: '/almacenes/lotes',
+                    icon: IoArchive,
+                    permissions: [{ recurso: 'almacenes', accion: 'leer' }],
+                    description: 'Administrar inventario y almacenes'
+                },
+                {
+                    label: 'Equipos ONU',
+                    href: '/almacenes/onus',
+                    icon: IoCloudUpload,
+                    permissions: [{ recurso: 'almacenes', accion: 'leer' }],
+                    description: 'Equipos ONU'
                 },
                 {
                     label: 'Devoluciones',

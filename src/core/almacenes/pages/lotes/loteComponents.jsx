@@ -384,149 +384,170 @@ export const LoteDetailCard = ({ lote, onClose, onImport, permissions }) => {
     };
 
     return (
-        <Card className="w-full max-w-4xl">
-            <CardHeader className="flex items-center justify-between">
-                <div>
-                    <Typography variant="h5" color="blue-gray">
-                        Lote: {lote.numero_lote}
-                    </Typography>
-                    <Typography color="gray">
-                        {lote.proveedor_info?.nombre_comercial}
-                    </Typography>
-                </div>
-                <div className="flex items-center gap-2">
-                    {permissions?.canImport && lote.estado_info?.codigo !== 'CERRADO' && (
-                        <Button
-                            size="sm"
-                            color="green"
-                            variant="gradient"
-                            className="flex items-center gap-2"
-                            onClick={() => onImport(lote)}
-                        >
-                            <IoCloudUpload className="h-4 w-4" />
-                            Importar Materiales
-                        </Button>
-                    )}
-                    <IconButton variant="text" color="gray" onClick={onClose}>
-                        <IoClose className="h-5 w-5" />
-                    </IconButton>
+        <Card className="w-full">
+            <CardHeader className="bg-white border-b border-gray-200 px-6 py-4">
+                <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                        <Typography variant="h4" color="blue-gray" className="font-semibold">
+                            Lote #{lote.numero_lote}
+                        </Typography>
+                        <Typography color="gray" className="text-base">
+                            {lote.proveedor_info?.nombre_comercial}
+                        </Typography>
+                    </div>
+                    <Chip
+                        variant="gradient"
+                        color={getEstadoColor(lote.estado_info?.codigo)}
+                        value={lote.estado_info?.nombre || 'Sin estado'}
+                        className="font-medium"
+                    />
                 </div>
             </CardHeader>
 
-            <CardBody className="space-y-6">
-                {/* Estado y Progreso */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                        <Typography variant="small" color="gray" className="mb-1">
-                            Estado
-                        </Typography>
-                        <Chip
-                            variant="gradient"
-                            color={getEstadoColor(lote.estado_info?.codigo)}
-                            value={lote.estado_info?.nombre || 'Sin estado'}
+            <CardBody className="px-6 py-8">
+                <div className="space-y-8">
+                    {/* Progreso de Recepción */}
+                    <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
+                        <div className="flex justify-between items-center mb-4">
+                            <Typography variant="h6" color="blue-gray" className="font-semibold">
+                                Progreso de Recepción
+                            </Typography>
+                            <div className="text-right">
+                                <Typography variant="h5" color="blue-gray" className="font-bold">
+                                    {lote.porcentaje_recibido || 0}%
+                                </Typography>
+                                <Typography variant="small" color="gray">
+                                    {lote.cantidad_recibida || 0} de {lote.cantidad_total || 0} unidades
+                                </Typography>
+                            </div>
+                        </div>
+                        <Progress
+                            value={lote.porcentaje_recibido || 0}
+                            color={lote.porcentaje_recibido === 100 ? 'green' : lote.porcentaje_recibido > 0 ? 'blue' : 'gray'}
+                            className="h-2"
                         />
                     </div>
-                    <div>
-                        <Typography variant="small" color="gray" className="mb-1">
-                            Tipo de Ingreso
-                        </Typography>
-                        <Chip
-                            variant="ghost"
-                            color="blue"
-                            value={lote.tipo_ingreso_info?.nombre || 'N/A'}
-                        />
-                    </div>
-                    <div>
-                        <Typography variant="small" color="gray" className="mb-1">
-                            Almacén Destino
-                        </Typography>
-                        <Typography color="blue-gray" className="font-medium">
-                            {lote.almacen_destino_info?.nombre || 'N/A'}
-                        </Typography>
-                    </div>
-                </div>
 
-                {/* Progreso de Recepción */}
-                <div>
-                    <div className="flex justify-between items-center mb-2">
-                        <Typography variant="small" color="gray">
-                            Progreso de Recepción
-                        </Typography>
-                        <Typography variant="small" color="blue-gray" className="font-medium">
-                            {lote.cantidad_recibida || 0} / {lote.cantidad_total || 0} ({lote.porcentaje_recibido || 0}%)
-                        </Typography>
-                    </div>
-                    <Progress
-                        value={lote.porcentaje_recibido || 0}
-                        color={lote.porcentaje_recibido === 100 ? 'green' : lote.porcentaje_recibido > 0 ? 'amber' : 'gray'}
-                    />
-                </div>
-
-                {/* Información de Fechas */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="flex items-center gap-3">
-                        <IoCalendar className="h-5 w-5 text-blue-500" />
+                    {/* Información General */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div>
-                            <Typography variant="small" color="gray">
-                                Fecha Recepción
+                            <Typography variant="h6" color="blue-gray" className="font-semibold mb-3 border-b border-gray-200 pb-2">
+                                Tipo de Ingreso
                             </Typography>
-                            <Typography color="blue-gray" className="font-medium">
-                                {formatDate(lote.fecha_recepcion)}
-                            </Typography>
+                            <Chip
+                                variant="ghost"
+                                color="blue"
+                                value={lote.tipo_ingreso_info?.nombre || 'N/A'}
+                                className="w-fit"
+                            />
                         </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <IoCheckmarkCircle className="h-5 w-5 text-green-500" />
-                        <div>
-                            <Typography variant="small" color="gray">
-                                Inicio Garantía
-                            </Typography>
-                            <Typography color="blue-gray" className="font-medium">
-                                {formatDate(lote.fecha_inicio_garantia)}
-                            </Typography>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <IoWarning className="h-5 w-5 text-amber-500" />
-                        <div>
-                            <Typography variant="small" color="gray">
-                                Fin Garantía
-                            </Typography>
-                            <Typography color="blue-gray" className="font-medium">
-                                {formatDate(lote.fecha_fin_garantia)}
-                            </Typography>
-                        </div>
-                    </div>
-                </div>
 
-                {/* Observaciones */}
-                {lote.observaciones && (
+                        <div>
+                            <Typography variant="h6" color="blue-gray" className="font-semibold mb-3 border-b border-gray-200 pb-2">
+                                Almacén Destino
+                            </Typography>
+                            <Typography color="blue-gray" className="font-medium text-lg">
+                                {lote.almacen_destino_info?.nombre || 'N/A'}
+                            </Typography>
+                        </div>
+                    </div>
+
+                    {/* Información de Fechas */}
                     <div>
-                        <Typography variant="small" color="gray" className="mb-2">
-                            Observaciones
+                        <Typography variant="h6" color="blue-gray" className="font-semibold mb-6 border-b border-gray-200 pb-2">
+                            Fechas Importantes
                         </Typography>
-                        <div className="bg-gray-50 rounded-lg p-3">
-                            <Typography color="blue-gray">
-                                {lote.observaciones}
-                            </Typography>
+
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-4 p-4 bg-blue-50 rounded-lg border-l-4 border-blue-400">
+                                <IoCalendar className="h-6 w-6 text-blue-600 flex-shrink-0" />
+                                <div className="flex-1">
+                                    <Typography variant="small" color="blue-gray" className="font-semibold">
+                                        Fecha de Recepción
+                                    </Typography>
+                                    <Typography color="gray" className="mt-1">
+                                        {formatDate(lote.fecha_recepcion)}
+                                    </Typography>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-4 p-4 bg-green-50 rounded-lg border-l-4 border-green-400">
+                                <IoCheckmarkCircle className="h-6 w-6 text-green-600 flex-shrink-0" />
+                                <div className="flex-1">
+                                    <Typography variant="small" color="blue-gray" className="font-semibold">
+                                        Inicio de Garantía
+                                    </Typography>
+                                    <Typography color="gray" className="mt-1">
+                                        {formatDate(lote.fecha_inicio_garantia)}
+                                    </Typography>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-4 p-4 bg-amber-50 rounded-lg border-l-4 border-amber-400">
+                                <IoWarning className="h-6 w-6 text-amber-600 flex-shrink-0" />
+                                <div className="flex-1">
+                                    <Typography variant="small" color="blue-gray" className="font-semibold">
+                                        Fin de Garantía
+                                    </Typography>
+                                    <Typography color="gray" className="mt-1">
+                                        {formatDate(lote.fecha_fin_garantia)}
+                                    </Typography>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                )}
 
-                {/* Alertas */}
-                {lote.estado_info?.codigo === 'CERRADO' && (
-                    <Alert color="gray">
-                        <IoInformationCircle className="h-5 w-5" />
-                        Este lote está cerrado. No se pueden realizar más operaciones.
-                    </Alert>
-                )}
+                    {/* Observaciones */}
+                    {lote.observaciones && (
+                        <div>
+                            <Typography variant="h6" color="blue-gray" className="font-semibold mb-4 border-b border-gray-200 pb-2">
+                                Observaciones
+                            </Typography>
+                            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                                <Typography color="blue-gray" className="leading-relaxed">
+                                    {lote.observaciones}
+                                </Typography>
+                            </div>
+                        </div>
+                    )}
 
-                {lote.cantidad_pendiente > 0 && (
-                    <Alert color="amber">
-                        <IoWarning className="h-5 w-5" />
-                        Este lote tiene {lote.cantidad_pendiente} materiales pendientes de recepción.
-                    </Alert>
-                )}
+                    {/* Alertas */}
+                    {(lote.estado_info?.codigo === 'CERRADO' || lote.cantidad_pendiente > 0) && (
+                        <div className="space-y-4">
+                            {lote.estado_info?.codigo === 'CERRADO' && (
+                                <Alert color="gray" className="bg-gray-50 border border-gray-300">
+                                    <div className="flex items-start gap-3">
+                                        <IoInformationCircle className="h-5 w-5 mt-1 flex-shrink-0" />
+                                        <div>
+                                            <Typography className="font-semibold text-gray-800">
+                                                Lote Cerrado
+                                            </Typography>
+                                            <Typography className="text-sm text-gray-600 mt-1">
+                                                Este lote está cerrado. No se pueden realizar más operaciones.
+                                            </Typography>
+                                        </div>
+                                    </div>
+                                </Alert>
+                            )}
+
+                            {lote.cantidad_pendiente > 0 && (
+                                <Alert color="amber" className="bg-amber-50 border border-amber-300">
+                                    <div className="flex items-start gap-3">
+                                        <IoWarning className="h-5 w-5 mt-1 flex-shrink-0" />
+                                        <div>
+                                            <Typography className="font-semibold text-amber-800">
+                                                Materiales Pendientes
+                                            </Typography>
+                                            <Typography className="text-sm text-amber-700 mt-1">
+                                                Este lote tiene {lote.cantidad_pendiente} materiales pendientes de recepción.
+                                            </Typography>
+                                        </div>
+                                    </div>
+                                </Alert>
+                            )}
+                        </div>
+                    )}
+                </div>
             </CardBody>
         </Card>
     );

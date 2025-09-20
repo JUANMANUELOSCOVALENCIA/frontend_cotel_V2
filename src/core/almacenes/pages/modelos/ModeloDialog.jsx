@@ -190,7 +190,7 @@ const ModeloDialog = React.memo(({
 
                         <div>
                             <Input
-                                label="Código del Modelo *"
+                                label="Código del Modelo Sistema Sprint *"
                                 {...register('codigo_modelo', {
                                     required: 'El código es obligatorio',
                                     minLength: { value: 2, message: 'Mínimo 2 caracteres' },
@@ -304,7 +304,7 @@ const ModeloDialog = React.memo(({
                     {/* Descripción */}
                     <div>
                         <Textarea
-                            label="Descripción"
+                            label="Descripción Del Equipo ONU"
                             {...register('descripcion', {
                                 maxLength: { value: 255, message: 'Máximo 255 caracteres' }
                             })}

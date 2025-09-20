@@ -570,11 +570,11 @@ const LoteDialogs = ({
                     {/* Códigos de Referencia */}
                     <div>
                         <Typography variant="h6" color="blue-gray" className="mb-3">
-                            🏢 Códigos de Empresa
+                            🏢 Códigos Sistema Sprint
                         </Typography>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <Input
-                                label="Código Requerimiento Compra *"
+                                label="Código Requerimiento Compra Sprint *"
                                 {...register('codigo_requerimiento_compra', {
                                     required: 'El código de requerimiento es obligatorio',
                                     pattern: {
@@ -586,7 +586,7 @@ const LoteDialogs = ({
                             />
 
                             <Input
-                                label="Código Nota Ingreso *"
+                                label="Código Nota Ingreso Sprint*"
                                 {...register('codigo_nota_ingreso', {
                                     required: 'El código de nota de ingreso es obligatorio',
                                     pattern: {
@@ -830,11 +830,11 @@ const LoteDialogs = ({
                     {/* Códigos de Referencia */}
                     <div>
                         <Typography variant="h6" color="blue-gray" className="mb-3">
-                            🏢 Códigos de Empresa
+                            🏢 Códigos Sistema Sprint
                         </Typography>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <Input
-                                label="Código Requerimiento Compra *"
+                                label="Código Requerimiento Compra Sprint *"
                                 {...register('codigo_requerimiento_compra', {
                                     required: 'El código de requerimiento es obligatorio',
                                     pattern: {
@@ -846,7 +846,7 @@ const LoteDialogs = ({
                             />
 
                             <Input
-                                label="Código Nota Ingreso *"
+                                label="Código Nota Ingreso Sprint *"
                                 {...register('codigo_nota_ingreso', {
                                     required: 'El código de nota de ingreso es obligatorio',
                                     pattern: {

@@ -168,7 +168,7 @@ const ProveedorDialog = ({
 
                         <div className="mt-4">
                             <Textarea
-                                label="Razón Social"
+                                label=" Descripcion (Opcional)"
                                 {...register('razon_social', {
                                     maxLength: {
                                         value: 150,

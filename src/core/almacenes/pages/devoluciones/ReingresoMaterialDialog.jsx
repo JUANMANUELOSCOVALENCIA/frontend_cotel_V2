@@ -91,51 +91,50 @@ const ReingresoMaterialDialog = ({ open, onClose, devolucion, opciones, onSucces
             motivo_reingreso: `Reposición por equipo defectuoso - Devolución ${devolucion?.numero_devolucion}`
         });
     };
-
-    const validateUniqueValues = async (field, value) => {
-        try {
-            const response = await api.get('/almacenes/materiales/validar_unicidad/', {
-                params: { [field]: value }
-            });
-            return response.data.unique;
-        } catch (error) {
-            return true; // Asumir único si hay error en validación
-        }
-    };
-
     const handleRegistrarReingreso = async (data) => {
         try {
             setLoading(true);
 
-            // Validar unicidad de valores críticos
-            const macUnique = await validateUniqueValues('mac_address', data.mac_address);
-            const gponUnique = await validateUniqueValues('gpon_serial', data.gpon_serial);
-            const dsnUnique = data.serial_manufacturer ?
-                await validateUniqueValues('serial_manufacturer', data.serial_manufacturer) : true;
-
-            if (!macUnique || !gponUnique || !dsnUnique) {
-                toast.error('Algunos valores ya existen en el sistema. Verifica MAC, GPON Serial y D-SN.');
+            // ✅ VALIDACIÓN BÁSICA LOCAL (opcional)
+            if (!data.mac_address || !data.gpon_serial) {
+                toast.error('MAC Address y GPON Serial son obligatorios');
                 return;
             }
 
+            // ✅ ENVIAR DIRECTAMENTE AL BACKEND (EL BACKEND VALIDA UNICIDAD)
             const reingresoData = {
                 material_original_id: materialOriginal.id,
                 mac_address: data.mac_address.toUpperCase(),
                 gpon_serial: data.gpon_serial,
-                serial_manufacturer: data.serial_manufacturer || '', // Opcional
+                serial_manufacturer: data.serial_manufacturer || '',
                 codigo_item_equipo: data.codigo_item_equipo,
                 motivo_reingreso: data.motivo_reingreso
             };
 
+            console.log('🚀 Enviando datos de reingreso:', reingresoData);
+
             const response = await api.post('/almacenes/materiales/reingreso/', reingresoData);
+
+            console.log('✅ Respuesta del backend:', response.data);
 
             if (response.data.success) {
                 toast.success('Reingreso registrado correctamente');
                 setCurrentStep(2);
                 onSuccess();
+            } else {
+                toast.error(response.data.error || 'Error al registrar reingreso');
             }
         } catch (error) {
-            toast.error(error.response?.data?.error || 'Error al registrar reingreso');
+            console.error('❌ Error completo:', error);
+
+            // ✅ MANEJAR ERRORES DEL BACKEND
+            if (error.response?.data?.error) {
+                toast.error(error.response.data.error);
+            } else if (error.response?.data?.message) {
+                toast.error(error.response.data.message);
+            } else {
+                toast.error('Error al registrar reingreso');
+            }
         } finally {
             setLoading(false);
         }

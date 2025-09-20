@@ -55,7 +55,7 @@ const ProveedorTable = ({ proveedores, loading, onEdit, onDelete, onDetail }) =>
                     </th>
                     <th className="border-b border-blue-gray-100 bg-blue-gray-50 p-4">
                         <Typography variant="small" color="blue-gray" className="font-normal leading-none opacity-70">
-                            Razón Social
+                            Descripcion
                         </Typography>
                     </th>
                     <th className="border-b border-blue-gray-100 bg-blue-gray-50 p-4">

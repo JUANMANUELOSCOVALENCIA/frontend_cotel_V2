@@ -310,9 +310,11 @@ const ImportacionMasivaDialog = ({
                         </div>
 
                         {/* Código Item Equipo */}
-                        <div>
+                        <div className="space-y-2">
+                            <Typography variant="small" color="blue-gray" className="font-medium">
+                                Código Item Equipo Sprint*
+                            </Typography>
                             <Input
-                                label="Código Item Equipo *"
                                 value={itemEquipo}
                                 onChange={(e) => setItemEquipo(e.target.value)}
                                 placeholder="Ej: 1234567890"

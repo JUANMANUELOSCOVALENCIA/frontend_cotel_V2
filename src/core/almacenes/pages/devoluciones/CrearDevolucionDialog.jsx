@@ -65,16 +65,26 @@ const CrearDevolucionDialog = ({ open, onClose, opciones, onSuccess }) => {
     const loadMaterialesDefectuosos = async () => {
         try {
             setLoadingMaterials(true);
-            // Buscar materiales con estado DEFECTUOSO
-            const response = await api.get('/almacenes/materiales/', {
-                params: {
-                    estado_onu: 'DEFECTUOSO',
-                    tipo_material: 'ONU'
-                }
-            });
-            setMaterialesDefectuosos(response.data.results || response.data || []);
+
+            // ✅ USAR EL ENDPOINT CORRECTO (NO EL DE MATERIALES GENERAL)
+            const response = await api.get('/almacenes/devoluciones/materiales_disponibles/');
+
+            console.log('📦 Respuesta del backend:', response.data);
+
+            // ✅ El backend devuelve { success: true, materiales: [...], count: X }
+            if (response.data.success) {
+                setMaterialesDefectuosos(response.data.materiales || []);
+                console.log('✅ Materiales cargados:', response.data.count, 'materiales defectuosos');
+            } else {
+                console.error('❌ Backend retornó error:', response.data.error);
+                toast.error(response.data.error || 'Error al cargar materiales defectuosos');
+                setMaterialesDefectuosos([]);
+            }
+
         } catch (error) {
+            console.error('❌ Error de red:', error);
             toast.error('Error al cargar materiales defectuosos');
+            setMaterialesDefectuosos([]);
         } finally {
             setLoadingMaterials(false);
         }
@@ -83,14 +93,26 @@ const CrearDevolucionDialog = ({ open, onClose, opciones, onSuccess }) => {
     const loadMaterialesPorLote = async (loteId) => {
         try {
             setLoadingMaterials(true);
-            const response = await api.get(`/almacenes/lotes/${loteId}/materiales/`, {
+
+            // ✅ USAR EL ENDPOINT CORRECTO CON FILTRO DE LOTE
+            const response = await api.get('/almacenes/devoluciones/materiales_disponibles/', {
                 params: {
-                    estado_onu: 'DEFECTUOSO'
+                    lote_id: loteId  // ✅ Este filtro SÍ está implementado en el backend
                 }
             });
-            setMaterialesDefectuosos(response.data || []);
+
+            if (response.data.success) {
+                setMaterialesDefectuosos(response.data.materiales || []);
+                console.log('✅ Materiales del lote cargados:', response.data.count);
+            } else {
+                console.error('❌ Error del backend:', response.data.error);
+                setMaterialesDefectuosos([]);
+            }
+
         } catch (error) {
             console.error('Error al cargar materiales del lote:', error);
+            toast.error('Error al cargar materiales del lote');
+            setMaterialesDefectuosos([]);
         } finally {
             setLoadingMaterials(false);
         }
