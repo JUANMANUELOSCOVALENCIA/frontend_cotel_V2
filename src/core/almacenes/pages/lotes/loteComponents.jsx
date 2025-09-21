@@ -354,6 +354,7 @@ export const LoteStatsCard = ({
 };
 
 // ========== DETALLE DE LOTE (SIMPLIFICADO) ==========
+
 export const LoteDetailCard = ({ lote, onClose, onImport, permissions }) => {
     if (!lote) return null;
 
@@ -450,6 +451,36 @@ export const LoteDetailCard = ({ lote, onClose, onImport, permissions }) => {
                                 {lote.almacen_destino_info?.nombre || 'N/A'}
                             </Typography>
                         </div>
+
+                        {/* ✅ NUEVO: Sector Solicitante */}
+                        <div>
+                            <Typography variant="h6" color="blue-gray" className="font-semibold mb-3 border-b border-gray-200 pb-2">
+                                Sector Solicitante
+                            </Typography>
+                            <div className="flex items-center gap-2">
+                                <IoBusinessOutline className="h-5 w-5 text-purple-500" />
+                                <Typography color="blue-gray" className="font-medium text-lg">
+                                    {lote.sector_solicitante_info?.nombre || 'No asignado'}
+                                </Typography>
+                            </div>
+                            {lote.sector_solicitante_info?.nombre && (
+                                <Typography variant="small" color="gray" className="mt-1">
+                                    Responsable de solicitar estos materiales
+                                </Typography>
+                            )}
+                        </div>
+
+                        <div>
+                            <Typography variant="h6" color="blue-gray" className="font-semibold mb-3 border-b border-gray-200 pb-2">
+                                Tipo de Servicio
+                            </Typography>
+                            <div className="flex items-center gap-2">
+                                <IoCube className="h-5 w-5 text-blue-500" />
+                                <Typography color="blue-gray" className="font-medium text-lg">
+                                    {lote.tipo_servicio_info?.nombre || 'N/A'}
+                                </Typography>
+                            </div>
+                        </div>
                     </div>
 
                     {/* Información de Fechas */}
@@ -497,6 +528,54 @@ export const LoteDetailCard = ({ lote, onClose, onImport, permissions }) => {
                         </div>
                     </div>
 
+                    {/* ✅ NUEVO: Información del Sector (si existe) */}
+                    {lote.sector_solicitante_info && (
+                        <div>
+                            <Typography variant="h6" color="blue-gray" className="font-semibold mb-4 border-b border-gray-200 pb-2">
+                                Información del Sector
+                            </Typography>
+                            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                                <div className="flex items-start gap-3">
+                                    <IoBusinessOutline className="h-6 w-6 text-purple-600 flex-shrink-0 mt-1" />
+                                    <div>
+                                        <Typography className="font-semibold text-purple-800">
+                                            {lote.sector_solicitante_info.nombre}
+                                        </Typography>
+                                        <Typography variant="small" className="text-purple-700 mt-1">
+                                            Este sector es responsable de solicitar y gestionar los materiales de este lote.
+                                            En caso de equipos defectuosos, se coordinarán las devoluciones con este sector.
+                                        </Typography>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Códigos Sprint */}
+                    <div>
+                        <Typography variant="h6" color="blue-gray" className="font-semibold mb-4 border-b border-gray-200 pb-2">
+                            Códigos Sistema Sprint
+                        </Typography>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                                <Typography variant="small" color="blue-gray" className="font-semibold mb-2">
+                                    Código Requerimiento Compra
+                                </Typography>
+                                <Typography className="font-mono text-lg">
+                                    {lote.codigo_requerimiento_compra || 'N/A'}
+                                </Typography>
+                            </div>
+                            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                                <Typography variant="small" color="blue-gray" className="font-semibold mb-2">
+                                    Código Nota Ingreso
+                                </Typography>
+                                <Typography className="font-mono text-lg">
+                                    {lote.codigo_nota_ingreso || 'N/A'}
+                                </Typography>
+                            </div>
+                        </div>
+                    </div>
+
                     {/* Observaciones */}
                     {lote.observaciones && (
                         <div>
@@ -540,6 +619,7 @@ export const LoteDetailCard = ({ lote, onClose, onImport, permissions }) => {
                                             </Typography>
                                             <Typography className="text-sm text-amber-700 mt-1">
                                                 Este lote tiene {lote.cantidad_pendiente} materiales pendientes de recepción.
+                                                Sector responsable: <strong>{lote.sector_solicitante_info?.nombre || 'No asignado'}</strong>
                                             </Typography>
                                         </div>
                                     </div>

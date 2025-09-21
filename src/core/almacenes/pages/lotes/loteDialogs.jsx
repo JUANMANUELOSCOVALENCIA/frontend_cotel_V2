@@ -1,3 +1,5 @@
+// src/core/almacenes/pages/lotes/loteDialogs.jsx - ACTUALIZADO CON SECTOR SOLICITANTE
+
 import React, { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -136,6 +138,7 @@ const LoteDialogs = ({
                 proveedor: '',
                 almacen_destino: '',
                 tipo_servicio: '',
+                sector_solicitante: '', // ✅ NUEVO CAMPO
                 codigo_requerimiento_compra: '',
                 codigo_nota_ingreso: '',
                 fecha_recepcion: '',
@@ -152,6 +155,7 @@ const LoteDialogs = ({
                 proveedor: selectedLote.proveedor?.toString() || selectedLote.proveedor_info?.id?.toString() || '',
                 almacen_destino: selectedLote.almacen_destino?.toString() || selectedLote.almacen_destino_info?.id?.toString() || '',
                 tipo_servicio: selectedLote.tipo_servicio?.toString() || selectedLote.tipo_servicio_info?.id?.toString() || '',
+                sector_solicitante: selectedLote.sector_solicitante?.toString() || selectedLote.sector_solicitante_info?.id?.toString() || '', // ✅ NUEVO CAMPO
                 codigo_requerimiento_compra: selectedLote.codigo_requerimiento_compra || '',
                 codigo_nota_ingreso: selectedLote.codigo_nota_ingreso || '',
                 fecha_recepcion: selectedLote.fecha_recepcion || '',
@@ -170,9 +174,9 @@ const LoteDialogs = ({
     }, [dialogs.create, dialogs.edit, selectedLote, reset, clearErrors]);
 
     // ========== HANDLERS ==========
-    // En loteDialogs.jsx - función handleCreateLote
     const handleCreateLote = async (data) => {
         console.log('🔍 Datos del formulario RAW:', data);
+        console.log('🔍 Sector solicitante específico:', data.sector_solicitante);
 
         // VALIDAR detalles
         if (!data.detalles || data.detalles.length === 0) {
@@ -190,19 +194,15 @@ const LoteDialogs = ({
 
         // VERIFICAR que todos los parseInt no devuelvan NaN
         console.log('🔍 Verificando campos numéricos:');
-        console.log('tipo_ingreso:', data.tipo_ingreso, '→ parseInt:', parseInt(data.tipo_ingreso));
-        console.log('tipo_servicio:', data.tipo_servicio, '→ parseInt:', parseInt(data.tipo_servicio));
-        console.log('proveedor:', data.proveedor, '→ parseInt:', parseInt(data.proveedor));
-        console.log('almacen_destino:', data.almacen_destino, '→ parseInt:', parseInt(data.almacen_destino));
+        const numericFields = ['tipo_ingreso', 'tipo_servicio', 'proveedor', 'almacen_destino', 'sector_solicitante'];
 
-        // Verificar que ninguno sea NaN
-        if (isNaN(parseInt(data.tipo_ingreso)) ||
-            isNaN(parseInt(data.tipo_servicio)) ||
-            isNaN(parseInt(data.proveedor)) ||
-            isNaN(parseInt(data.almacen_destino))) {
-            toast.error('Error en campos numéricos - valores inválidos');
-            console.error('❌ Algunos campos devolvieron NaN');
-            return;
+        for (const field of numericFields) {
+            console.log(`${field}:`, data[field], '→ parseInt:', parseInt(data[field]));
+            if (isNaN(parseInt(data[field]))) {
+                toast.error(`Error en ${field} - valor inválido`);
+                console.error(`❌ Campo ${field} devolvió NaN`);
+                return;
+            }
         }
 
         // ESTRUCTURA EXACTA
@@ -212,6 +212,7 @@ const LoteDialogs = ({
             tipo_servicio: parseInt(data.tipo_servicio),
             proveedor: parseInt(data.proveedor),
             almacen_destino: parseInt(data.almacen_destino),
+            sector_solicitante: parseInt(data.sector_solicitante), // ✅ NUEVO CAMPO
             codigo_requerimiento_compra: data.codigo_requerimiento_compra?.trim(),
             codigo_nota_ingreso: data.codigo_nota_ingreso?.trim(),
             fecha_recepcion: data.fecha_recepcion,
@@ -239,13 +240,16 @@ const LoteDialogs = ({
         }
     };
 
-    // En loteDialogs.jsx - REEMPLAZA la función handleEditLote completa:
-    // En loteDialogs.jsx - REEMPLAZA handleEditLote:
     const handleEditLote = async (data) => {
         console.log('🔍 EDIT - Datos del formulario completo:', data);
 
+        // ✅ IGNORAR errores de detalles en edición
+        if (errors.detalles) {
+            console.log('ℹ️ Ignorando errores de detalles en modo edición');
+            clearErrors('detalles');
+        }
         // Verificar campos numéricos
-        const numericFields = ['tipo_ingreso', 'tipo_servicio', 'proveedor', 'almacen_destino'];
+        const numericFields = ['tipo_ingreso', 'tipo_servicio', 'proveedor', 'almacen_destino', 'sector_solicitante'];
         for (const field of numericFields) {
             if (data[field] && isNaN(parseInt(data[field]))) {
                 toast.error(`Error en el campo ${field}: valor inválido`);
@@ -261,13 +265,13 @@ const LoteDialogs = ({
             tipo_servicio: parseInt(data.tipo_servicio),
             proveedor: parseInt(data.proveedor),
             almacen_destino: parseInt(data.almacen_destino),
+            sector_solicitante: parseInt(data.sector_solicitante), // ✅ NUEVO CAMPO
             codigo_requerimiento_compra: data.codigo_requerimiento_compra?.trim(),
             codigo_nota_ingreso: data.codigo_nota_ingreso?.trim(),
             fecha_recepcion: data.fecha_recepcion,
             fecha_inicio_garantia: data.fecha_inicio_garantia,
             fecha_fin_garantia: data.fecha_fin_garantia,
             observaciones: data.observaciones?.trim() || ''
-            // ✅ NO incluir detalles en la edición
         };
 
         console.log('📤 EDIT - Datos FINALES enviados:', JSON.stringify(loteData, null, 2));
@@ -467,9 +471,38 @@ const LoteDialogs = ({
                                     </Select>
                                 )}
                             />
+
+                            {/* ✅ NUEVO CAMPO: SECTOR SOLICITANTE */}
+                            <Controller
+                                name="sector_solicitante"
+                                control={control}
+                                rules={{ required: 'El sector solicitante es obligatorio' }}
+                                render={({ field }) => (
+                                    <Select
+                                        label="Sector Solicitante *"
+                                        value={field.value || ''} // ✅ AGREGAR || ''
+                                        onChange={(value) => {
+                                            console.log('🔍 Sector seleccionado:', value); // ✅ DEBUG
+                                            field.onChange(value);
+                                        }}
+                                        error={!!errors.sector_solicitante}
+                                    >
+                                        {opciones?.sectores_solicitantes?.length > 0 ? (
+                                            opciones.sectores_solicitantes.map((sector) => (
+                                                <Option key={sector.id} value={sector.id.toString()}>
+                                                    {sector.nombre}
+                                                </Option>
+                                            ))
+                                        ) : (
+                                            <Option value="" disabled>No hay sectores disponibles</Option>
+                                        )}
+                                    </Select>
+                                )}
+                            />
                         </div>
                     </div>
 
+                    {/* Resto del formulario permanece igual... */}
                     {/* Modelos y Cantidades */}
                     <div>
                         <div className="flex items-center justify-between mb-3">
@@ -680,12 +713,11 @@ const LoteDialogs = ({
     );
 
     // ========== EDITAR LOTE DIALOG ==========
-    // En loteDialogs.jsx - REEMPLAZA completamente el EditLoteDialog:
     const EditLoteDialog = () => (
         <Modal
             open={dialogs.edit}
             onClose={() => onCloseDialog('edit')}
-            size="xl" // ✅ Cambiar a xl para más espacio
+            size="xl"
         >
             <DialogHeader className="flex items-center justify-between">
                 <Typography variant="h5" color="blue-gray">
@@ -824,9 +856,35 @@ const LoteDialogs = ({
                                     </Select>
                                 )}
                             />
+
+                            {/* ✅ NUEVO CAMPO: SECTOR SOLICITANTE EN EDITAR */}
+                            <Controller
+                                name="sector_solicitante"
+                                control={control}
+                                rules={{ required: 'El sector solicitante es obligatorio' }}
+                                render={({ field }) => (
+                                    <Select
+                                        label="Sector Solicitante *"
+                                        value={field.value?.toString() || ''}
+                                        onChange={(value) => field.onChange(value)}
+                                        error={!!errors.sector_solicitante}
+                                    >
+                                        {opciones?.sectores_solicitantes?.length > 0 ? (
+                                            opciones.sectores_solicitantes.map((sector) => (
+                                                <Option key={sector.id} value={sector.id.toString()}>
+                                                    {sector.nombre}
+                                                </Option>
+                                            ))
+                                        ) : (
+                                            <Option value="" disabled>No hay sectores disponibles</Option>
+                                        )}
+                                    </Select>
+                                )}
+                            />
                         </div>
                     </div>
 
+                    {/* Resto del formulario de editar permanece igual... */}
                     {/* Códigos de Referencia */}
                     <div>
                         <Typography variant="h6" color="blue-gray" className="mb-3">
@@ -907,6 +965,8 @@ const LoteDialogs = ({
                                 <br />
                                 <strong>Progreso:</strong> {selectedLote.cantidad_recibida || 0}/{selectedLote.cantidad_total || 0} materiales
                                 <br />
+                                <strong>Sector:</strong> {selectedLote.sector_solicitante_info?.nombre || 'No asignado'}
+                                <br />
                                 <strong>Detalles:</strong> Los modelos y cantidades no se pueden editar una vez creado el lote
                             </Typography>
                         </Alert>
@@ -940,12 +1000,6 @@ const LoteDialogs = ({
                         type="submit"
                         color="orange"
                         loading={loading}
-                        onClick={() => {
-                            console.log('🚨 BOTÓN PRESIONADO - Verificando form');
-                            console.log('🚨 Errores actuales:', errors);
-                            console.log('🚨 Valores actuales:', getValues());
-                            console.log('🚨 Form válido:', Object.keys(errors).length === 0);
-                        }}
                     >
                         Actualizar Lote
                     </Button>
