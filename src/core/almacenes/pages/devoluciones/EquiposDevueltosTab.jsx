@@ -64,7 +64,7 @@ const EquiposDevueltosTab = ({ onSuccess, loading: parentLoading }) => {
     const loadEquiposDevueltos = async () => {
         try {
             setLoading(true);
-            const response = await api.get('/almacenes/materiales/devueltos_sector/');
+            const response = await api.get('/almacenes/sectores/reingreso/');
 
             if (response.data) {
                 setEquiposDevueltos(response.data.materiales || []);
@@ -95,15 +95,16 @@ const EquiposDevueltosTab = ({ onSuccess, loading: parentLoading }) => {
             setLoading(true);
 
             const reingresoData = {
-                material_original_id: selectedEquipo.id,
-                codigo_interno: data.codigo_interno,
-                mac_address: data.mac_address,
-                gpon_serial: data.gpon_serial,
-                observaciones: data.observaciones || '',
-                tipo_reingreso: data.tipo_reingreso
+                materiales_originales_ids: [selectedEquipo.id],
+                nuevos_equipos: [{
+                    mac_address: data.mac_address,
+                    gpon_serial: data.gpon_serial,
+                    serial_manufacturer: data.serial_manufacturer || null,
+                    codigo_item_equipo: selectedEquipo.codigo_item_equipo,
+                }]
             };
 
-            const response = await api.post('/almacenes/materiales/reingreso/', reingresoData);
+            const response = await api.post('/almacenes/sectores/reingreso/', reingresoData);
 
             if (response.data.success) {
                 toast.success('Reposición registrada exitosamente');
@@ -325,32 +326,26 @@ const EquiposDevueltosTab = ({ onSuccess, loading: parentLoading }) => {
 
                     <DialogBody>
                         <div className="space-y-4">
-                            {/* Información del equipo original */}
+                            {/* Información del equipo original - SOLO LECTURA */}
                             <Alert color="amber">
                                 <Typography variant="small" className="font-medium mb-1">
                                     Equipo Original a Reemplazar:
                                 </Typography>
-                                <Typography variant="small">
-                                    <strong>Código:</strong> {selectedEquipo?.codigo_interno}<br />
-                                    <strong>MAC:</strong> {selectedEquipo?.mac_address}<br />
-                                    <strong>GPON:</strong> {selectedEquipo?.gpon_serial}
-                                </Typography>
+                                <div className="grid grid-cols-2 gap-2 text-sm">
+                                    <div><strong>Código:</strong> {selectedEquipo?.codigo_interno}</div>
+                                    <div><strong>Item Equipo:</strong> {selectedEquipo?.codigo_item_equipo}</div>
+                                    <div><strong>MAC:</strong> {selectedEquipo?.mac_address}</div>
+                                    <div><strong>GPON:</strong> {selectedEquipo?.gpon_serial}</div>
+                                    <div><strong>D_SN:</strong> {selectedEquipo?.serial_manufacturer || 'No tiene'}</div>
+                                </div>
                             </Alert>
 
-                            {/* Datos del nuevo equipo */}
                             <Typography variant="h6" color="blue-gray">
-                                Datos del Nuevo Equipo (Reposición)
+                                Nuevo Equipo de Reposición
                             </Typography>
 
+                            {/* Solo los campos que SÍ cambian */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <Input
-                                    label="Código Interno *"
-                                    {...register('codigo_interno', {
-                                        required: 'El código interno es obligatorio'
-                                    })}
-                                    error={!!errors.codigo_interno}
-                                />
-
                                 <Input
                                     label="MAC Address *"
                                     {...register('mac_address', {
@@ -367,29 +362,16 @@ const EquiposDevueltosTab = ({ onSuccess, loading: parentLoading }) => {
                                     error={!!errors.gpon_serial}
                                 />
 
-                                <Controller
-                                    name="tipo_reingreso"
-                                    control={control}
-                                    rules={{ required: 'Selecciona el tipo de reingreso' }}
-                                    render={({ field }) => (
-                                        <Select
-                                            label="Tipo de Reingreso *"
-                                            value={field.value}
-                                            onChange={field.onChange}
-                                            error={!!errors.tipo_reingreso}
-                                        >
-                                            <Option value="REPOSICION">Reposición por Defecto</Option>
-                                            <Option value="GARANTIA">Cambio por Garantía</Option>
-                                            <Option value="MEJORA">Mejora de Modelo</Option>
-                                        </Select>
-                                    )}
+                                <Input
+                                    label="Serial Manufacturer (D_SN)"
+                                    {...register('serial_manufacturer')}
+                                    className="md:col-span-2"
                                 />
                             </div>
 
                             <Input
                                 label="Observaciones"
                                 {...register('observaciones')}
-                                placeholder="Observaciones adicionales sobre la reposición..."
                             />
                         </div>
                     </DialogBody>

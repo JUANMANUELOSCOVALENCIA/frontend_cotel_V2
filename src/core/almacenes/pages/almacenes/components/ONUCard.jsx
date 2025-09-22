@@ -43,12 +43,27 @@ const ONUCard = ({ material, opciones, onViewDetail, onChangeState, canEdit }) =
     };
 
     const copyToClipboard = (text, label) => {
-        navigator.clipboard.writeText(text);
-        // Aquí podrías usar toast para mostrar confirmación
+        if (text) {
+            navigator.clipboard.writeText(text);
+        }
     };
 
     const formatDate = (dateString) => {
-        return format(new Date(dateString), 'dd/MM/yyyy', { locale: es });
+        if (!dateString) return 'Sin fecha';
+        try {
+            return format(new Date(dateString), 'dd/MM/yyyy', { locale: es });
+        } catch {
+            return 'Fecha inválida';
+        }
+    };
+
+    // Proteger contra valores null
+    const safeGet = (obj, path, fallback = 'Sin datos') => {
+        try {
+            return path.split('.').reduce((current, key) => current?.[key], obj) || fallback;
+        } catch {
+            return fallback;
+        }
     };
 
     return (
@@ -59,12 +74,12 @@ const ONUCard = ({ material, opciones, onViewDetail, onChangeState, canEdit }) =
                     <div className="flex-1">
                         <Chip
                             size="sm"
-                            value={material.estado_display?.nombre || 'Sin estado'}
-                            color={getEstadoColor(material.estado_display)}
+                            value={material?.estado_display?.nombre || 'Sin estado'}
+                            color={getEstadoColor(material?.estado_display)}
                             className="mb-2"
                         />
                         <Typography variant="h6" color="blue-gray" className="font-semibold">
-                            {material.codigo_interno}
+                            {material?.codigo_interno || 'Sin código'}
                         </Typography>
                     </div>
 
@@ -98,10 +113,10 @@ const ONUCard = ({ material, opciones, onViewDetail, onChangeState, canEdit }) =
                 {/* Información del modelo */}
                 <div className="mb-3">
                     <Typography variant="small" color="blue-gray" className="font-medium">
-                        {material.modelo_info.marca} {material.modelo_info.nombre}
+                        {safeGet(material, 'modelo_info.marca', 'Sin marca')} {safeGet(material, 'modelo_info.nombre', 'Sin modelo')}
                     </Typography>
                     <Typography variant="small" color="gray">
-                        Código: {material.modelo_info.codigo_modelo}
+                        Código: {safeGet(material, 'modelo_info.codigo_modelo', 'Sin código')}
                     </Typography>
                 </div>
 
@@ -113,17 +128,19 @@ const ONUCard = ({ material, opciones, onViewDetail, onChangeState, canEdit }) =
                         </Typography>
                         <div className="flex items-center gap-1">
                             <Typography variant="small" color="blue-gray" className="font-mono">
-                                {material.mac_address}
+                                {material?.mac_address || 'Sin MAC'}
                             </Typography>
-                            <Tooltip content="Copiar MAC">
-                                <IconButton
-                                    size="sm"
-                                    variant="text"
-                                    onClick={() => copyToClipboard(material.mac_address, 'MAC')}
-                                >
-                                    <IoCopy className="h-3 w-3" />
-                                </IconButton>
-                            </Tooltip>
+                            {material?.mac_address && (
+                                <Tooltip content="Copiar MAC">
+                                    <IconButton
+                                        size="sm"
+                                        variant="text"
+                                        onClick={() => copyToClipboard(material.mac_address, 'MAC')}
+                                    >
+                                        <IoCopy className="h-3 w-3" />
+                                    </IconButton>
+                                </Tooltip>
+                            )}
                         </div>
                     </div>
 
@@ -133,17 +150,19 @@ const ONUCard = ({ material, opciones, onViewDetail, onChangeState, canEdit }) =
                         </Typography>
                         <div className="flex items-center gap-1">
                             <Typography variant="small" color="blue-gray" className="font-mono">
-                                {material.gpon_serial}
+                                {material?.gpon_serial || 'Sin GPON'}
                             </Typography>
-                            <Tooltip content="Copiar GPON">
-                                <IconButton
-                                    size="sm"
-                                    variant="text"
-                                    onClick={() => copyToClipboard(material.gpon_serial, 'GPON')}
-                                >
-                                    <IoCopy className="h-3 w-3" />
-                                </IconButton>
-                            </Tooltip>
+                            {material?.gpon_serial && (
+                                <Tooltip content="Copiar GPON">
+                                    <IconButton
+                                        size="sm"
+                                        variant="text"
+                                        onClick={() => copyToClipboard(material.gpon_serial, 'GPON')}
+                                    >
+                                        <IoCopy className="h-3 w-3" />
+                                    </IconButton>
+                                </Tooltip>
+                            )}
                         </div>
                     </div>
 
@@ -152,7 +171,7 @@ const ONUCard = ({ material, opciones, onViewDetail, onChangeState, canEdit }) =
                             D-SN:
                         </Typography>
                         <Typography variant="small" color="blue-gray" className="font-mono">
-                            {material.serial_manufacturer}
+                            {material?.serial_manufacturer || 'Sin D-SN'}
                         </Typography>
                     </div>
                 </div>
@@ -162,30 +181,30 @@ const ONUCard = ({ material, opciones, onViewDetail, onChangeState, canEdit }) =
                     <div className="flex items-center gap-2">
                         <IoLocationOutline className="h-4 w-4 text-gray-500" />
                         <Typography variant="small" color="blue-gray">
-                            {material.almacen_info.codigo} - {material.almacen_info.nombre}
+                            {safeGet(material, 'almacen_info.codigo', 'Sin código')} - {safeGet(material, 'almacen_info.nombre', 'Sin almacén')}
                         </Typography>
                     </div>
 
                     <div className="flex items-center gap-2">
                         <Typography variant="small" color="gray">
-                            Lote: {material.lote_info.numero_lote}
+                            Lote: {safeGet(material, 'lote_info.numero_lote', 'Sin lote')}
                         </Typography>
                     </div>
 
                     <div className="flex items-center gap-2">
                         <IoCalendarOutline className="h-4 w-4 text-gray-500" />
                         <Typography variant="small" color="gray">
-                            {formatDate(material.created_at)}
+                            {formatDate(material?.created_at)}
                         </Typography>
                     </div>
                 </div>
 
                 {/* Badges adicionales */}
                 <div className="flex items-center gap-1 mt-3">
-                    {material.es_nuevo && (
+                    {material?.es_nuevo && (
                         <Chip size="sm" value="Nuevo" color="green" variant="ghost" />
                     )}
-                    {material.codigo_item_equipo && (
+                    {material?.codigo_item_equipo && (
                         <Chip
                             size="sm"
                             value={`Item: ${material.codigo_item_equipo}`}

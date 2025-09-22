@@ -44,11 +44,27 @@ const ONUTable = ({ materiales, opciones, onViewDetail, onChangeState, canEdit }
     };
 
     const copyToClipboard = (text) => {
-        navigator.clipboard.writeText(text);
+        if (text) {
+            navigator.clipboard.writeText(text);
+        }
     };
 
     const formatDate = (dateString) => {
-        return format(new Date(dateString), 'dd/MM/yyyy HH:mm', { locale: es });
+        if (!dateString) return 'Sin fecha';
+        try {
+            return format(new Date(dateString), 'dd/MM/yyyy HH:mm', { locale: es });
+        } catch {
+            return 'Fecha inválida';
+        }
+    };
+
+    // Función helper para valores seguros
+    const safeGet = (obj, path, fallback = 'Sin datos') => {
+        try {
+            return path.split('.').reduce((current, key) => current?.[key], obj) || fallback;
+        } catch {
+            return fallback;
+        }
     };
 
     const handleSort = (field) => {
@@ -77,6 +93,17 @@ const ONUTable = ({ materiales, opciones, onViewDetail, onChangeState, canEdit }
             </div>
         </th>
     );
+
+    // Verificar que materiales sea un array válido
+    if (!Array.isArray(materiales) || materiales.length === 0) {
+        return (
+            <div className="text-center py-12">
+                <Typography color="gray">
+                    No hay materiales para mostrar
+                </Typography>
+            </div>
+        );
+    }
 
     return (
         <div className="overflow-x-auto">
@@ -121,13 +148,13 @@ const ONUTable = ({ materiales, opciones, onViewDetail, onChangeState, canEdit }
                 </thead>
                 <tbody>
                 {materiales.map((material) => (
-                    <tr key={material.id} className="hover:bg-blue-gray-50">
+                    <tr key={material?.id || Math.random()} className="hover:bg-blue-gray-50">
                         <td className="py-3 px-4">
                             <div className="flex flex-col">
                                 <Typography variant="small" color="blue-gray" className="font-semibold">
-                                    {material.codigo_interno}
+                                    {material?.codigo_interno || 'Sin código'}
                                 </Typography>
-                                {material.es_nuevo && (
+                                {material?.es_nuevo && (
                                     <Chip size="sm" value="Nuevo" color="green" variant="ghost" className="w-fit" />
                                 )}
                             </div>
@@ -135,75 +162,79 @@ const ONUTable = ({ materiales, opciones, onViewDetail, onChangeState, canEdit }
                         <td className="py-3 px-4">
                             <Chip
                                 size="sm"
-                                value={material.estado_display?.nombre || 'Sin estado'}
-                                color={getEstadoColor(material.estado_display)}
+                                value={material?.estado_display?.nombre || 'Sin estado'}
+                                color={getEstadoColor(material?.estado_display)}
                             />
                         </td>
                         <td className="py-3 px-4">
                             <div className="flex flex-col">
                                 <Typography variant="small" color="blue-gray" className="font-medium">
-                                    {material.modelo_info.marca} {material.modelo_info.nombre}
+                                    {safeGet(material, 'modelo_info.marca', 'Sin marca')} {safeGet(material, 'modelo_info.nombre', 'Sin modelo')}
                                 </Typography>
                                 <Typography variant="small" color="gray">
-                                    #{material.modelo_info.codigo_modelo}
+                                    #{safeGet(material, 'modelo_info.codigo_modelo', 'Sin código')}
                                 </Typography>
                             </div>
                         </td>
                         <td className="py-3 px-4">
                             <div className="flex items-center gap-1">
                                 <Typography variant="small" color="blue-gray" className="font-mono">
-                                    {material.mac_address}
+                                    {material?.mac_address || 'Sin MAC'}
                                 </Typography>
-                                <Tooltip content="Copiar MAC">
-                                    <IconButton
-                                        size="sm"
-                                        variant="text"
-                                        onClick={() => copyToClipboard(material.mac_address)}
-                                    >
-                                        <IoCopy className="h-3 w-3" />
-                                    </IconButton>
-                                </Tooltip>
+                                {material?.mac_address && (
+                                    <Tooltip content="Copiar MAC">
+                                        <IconButton
+                                            size="sm"
+                                            variant="text"
+                                            onClick={() => copyToClipboard(material.mac_address)}
+                                        >
+                                            <IoCopy className="h-3 w-3" />
+                                        </IconButton>
+                                    </Tooltip>
+                                )}
                             </div>
                         </td>
                         <td className="py-3 px-4">
                             <div className="flex items-center gap-1">
                                 <Typography variant="small" color="blue-gray" className="font-mono">
-                                    {material.gpon_serial}
+                                    {material?.gpon_serial || 'Sin GPON'}
                                 </Typography>
-                                <Tooltip content="Copiar GPON">
-                                    <IconButton
-                                        size="sm"
-                                        variant="text"
-                                        onClick={() => copyToClipboard(material.gpon_serial)}
-                                    >
-                                        <IoCopy className="h-3 w-3" />
-                                    </IconButton>
-                                </Tooltip>
+                                {material?.gpon_serial && (
+                                    <Tooltip content="Copiar GPON">
+                                        <IconButton
+                                            size="sm"
+                                            variant="text"
+                                            onClick={() => copyToClipboard(material.gpon_serial)}
+                                        >
+                                            <IoCopy className="h-3 w-3" />
+                                        </IconButton>
+                                    </Tooltip>
+                                )}
                             </div>
                         </td>
                         <td className="py-3 px-4">
                             <Typography variant="small" color="blue-gray" className="font-mono">
-                                {material.serial_manufacturer}
+                                {material?.serial_manufacturer || 'Sin D-SN'}
                             </Typography>
                         </td>
                         <td className="py-3 px-4">
                             <div className="flex flex-col">
                                 <Typography variant="small" color="blue-gray" className="font-medium">
-                                    {material.almacen_info.codigo}
+                                    {safeGet(material, 'almacen_info.codigo', 'Sin código')}
                                 </Typography>
                                 <Typography variant="small" color="gray">
-                                    {material.almacen_info.nombre}
+                                    {safeGet(material, 'almacen_info.nombre', 'Sin almacén')}
                                 </Typography>
                             </div>
                         </td>
                         <td className="py-3 px-4">
                             <Typography variant="small" color="blue-gray">
-                                {material.lote_info.numero_lote}
+                                {safeGet(material, 'lote_info.numero_lote', 'Sin lote')}
                             </Typography>
                         </td>
                         <td className="py-3 px-4">
                             <Typography variant="small" color="gray">
-                                {formatDate(material.created_at)}
+                                {formatDate(material?.created_at)}
                             </Typography>
                         </td>
                         <td className="py-3 px-4">

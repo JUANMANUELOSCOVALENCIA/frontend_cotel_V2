@@ -21,8 +21,16 @@ export const useMateriales = () => {
         setLoading(true);
         setError(null);
 
+        console.log('🚀 HOOK - Enviando parámetros:', params); // DEBUG
+
         try {
             const result = await almacenesService.getMateriales(params);
+
+            console.log('📥 HOOK - Respuesta completa del backend:', result); // DEBUG
+            console.log('📥 HOOK - result.data:', result.data); // DEBUG
+            console.log('📥 HOOK - result.data.results:', result.data.results); // DEBUG
+            console.log('📥 HOOK - result.data.count:', result.data.count); // DEBUG
+
             if (result.success) {
                 setMateriales(result.data.results || result.data);
                 setPagination({
@@ -32,11 +40,20 @@ export const useMateriales = () => {
                     page: params.page || 1,
                     page_size: params.page_size || 20
                 });
+
+                console.log('✅ HOOK - Materiales establecidos:', result.data.results?.length || result.data?.length); // DEBUG
+                console.log('✅ HOOK - Paginación establecida:', {
+                    count: result.data.count,
+                    page: params.page,
+                    page_size: params.page_size
+                }); // DEBUG
+
             } else {
                 setError(result.error);
             }
         } catch (err) {
             setError('Error al cargar materiales');
+            console.error('❌ HOOK - Error:', err); // DEBUG
         } finally {
             setLoading(false);
         }

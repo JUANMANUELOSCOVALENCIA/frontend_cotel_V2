@@ -872,31 +872,37 @@ class AlmacenesService {
     // ========== MATERIALES ==========
     async getMateriales(params = {}) {
         try {
-            const queryString = buildQuery(params);
-            const response = await api.get(`${ENDPOINTS.MATERIALES}${queryString}`);
+            console.log('🔍 SERVICE - Parámetros recibidos:', params);
+
+            // Construir query string manualmente
+            const queryParams = new URLSearchParams();
+
+            Object.entries(params).forEach(([key, value]) => {
+                if (value !== undefined && value !== null && value !== '') {
+                    queryParams.append(key, value);
+                }
+            });
+
+            const queryString = queryParams.toString();
+            const finalUrl = queryString ? `${ENDPOINTS.MATERIALES}?${queryString}` : ENDPOINTS.MATERIALES;
+
+            console.log('🌐 SERVICE - URL final:', finalUrl);
+
+            const response = await api.get(finalUrl);
+
+            console.log('📊 SERVICE - Respuesta completa:', response.data); // DEBUG COMPLETO
+            console.log('📊 SERVICE - response.data.count:', response.data.count); // DEBUG
+            console.log('📊 SERVICE - response.data.results length:', response.data.results?.length); // DEBUG
+
             return {
                 success: true,
                 data: response.data
             };
         } catch (error) {
+            console.error('❌ SERVICE - Error:', error);
             return {
                 success: false,
                 error: error.response?.data?.message || 'Error al obtener materiales'
-            };
-        }
-    }
-
-    async getMaterial(id) {
-        try {
-            const response = await api.get(ENDPOINTS.MATERIAL_DETAIL(id));
-            return {
-                success: true,
-                data: response.data
-            };
-        } catch (error) {
-            return {
-                success: false,
-                error: error.response?.data?.message || 'Error al obtener material'
             };
         }
     }

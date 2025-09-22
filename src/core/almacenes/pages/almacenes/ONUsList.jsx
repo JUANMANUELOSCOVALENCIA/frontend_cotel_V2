@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
     Card,
-    CardHeader,
     CardBody,
     Typography,
     Button,
@@ -16,12 +15,12 @@ import {
 import {
     IoSearch,
     IoFilter,
-    IoEye,
     IoRefresh,
     IoStatsChart,
     IoGrid,
     IoList,
-    IoDownload
+    IoArrowBack,
+    IoArrowForward,
 } from 'react-icons/io5';
 import { toast } from 'react-hot-toast';
 
@@ -32,7 +31,6 @@ import ONUTable from './components/ONUTable';
 import ONUFilters from './components/ONUFilters';
 import ONUDetailModal from './components/ONUDetailModal';
 import EstadisticasModal from './components/EstadisticasModal';
-import Pagination from '../../../../shared/components/Pagination';
 
 const ONUsList = () => {
     const {
@@ -43,75 +41,115 @@ const ONUsList = () => {
         loadMateriales,
         loadMaterialDetail,
         cambiarEstado,
-        busquedaAvanzada,
         clearError,
         permissions
     } = useMateriales();
 
     const { opciones } = useOpcionesCompletas();
 
-    // Estados locales
+    // Estados locales simplificados
     const [searchText, setSearchText] = useState('');
-    const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
+    const [viewMode, setViewMode] = useState('grid');
     const [showFilters, setShowFilters] = useState(false);
     const [selectedONU, setSelectedONU] = useState(null);
     const [showDetailModal, setShowDetailModal] = useState(false);
     const [showStatsModal, setShowStatsModal] = useState(false);
-    const [currentFilters, setCurrentFilters] = useState({
-        tipo_material: 'ONU', // Solo ONUs por defecto
+    const [itemsPerPage, setItemsPerPage] = useState(20);
+
+    // Filtros consolidados
+    const [filters, setFilters] = useState({
+        tipo_material: 'ONU',
         page: 1,
         page_size: 20
     });
 
-    // Cargar datos iniciales
+    // DEBUG: Logs para entender qué está pasando
     useEffect(() => {
-        loadMateriales(currentFilters);
-    }, [loadMateriales, currentFilters]);
+        console.log('🔍 MATERIALES RECIBIDOS:', {
+            cantidad: materiales?.length,
+            pagination: pagination,
+            filters: filters
+        });
+    }, [materiales, pagination, filters]);
 
-    // Manejo de búsqueda
-    const handleSearch = (text) => {
-        setSearchText(text);
-        const newFilters = {
-            ...currentFilters,
-            search: text,
-            page: 1
+    // Cargar datos inicial
+    useEffect(() => {
+        console.log('🚀 CARGANDO MATERIALES INICIAL');
+        loadMateriales(filters);
+    }, []);
+
+    // Función única para cargar datos
+    const loadData = (newFilters) => {
+        const finalFilters = {
+            tipo_material: 'ONU',
+            ...newFilters,
+            page_size: itemsPerPage
         };
-        setCurrentFilters(newFilters);
-        loadMateriales(newFilters);
+        console.log('📤 ENVIANDO FILTROS:', finalFilters);
+        setFilters(finalFilters);
+        loadMateriales(finalFilters);
     };
 
-    // Aplicar filtros
-    const handleApplyFilters = (filters) => {
+    // Búsqueda MANUAL
+    const handleSearch = () => {
         const newFilters = {
-            ...currentFilters,
             ...filters,
+            search: searchText || undefined,
             page: 1
         };
-        setCurrentFilters(newFilters);
-        loadMateriales(newFilters);
-        setShowFilters(false);
+        loadData(newFilters);
+    };
+
+    // Enter en búsqueda
+    const handleSearchKeyPress = (e) => {
+        if (e.key === 'Enter') {
+            handleSearch();
+        }
+    };
+
+    // Cambiar página
+    const handlePageChange = (newPage) => {
+        console.log('📄 CAMBIANDO A PÁGINA:', newPage);
+        const newFilters = { ...filters, page: newPage };
+        loadData(newFilters);
+    };
+
+    // Cambiar elementos por página
+    const handleItemsPerPageChange = (value) => {
+        const newItemsPerPage = parseInt(value);
+        console.log('📊 CAMBIANDO ELEMENTOS POR PÁGINA:', newItemsPerPage);
+        setItemsPerPage(newItemsPerPage);
+        const newFilters = {
+            ...filters,
+            page: 1,
+            page_size: newItemsPerPage
+        };
+        loadData(newFilters);
     };
 
     // Limpiar filtros
     const handleClearFilters = () => {
+        setSearchText('');
         const newFilters = {
             tipo_material: 'ONU',
             page: 1,
-            page_size: 20
+            page_size: itemsPerPage
         };
-        setCurrentFilters(newFilters);
-        setSearchText('');
-        loadMateriales(newFilters);
+        loadData(newFilters);
     };
 
-    // Cambio de página
-    const handlePageChange = (page) => {
-        const newFilters = { ...currentFilters, page };
-        setCurrentFilters(newFilters);
-        loadMateriales(newFilters);
+    // Aplicar filtros
+    const handleApplyFilters = (newFilterValues) => {
+        const newFilters = {
+            ...filters,
+            ...newFilterValues,
+            page: 1
+        };
+        loadData(newFilters);
+        setShowFilters(false);
     };
 
-    // Ver detalle de ONU
+    // Ver detalle
     const handleViewDetail = async (material) => {
         const result = await loadMaterialDetail(material.id);
         if (result.success) {
@@ -122,32 +160,41 @@ const ONUsList = () => {
         }
     };
 
-    // Cambiar estado de ONU
+    // Cambiar estado
     const handleChangeState = async (materialId, estadoId) => {
         const result = await cambiarEstado(materialId, estadoId);
         if (result.success) {
             toast.success('Estado cambiado exitosamente');
+            loadData(filters);
         } else {
             toast.error(result.error);
         }
     };
 
-    // Refrescar datos
+    // Refrescar
     const handleRefresh = () => {
-        loadMateriales(currentFilters);
+        console.log('🔄 REFRESCANDO DATOS');
+        loadData(filters);
         toast.success('Datos actualizados');
     };
 
-    // Exportar datos
-    const handleExport = () => {
-        // Implementar exportación (CSV, Excel, etc.)
-        toast.info('Función de exportación en desarrollo');
-    };
+    // Cálculos de paginación
+    const currentPage = filters.page || 1;
+    const totalItems = pagination?.count || 0;
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
 
-    // Obtener chip de filtros activos
+    console.log('📊 PAGINACIÓN:', {
+        currentPage,
+        totalItems,
+        totalPages,
+        itemsPerPage,
+        materiales_length: materiales?.length
+    });
+
+    // Obtener filtros activos
     const getActiveFiltersCount = () => {
-        return Object.keys(currentFilters).filter(key =>
-            key !== 'page' && key !== 'page_size' && key !== 'tipo_material' && currentFilters[key]
+        return Object.keys(filters).filter(key =>
+            key !== 'page' && key !== 'page_size' && key !== 'tipo_material' && filters[key]
         ).length;
     };
 
@@ -190,16 +237,7 @@ const ONUsList = () => {
                             onClick={handleRefresh}
                             disabled={loading}
                         >
-                            <IoRefresh className="h-4 w-4" />
-                        </IconButton>
-                    </Tooltip>
-
-                    <Tooltip content="Exportar">
-                        <IconButton
-                            variant="outlined"
-                            onClick={handleExport}
-                        >
-                            <IoDownload className="h-4 w-4" />
+                            <IoRefresh className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
                         </IconButton>
                     </Tooltip>
 
@@ -226,15 +264,23 @@ const ONUsList = () => {
             <Card>
                 <CardBody className="p-4">
                     <div className="flex flex-col lg:flex-row gap-4">
-                        {/* Búsqueda */}
-                        <div className="flex-1">
+                        {/* Búsqueda MANUAL */}
+                        <div className="flex-1 flex gap-2">
                             <Input
-                                icon={<IoSearch className="h-5 w-5" />}
-                                label="Buscar por MAC, Serial, Código interno..."
+                                label="Buscar por MAC, Serial, Código interno"
                                 value={searchText}
-                                onChange={(e) => handleSearch(e.target.value)}
-                                className="!border-t-blue-gray-200 focus:!border-t-gray-900"
+                                onChange={(e) => setSearchText(e.target.value)}
+                                onKeyPress={handleSearchKeyPress}
                             />
+                            <Button
+                                variant="outlined"
+                                onClick={handleSearch}
+                                disabled={loading}
+                                className="flex items-center gap-2 shrink-0"
+                            >
+                                <IoSearch className="h-4 w-4" />
+                                Buscar
+                            </Button>
                         </div>
 
                         {/* Filtros */}
@@ -274,7 +320,7 @@ const ONUsList = () => {
                         <div className="mt-4 pt-4 border-t">
                             <ONUFilters
                                 opciones={opciones}
-                                filters={currentFilters}
+                                filters={filters}
                                 onApplyFilters={handleApplyFilters}
                                 onClearFilters={handleClearFilters}
                             />
@@ -283,13 +329,53 @@ const ONUsList = () => {
                 </CardBody>
             </Card>
 
-            {/* Resultados */}
+            {/* CONTROLES DE PAGINACIÓN - ARRIBA */}
             <Card>
-                <CardHeader floated={false} shadow={false} className="rounded-none">
+                <CardBody className="p-4">
                     <div className="flex items-center justify-between">
-                        <Typography variant="h6" color="blue-gray">
-                            ONUs Encontradas ({pagination.count})
-                        </Typography>
+                        <div className="flex items-center gap-4">
+                            <Typography variant="h6" color="blue-gray">
+                                ONUs Encontradas: {totalItems}
+                            </Typography>
+
+                            <div className="w-32">
+                                <Select
+                                    label="Por página"
+                                    value={itemsPerPage.toString()}
+                                    onChange={handleItemsPerPageChange}
+                                >
+                                    <Option value="10">10</Option>
+                                    <Option value="20">20</Option>
+                                    <Option value="50">50</Option>
+                                </Select>
+                            </div>
+                        </div>
+
+                        {totalPages > 1 && (
+                            <div className="flex items-center gap-2">
+                                <IconButton
+                                    variant="outlined"
+                                    size="sm"
+                                    onClick={() => handlePageChange(currentPage - 1)}
+                                    disabled={currentPage === 1}
+                                >
+                                    <IoArrowBack className="h-4 w-4" />
+                                </IconButton>
+
+                                <Typography variant="small" color="blue-gray" className="px-4">
+                                    Página {currentPage} de {totalPages}
+                                </Typography>
+
+                                <IconButton
+                                    variant="outlined"
+                                    size="sm"
+                                    onClick={() => handlePageChange(currentPage + 1)}
+                                    disabled={currentPage === totalPages}
+                                >
+                                    <IoArrowForward className="h-4 w-4" />
+                                </IconButton>
+                            </div>
+                        )}
 
                         {loading && (
                             <div className="flex items-center gap-2">
@@ -300,8 +386,11 @@ const ONUsList = () => {
                             </div>
                         )}
                     </div>
-                </CardHeader>
+                </CardBody>
+            </Card>
 
+            {/* Resultados */}
+            <Card>
                 <CardBody className="overflow-hidden px-0">
                     {error && (
                         <div className="px-6 pb-4">
@@ -341,20 +430,6 @@ const ONUsList = () => {
                                     canEdit={permissions.canEdit}
                                 />
                             )}
-
-                            {/* Paginación */}
-                            {pagination.count > pagination.page_size && (
-                                <div className="px-6 pt-4">
-                                    <Pagination
-                                        currentPage={pagination.page}
-                                        totalPages={Math.ceil(pagination.count / pagination.page_size)}
-                                        onPageChange={handlePageChange}
-                                        showInfo={true}
-                                        totalItems={pagination.count}
-                                        itemsPerPage={pagination.page_size}
-                                    />
-                                </div>
-                            )}
                         </>
                     )}
                 </CardBody>
@@ -373,7 +448,7 @@ const ONUsList = () => {
             <EstadisticasModal
                 open={showStatsModal}
                 onClose={() => setShowStatsModal(false)}
-                filtros={currentFilters}
+                filtros={filters}
             />
         </div>
     );

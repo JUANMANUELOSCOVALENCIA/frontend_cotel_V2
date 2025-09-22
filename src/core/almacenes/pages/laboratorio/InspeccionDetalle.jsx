@@ -1,8 +1,7 @@
-// src/core/almacenes/pages/laboratorio/InspeccionDetalle.jsx - USANDO API REAL
+// src/core/almacenes/pages/laboratorio/InspeccionDetalle.jsx - TÍTULOS CORREGIDOS
 import React, { useState, useEffect } from 'react';
 import {
     Card,
-    CardHeader,
     CardBody,
     Typography,
     Button,
@@ -10,10 +9,7 @@ import {
     Textarea,
     Switch,
     Alert,
-    Select,
-    Option,
     Chip,
-    Progress
 } from '@material-tailwind/react';
 import {
     IoCheckmarkCircle,
@@ -24,8 +20,8 @@ import {
     IoFlask,
     IoWifi,
     IoHardwareChip,
-    IoTimerOutline,
     IoPersonCircle,
+    IoRefresh,
 } from 'react-icons/io5';
 import { useForm, Controller } from 'react-hook-form';
 import { toast } from 'react-hot-toast';
@@ -36,9 +32,8 @@ const InspeccionDetalle = () => {
     const { user } = useAuth();
     const [materialesDisponibles, setMaterialesDisponibles] = useState([]);
     const [materialSeleccionado, setMaterialSeleccionado] = useState(null);
-    const [tiempoInicio, setTiempoInicio] = useState(null);
+    const [searchTerm, setSearchTerm] = useState('');
 
-    // ✅ Usar hook real de laboratorio
     const {
         loading,
         error,
@@ -70,7 +65,6 @@ const InspeccionDetalle = () => {
         }
     });
 
-    // Observar cambios en las pruebas para determinar aprobación automática
     const watchFields = watch([
         'serie_logica_ok',
         'wifi_24_ok',
@@ -84,11 +78,9 @@ const InspeccionDetalle = () => {
     }, []);
 
     useEffect(() => {
-        // Auto-determinar aprobación basada en las pruebas
         const todasPruebas = watchFields.every(field => field === true);
         setValue('aprobado', todasPruebas);
 
-        // Auto-generar fallas detectadas
         const fallas = [];
         if (!watchFields[0]) fallas.push('SERIE_LOGICA_DEFECTUOSA');
         if (!watchFields[1]) fallas.push('WIFI_24_DEFECTUOSO');
@@ -115,11 +107,21 @@ const InspeccionDetalle = () => {
         }
     };
 
+    const materialesFiltrados = materialesDisponibles.filter(material => {
+        const searchLower = searchTerm.toLowerCase();
+        return (
+            material.codigo_interno?.toLowerCase().includes(searchLower) ||
+            material.mac_address?.toLowerCase().includes(searchLower) ||
+            material.gpon_serial?.toLowerCase().includes(searchLower) ||
+            material.serial_manufacturer?.toLowerCase().includes(searchLower) ||
+            material.modelo?.toLowerCase().includes(searchLower) ||
+            material.lote?.toLowerCase().includes(searchLower)
+        );
+    });
+
     const handleSeleccionarMaterial = (material) => {
         setMaterialSeleccionado(material);
-        setTiempoInicio(new Date());
 
-        // Generar número de informe automático
         const fechaHoy = new Date().toISOString().slice(0, 10).replace(/-/g, '');
         const numeroInforme = `INF-${fechaHoy}-${material.codigo_interno}`;
         setValue('numero_informe', numeroInforme);
@@ -137,11 +139,6 @@ const InspeccionDetalle = () => {
             comentarios_adicionales: '',
             fallas_detectadas: []
         });
-    };
-
-    const calcularTiempoInspeccion = () => {
-        if (!tiempoInicio) return 0;
-        return Math.round((new Date() - tiempoInicio) / (1000 * 60)); // en minutos
     };
 
     const handleFinalizarInspeccion = async (data) => {
@@ -163,8 +160,7 @@ const InspeccionDetalle = () => {
                 observaciones_tecnico: data.observaciones_tecnico || '',
                 comentarios_adicionales: data.comentarios_adicionales || '',
                 fallas_detectadas: data.fallas_detectadas || [],
-                tecnico_revisor: user?.codigocotel || '',
-                tiempo_inspeccion_minutos: calcularTiempoInspeccion()
+                tecnico_revisor: user?.codigocotel || ''
             };
 
             const result = await registrarInspeccion(inspeccionData);
@@ -172,9 +168,7 @@ const InspeccionDetalle = () => {
             if (result.success) {
                 toast.success(result.data.message || 'Inspección completada correctamente');
 
-                // Limpiar formulario y recargar lista
                 setMaterialSeleccionado(null);
-                setTiempoInicio(null);
                 reset({
                     tecnico_revisor: user?.codigocotel || '',
                 });
@@ -190,7 +184,7 @@ const InspeccionDetalle = () => {
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* ✅ Error handling */}
+            {/* Error handling */}
             {error && (
                 <div className="lg:col-span-3">
                     <Alert color="red" className="border border-red-200">
@@ -218,35 +212,83 @@ const InspeccionDetalle = () => {
                 </div>
             )}
 
-            {/* Panel de selección de material */}
+            {/* Panel de selección de material - TÍTULO INTEGRADO */}
             <div className="lg:col-span-1">
                 <Card>
-                    <CardHeader>
-                        <Typography variant="h6" color="blue-gray">
-                            🔍 Seleccionar Equipo
-                        </Typography>
-                    </CardHeader>
                     <CardBody className="space-y-4">
+                        {/* Título integrado dentro del body */}
+                        <div className="flex items-center justify-between mb-4">
+                            <Typography variant="h6" color="blue-gray">
+                                Seleccionar Equipo
+                            </Typography>
+                            <Button
+                                size="sm"
+                                variant="outlined"
+                                color="blue"
+                                onClick={loadMaterialesEnLaboratorio}
+                                disabled={loading}
+                                className="flex items-center gap-1"
+                            >
+                                <IoRefresh className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                            </Button>
+                        </div>
+
+                        {/* Buscador */}
+                        <div className="space-y-3">
+                            <Input
+                                label="Buscar equipos (código, MAC, GPON, modelo)"
+                                icon={<IoSearch className="h-5 w-5" />}
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                containerProps={{ className: "min-w-0" }}
+                            />
+
+                            <div className="flex items-center justify-between">
+                                <Chip
+                                    variant="ghost"
+                                    color="blue"
+                                    value={`${materialesFiltrados.length} de ${materialesDisponibles.length} equipos`}
+                                    className="text-xs"
+                                />
+                                {searchTerm && (
+                                    <Button
+                                        size="sm"
+                                        variant="text"
+                                        color="gray"
+                                        onClick={() => setSearchTerm('')}
+                                        className="text-xs"
+                                    >
+                                        Limpiar
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
+
                         {loading ? (
                             <div className="text-center py-4">
                                 <Typography color="gray">Cargando equipos...</Typography>
                             </div>
-                        ) : materialesDisponibles.length === 0 ? (
+                        ) : materialesFiltrados.length === 0 ? (
                             <div className="text-center py-8">
                                 <IoFlask className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                                <Typography color="gray">
-                                    No hay equipos en laboratorio
+                                <Typography color="gray" className="mb-2">
+                                    {searchTerm ? 'No se encontraron equipos' : 'No hay equipos en laboratorio'}
                                 </Typography>
+                                {searchTerm && (
+                                    <Typography variant="small" color="gray">
+                                        Intenta con otros términos de búsqueda
+                                    </Typography>
+                                )}
                             </div>
                         ) : (
-                            <div className="space-y-2">
-                                {materialesDisponibles.map((material) => (
+                            <div className="space-y-2 max-h-96 overflow-y-auto">
+                                {materialesFiltrados.map((material) => (
                                     <Card
                                         key={material.id}
                                         className={`cursor-pointer transition-colors ${
                                             materialSeleccionado?.id === material.id
-                                                ? 'bg-blue-50 border-blue-200'
-                                                : 'hover:bg-gray-50'
+                                                ? 'bg-blue-50 border-blue-200 border-2'
+                                                : 'hover:bg-gray-50 border border-gray-200'
                                         }`}
                                         onClick={() => handleSeleccionarMaterial(material)}
                                     >
@@ -254,7 +296,6 @@ const InspeccionDetalle = () => {
                                             <Typography variant="small" color="blue-gray" className="font-medium mb-2">
                                                 {material.codigo_interno}
                                             </Typography>
-                                            {/* ✅ MODIFICAR: Mostrar MAC y GPON */}
                                             <div className="space-y-1 mb-2">
                                                 <Typography variant="small" color="gray" className="font-mono text-xs">
                                                     MAC: {material.mac_address}
@@ -264,15 +305,25 @@ const InspeccionDetalle = () => {
                                                 </Typography>
                                             </div>
                                             <div className="flex items-center justify-between mt-2">
-                                                <Typography variant="small" color="gray">
+                                                <Typography variant="small" color="gray" className="truncate">
                                                     {material.modelo}
                                                 </Typography>
-                                                <Chip
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    color={material.dias_en_laboratorio > 10 ? 'red' : 'blue'}
-                                                    value={`${material.dias_en_laboratorio || 0}d`}
-                                                />
+                                                <div className="flex gap-1">
+                                                    <Chip
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        color={material.dias_en_laboratorio > 10 ? 'red' : 'blue'}
+                                                        value={`${material.dias_en_laboratorio || 0}d`}
+                                                    />
+                                                    {materialSeleccionado?.id === material.id && (
+                                                        <Chip
+                                                            size="sm"
+                                                            variant="filled"
+                                                            color="blue"
+                                                            value="SELECCIONADO"
+                                                        />
+                                                    )}
+                                                </div>
                                             </div>
                                         </CardBody>
                                     </Card>
@@ -283,25 +334,17 @@ const InspeccionDetalle = () => {
                 </Card>
             </div>
 
-            {/* Panel de inspección */}
+            {/* Panel de inspección - TÍTULO INTEGRADO Y SIN TIMER */}
             <div className="lg:col-span-2">
                 <Card>
-                    <CardHeader>
-                        <div className="flex items-center justify-between">
-                            <Typography variant="h6" color="blue-gray">
-                                🔬 Inspección de Calidad
-                            </Typography>
-                            {tiempoInicio && (
-                                <div className="flex items-center gap-2">
-                                    <IoTimerOutline className="h-4 w-4 text-blue-500" />
-                                    <Typography variant="small" color="blue">
-                                        {calcularTiempoInspeccion()} min
-                                    </Typography>
-                                </div>
-                            )}
-                        </div>
-                    </CardHeader>
                     <CardBody>
+                        {/* Título integrado dentro del body */}
+                        <div className="mb-6">
+                            <Typography variant="h6" color="blue-gray">
+                                Inspección de Calidad
+                            </Typography>
+                        </div>
+
                         {!materialSeleccionado ? (
                             <div className="text-center py-12">
                                 <IoSearch className="mx-auto h-16 w-16 text-gray-400 mb-4" />
@@ -342,7 +385,6 @@ const InspeccionDetalle = () => {
                                         error={!!errors.numero_informe}
                                     />
 
-                                    {/* ✅ CAMPO MEJORADO: Mostrar código + nombre completo */}
                                     <div>
                                         <Typography variant="small" color="blue-gray" className="font-medium mb-2">
                                             Técnico Revisor
@@ -365,7 +407,6 @@ const InspeccionDetalle = () => {
                                                 </Typography>
                                             </div>
                                         </div>
-                                        {/* Campo oculto para el formulario */}
                                         <input
                                             type="hidden"
                                             {...register('tecnico_revisor')}
@@ -377,7 +418,7 @@ const InspeccionDetalle = () => {
                                 {/* Pruebas técnicas */}
                                 <div>
                                     <Typography variant="h6" color="blue-gray" className="mb-4">
-                                        🧪 Pruebas Técnicas
+                                        Pruebas Técnicas
                                     </Typography>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -517,7 +558,7 @@ const InspeccionDetalle = () => {
                                 <div className="p-4 border rounded-lg">
                                     <div className="flex items-center justify-between">
                                         <Typography variant="h6" color="blue-gray">
-                                            📋 Resultado de la Inspección
+                                            Resultado de la Inspección
                                         </Typography>
                                         <Controller
                                             name="aprobado"
@@ -547,13 +588,11 @@ const InspeccionDetalle = () => {
                                         label="Observaciones del Técnico"
                                         {...register('observaciones_tecnico')}
                                         rows={3}
-                                        placeholder="Detalles de las pruebas realizadas..."
                                     />
                                     <Textarea
                                         label="Comentarios Adicionales"
                                         {...register('comentarios_adicionales')}
                                         rows={2}
-                                        placeholder="Información adicional relevante..."
                                     />
                                 </div>
 
@@ -564,7 +603,6 @@ const InspeccionDetalle = () => {
                                         color="gray"
                                         onClick={() => {
                                             setMaterialSeleccionado(null);
-                                            setTiempoInicio(null);
                                             reset();
                                         }}
                                     >

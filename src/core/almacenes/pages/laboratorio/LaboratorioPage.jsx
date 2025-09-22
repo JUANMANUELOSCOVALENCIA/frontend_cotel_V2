@@ -1,4 +1,4 @@
-// src/core/almacenes/pages/laboratorio/LaboratorioPage.jsx - TABS CORREGIDOS
+// src/core/almacenes/pages/laboratorio/LaboratorioPage.jsx - SIMPLIFICADO
 import React, { useState, useEffect } from 'react';
 import {
     Card,
@@ -6,11 +6,6 @@ import {
     CardBody,
     Typography,
     Button,
-    Tabs,
-    TabsHeader,
-    TabsBody,
-    Tab,
-    TabPanel,
     Alert,
     Spinner,
     Breadcrumbs
@@ -30,14 +25,12 @@ import {
 import { toast } from 'react-hot-toast';
 
 // Componentes y hooks
-import LaboratorioStats from './LaboratorioStats.jsx';
 import MaterialesEnLaboratorio from './MaterialesEnLaboratorio.jsx';
 import InspeccionDetalle from './InspeccionDetalle.jsx';
-import HistorialInspecciones from './HistorialInspecciones.jsx';
 import { useLaboratorio } from '../../hooks/useLaboratorio';
 
 const LaboratorioPage = () => {
-    const [activeTab, setActiveTab] = useState('dashboard');
+    const [activeTab, setActiveTab] = useState('pendientes');
     const [dashboardData, setDashboardData] = useState(null);
 
     const {
@@ -65,15 +58,8 @@ const LaboratorioPage = () => {
         }
     };
 
-    // ✅ Configuración de tabs mejorada
+    // Configuración de tabs simplificada
     const tabs = [
-        {
-            value: 'dashboard',
-            label: 'Panel General',
-            icon: IoStatsChart,
-            badge: null,
-            color: 'blue'
-        },
         {
             value: 'pendientes',
             label: 'Pendientes',
@@ -94,13 +80,6 @@ const LaboratorioPage = () => {
             icon: IoCheckmarkCircle,
             badge: null,
             color: 'green'
-        },
-        {
-            value: 'historial',
-            label: 'Historial',
-            icon: IoList,
-            badge: null,
-            color: 'gray'
         }
     ];
 
@@ -137,7 +116,7 @@ const LaboratorioPage = () => {
                             </div>
                             <div>
                                 <Typography variant="h3" color="blue-gray" className="mb-2">
-                                    🔬 Laboratorio de Calidad
+                                    Laboratorio de Calidad
                                 </Typography>
                                 <Typography color="gray" className="text-lg">
                                     Control de calidad e inspección de equipos ONUs
@@ -177,12 +156,7 @@ const LaboratorioPage = () => {
                     </Alert>
                 )}
 
-                {/* Estadísticas rápidas */}
-                {dashboardData && (
-                    <LaboratorioStats data={dashboardData} />
-                )}
-
-                {/* Alertas */}
+                {/* Alertas importantes */}
                 {dashboardData?.alertas && dashboardData.alertas.length > 0 && (
                     <div className="space-y-2">
                         {dashboardData.alertas.map((alerta, index) => (
@@ -204,7 +178,7 @@ const LaboratorioPage = () => {
                     </div>
                 )}
 
-                {/* ✅ TABS COMPLETAMENTE REDISEÑADOS */}
+                {/* Tabs customizados */}
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm">
                     {/* Header de Tabs customizado */}
                     <div className="border-b border-gray-200 bg-gray-50 rounded-t-2xl">
@@ -241,10 +215,6 @@ const LaboratorioPage = () => {
 
                     {/* Contenido de Tabs */}
                     <div className="p-6">
-                        {activeTab === 'dashboard' && (
-                            <LaboratorioStats data={dashboardData} detailed />
-                        )}
-
                         {activeTab === 'pendientes' && (
                             <MaterialesEnLaboratorio tipo="pendientes_inspeccion" />
                         )}
@@ -255,10 +225,6 @@ const LaboratorioPage = () => {
 
                         {activeTab === 'inspeccion' && (
                             <InspeccionDetalle />
-                        )}
-
-                        {activeTab === 'historial' && (
-                            <HistorialInspecciones />
                         )}
                     </div>
                 </div>

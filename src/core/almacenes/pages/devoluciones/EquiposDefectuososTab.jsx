@@ -96,7 +96,7 @@ const EquiposDefectuososTab = ({ onSuccess, loading: parentLoading }) => {
         try {
             setLoading(true);
 
-            const response = await api.post('/almacenes/materiales/devolver_a_sector/', {
+            const response = await api.post('/almacenes/sectores/devolucion/', {
                 materiales_ids: selectedEquipos,
                 motivo: 'Equipo defectuoso devuelto al sector solicitante para gestión de reposición'
             });

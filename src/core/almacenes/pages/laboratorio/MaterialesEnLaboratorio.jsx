@@ -1,4 +1,4 @@
-// src/core/almacenes/pages/laboratorio/MaterialesEnLaboratorio.jsx - CÓDIGO COMPLETO CORREGIDO
+// src/core/almacenes/pages/laboratorio/MaterialesEnLaboratorio.jsx - CON VISTA POR LOTES RESTAURADA
 import React, { useState, useEffect } from 'react';
 import {
     Card,
@@ -11,7 +11,9 @@ import {
     IconButton,
     Tooltip,
     Alert,
-    Spinner
+    Spinner,
+    Select,
+    Option
 } from '@material-tailwind/react';
 import {
     IoSearch,
@@ -30,7 +32,10 @@ import {
     IoChevronDown,
     IoChevronUp,
     IoCalendar,
-
+    IoArrowBack,
+    IoArrowForward,
+    IoPlaySkipBack,
+    IoPlaySkipForward
 } from 'react-icons/io5';
 import { toast } from 'react-hot-toast';
 import { useLaboratorio } from '../../hooks/useLaboratorio';
@@ -41,7 +46,10 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
     const [vistaLotes, setVistaLotes] = useState(false);
     const [lotesAbiertos, setLotesAbiertos] = useState(new Set());
 
-    // ✅ USAR EL HOOK IMPORTADO CORRECTAMENTE
+    // Estados de paginación
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(20);
+
     const {
         loading,
         error,
@@ -56,6 +64,7 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
             const result = await getMaterialesPorTipo(tipo);
             if (result.success) {
                 setMateriales(result.data.materiales || result.data || []);
+                setCurrentPage(1);
             } else {
                 toast.error(result.error);
                 setMateriales([]);
@@ -70,23 +79,9 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
         loadMateriales();
     }, [tipo]);
 
-    useEffect(() => {
-        if (materiales.length > 0) {
-            const material = materiales[0];
-            console.log('📦 MATERIAL COMPLETO:', material);
-            console.log('📦 numero_entrega_parcial:', material.numero_entrega_parcial);
-            console.log('📦 CAMPOS DISPONIBLES:', Object.keys(material));
-            console.log('📦 MODELO INFO:', material.modelo_info);
-            console.log('📦 LOTE INFO:', material.lote_info);
-            console.log('📦 ALMACEN INFO:', material.almacen_info);
-            console.log('📦 ENTREGA INFO:', material.entrega_parcial_info);
-        }
-    }, [materiales]);
-
-    // ✅ FUNCIONES HELPER CORREGIDAS PARA LA ESTRUCTURA REAL
+    // Funciones helper
     const obtenerModeloInfo = (material) => {
         const modeloInfo = material.modelo_info || {};
-
         return {
             id: modeloInfo.id,
             nombre: modeloInfo.nombre || 'Sin Modelo',
@@ -99,7 +94,6 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
 
     const obtenerLoteInfo = (material) => {
         const loteInfo = material.lote_info || {};
-
         return {
             id: loteInfo.id,
             numero_lote: loteInfo.numero_lote || 'Sin Lote',
@@ -118,7 +112,6 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
 
     const obtenerAlmacenInfo = (material) => {
         const almacenInfo = material.almacen_info || {};
-
         return {
             id: almacenInfo.id,
             nombre: almacenInfo.nombre || 'Sin Almacén',
@@ -127,22 +120,13 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
         };
     };
 
-    // ✅ FUNCIÓN ROBUSTA PARA OBTENER ENTREGA INFO
     const obtenerEntregaInfo = (material) => {
-        // Intentar obtener de diferentes fuentes
         const numeroEntrega =
             material.numero_entrega_parcial !== undefined ? material.numero_entrega_parcial :
                 material.entrega_parcial_info?.numero_entrega !== undefined ? material.entrega_parcial_info.numero_entrega :
                     0;
 
         const esEntregaParcial = numeroEntrega > 0;
-
-        console.log(`🔍 Material ${material.codigo_interno}:`, {
-            id: material.id,
-            numero_entrega_parcial: material.numero_entrega_parcial,
-            entrega_parcial_info: material.entrega_parcial_info,
-            numeroEntrega_calculado: numeroEntrega
-        });
 
         return {
             id: material.entrega_parcial_info?.id || null,
@@ -158,6 +142,7 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
         };
     };
 
+    // Filtrado
     const filteredMateriales = materiales.filter(material => {
         const loteInfo = obtenerLoteInfo(material);
         const modeloInfo = obtenerModeloInfo(material);
@@ -172,6 +157,7 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
             almacenInfo.nombre?.toLowerCase().includes(searchTerm.toLowerCase());
     });
 
+    // Agrupación por lote y entrega para vista por lotes
     const materialesPorLoteYEntrega = filteredMateriales.reduce((acc, material) => {
         const loteInfo = obtenerLoteInfo(material);
         const entregaInfo = obtenerEntregaInfo(material);
@@ -200,7 +186,40 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
         return acc;
     }, {});
 
-    // ✅ FUNCIONES DE ENVÍO
+    // Paginación para vista tabla
+    const totalItems = filteredMateriales.length;
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const currentItems = filteredMateriales.slice(startIndex, endIndex);
+
+    // Reset página cuando cambia el filtro
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, itemsPerPage]);
+
+    // Funciones de navegación
+    const goToPage = (page) => {
+        setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+    };
+
+    const goToFirstPage = () => setCurrentPage(1);
+    const goToLastPage = () => setCurrentPage(totalPages);
+    const goToPrevPage = () => setCurrentPage(prev => Math.max(1, prev - 1));
+    const goToNextPage = () => setCurrentPage(prev => Math.min(totalPages, prev + 1));
+
+    // Toggle lote abierto/cerrado
+    const toggleLoteAbierto = (loteKey) => {
+        const nuevosAbiertos = new Set(lotesAbiertos);
+        if (nuevosAbiertos.has(loteKey)) {
+            nuevosAbiertos.delete(loteKey);
+        } else {
+            nuevosAbiertos.add(loteKey);
+        }
+        setLotesAbiertos(nuevosAbiertos);
+    };
+
+    // Funciones de envío
     const handleEnviarLaboratorio = async (materialId, codigoEquipo = null) => {
         try {
             const result = await enviarMaterialLaboratorio(materialId);
@@ -218,7 +237,6 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
     const handleEnviarMasivo = async (criterios = {}) => {
         try {
             const result = await operacionMasiva('enviar_pendientes', criterios);
-
             if (result.success) {
                 toast.success(result.data.message || 'Materiales enviados a laboratorio');
                 loadMateriales();
@@ -246,16 +264,13 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
             toast.error('Error al enviar lote completo');
         }
     };
+
     const handleEnviarEntregaEspecifica = async (loteId, numeroEntrega, descripcion, cantidadEquipos) => {
         try {
-            console.log('🔍 ENVIANDO ENTREGA ESPECÍFICA:', { loteId, numeroEntrega, cantidadEquipos });
-
             const result = await operacionMasiva('enviar_entrega_parcial', {
                 lote_id: loteId,
                 numero_entrega: numeroEntrega
             });
-
-            console.log('🔍 RESULTADO:', result);
 
             if (result.success) {
                 toast.success(`${descripcion} enviada a laboratorio (${result.data.materiales_enviados} equipos)`);
@@ -264,7 +279,6 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
                 toast.error(result.error);
             }
         } catch (error) {
-            console.error('❌ EXCEPCIÓN:', error);
             toast.error('Error al enviar entrega específica');
         }
     };
@@ -310,35 +324,107 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
     const config = getTipoConfig();
     const TitleIcon = config.icon;
 
-
-
-    // ✅ AGRUPACIÓN POR LOTE
-    const materialesPorLote = filteredMateriales.reduce((acc, material) => {
-        const loteInfo = obtenerLoteInfo(material);
-        const loteKey = loteInfo.numero_lote;
-
-        if (!acc[loteKey]) {
-            acc[loteKey] = {
-                lote_info: loteInfo,
-                materiales: []
-            };
-        }
-
-        acc[loteKey].materiales.push(material);
-        return acc;
-    }, {});
-
-    const lotesReales = Object.keys(materialesPorLote).filter(lote => lote !== 'Sin Lote');
+    // Obtener lotes reales (no "Sin Lote")
+    const lotesReales = Object.keys(materialesPorLoteYEntrega).filter(lote => lote !== 'Sin Lote');
     const tieneLotesReales = lotesReales.length > 0;
 
-    const toggleLoteAbierto = (loteKey) => {
-        const nuevosAbiertos = new Set(lotesAbiertos);
-        if (nuevosAbiertos.has(loteKey)) {
-            nuevosAbiertos.delete(loteKey);
-        } else {
-            nuevosAbiertos.add(loteKey);
+    // Componente de paginación
+    const PaginationComponent = () => {
+        if (totalPages <= 1) return null;
+
+        const pageNumbers = [];
+        const maxVisible = 5;
+
+        let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+        let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+
+        if (endPage - startPage < maxVisible - 1) {
+            startPage = Math.max(1, endPage - maxVisible + 1);
         }
-        setLotesAbiertos(nuevosAbiertos);
+
+        for (let i = startPage; i <= endPage; i++) {
+            pageNumbers.push(i);
+        }
+
+        return (
+            <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
+                <div className="flex items-center gap-4">
+                    <Typography variant="small" color="gray">
+                        Mostrando {startIndex + 1} - {Math.min(endIndex, totalItems)} de {totalItems} equipos
+                    </Typography>
+
+                    <div className="w-32">
+                        <Select
+                            label="Por página"
+                            value={itemsPerPage.toString()}
+                            onChange={(value) => setItemsPerPage(parseInt(value))}
+                        >
+                            <Option value="10">10</Option>
+                            <Option value="20">20</Option>
+                            <Option value="50">50</Option>
+                            <Option value="100">100</Option>
+                        </Select>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <IconButton
+                        variant="outlined"
+                        color="blue-gray"
+                        size="sm"
+                        onClick={goToFirstPage}
+                        disabled={currentPage === 1}
+                    >
+                        <IoPlaySkipBack className="h-4 w-4" />
+                    </IconButton>
+
+                    <IconButton
+                        variant="outlined"
+                        color="blue-gray"
+                        size="sm"
+                        onClick={goToPrevPage}
+                        disabled={currentPage === 1}
+                    >
+                        <IoArrowBack className="h-4 w-4" />
+                    </IconButton>
+
+                    <div className="flex items-center gap-1">
+                        {pageNumbers.map(pageNum => (
+                            <IconButton
+                                key={pageNum}
+                                variant={pageNum === currentPage ? "filled" : "outlined"}
+                                color={pageNum === currentPage ? "blue" : "blue-gray"}
+                                size="sm"
+                                onClick={() => goToPage(pageNum)}
+                                className="min-w-[2.5rem]"
+                            >
+                                {pageNum}
+                            </IconButton>
+                        ))}
+                    </div>
+
+                    <IconButton
+                        variant="outlined"
+                        color="blue-gray"
+                        size="sm"
+                        onClick={goToNextPage}
+                        disabled={currentPage === totalPages}
+                    >
+                        <IoArrowForward className="h-4 w-4" />
+                    </IconButton>
+
+                    <IconButton
+                        variant="outlined"
+                        color="blue-gray"
+                        size="sm"
+                        onClick={goToLastPage}
+                        disabled={currentPage === totalPages}
+                    >
+                        <IoPlaySkipForward className="h-4 w-4" />
+                    </IconButton>
+                </div>
+            </div>
+        );
     };
 
     if (loading) {
@@ -392,7 +478,7 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
                 </div>
 
                 <div className="flex items-center gap-3">
-                    {/* Toggle vista por lotes */}
+                    {/* Toggle vista por lotes - Solo para pendientes */}
                     {tipo === 'pendientes_inspeccion' && tieneLotesReales && (
                         <div className="flex items-center gap-2 border border-gray-300 rounded-lg p-1">
                             <Button
@@ -448,11 +534,10 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
             <div className="flex items-center gap-4 mb-4">
                 <div className="flex-1">
                     <Input
-                        label="Buscar equipos..."
+                        label="Buscar equipos (código, MAC, GPON, modelo o lote)"
                         icon={<IoSearch className="h-5 w-5" />}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        placeholder="Código, MAC, GPON, D-SN, modelo o lote..."
                         containerProps={{ className: "min-w-0" }}
                     />
                 </div>
@@ -470,7 +555,7 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
                     <div className="flex items-center gap-3">
                         <IoTime className="h-4 w-4 text-blue-600" />
                         <Typography variant="small" className="text-blue-800">
-                            <span className="font-medium">📋 Inspección Requerida:</span> Estos equipos nuevos requieren inspección inicial antes de estar disponibles
+                            <span className="font-medium">Inspección Requerida:</span> Estos equipos nuevos requieren inspección inicial antes de estar disponibles
                             {vistaLotes && tieneLotesReales && ` • Organizados en ${lotesReales.length} lotes`}
                         </Typography>
                     </div>
@@ -478,7 +563,9 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
             )}
 
             {/* Contenido principal */}
+
             {vistaLotes && tipo === 'pendientes_inspeccion' && tieneLotesReales ? (
+                /* VISTA POR LOTES - DISEÑO NUEVO */
                 <div className="space-y-6">
                     {Object.entries(materialesPorLoteYEntrega)
                         .filter(([loteKey]) => loteKey !== 'Sin Lote')
@@ -487,63 +574,52 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
                             const loteAbierto = lotesAbiertos.has(numeroLote);
 
                             return (
-                                <Card key={numeroLote} className="border-2 border-gray-200 shadow-xl hover:shadow-2xl transition-shadow">
-                                    {/* ✅ HEADER MEJORADO DEL LOTE */}
-                                    <CardHeader
-                                        className="pb-6 cursor-pointer hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 transition-all duration-300"
+                                <div key={numeroLote} className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden">
+                                    {/* HEADER SIMPLE DEL LOTE */}
+                                    <div
+                                        className="bg-gradient-to-r from-blue-50 to-indigo-50 p-5 border-b border-gray-200 cursor-pointer hover:from-blue-100 hover:to-indigo-100 transition-all duration-300"
                                         onClick={() => toggleLoteAbierto(numeroLote)}
                                     >
                                         <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-6">
-                                                <div className="relative">
-                                                    <div className="p-4 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg">
-                                                        <IoCube className="h-10 w-10 text-white" />
-                                                    </div>
-                                                    <div className="absolute -top-2 -right-2 bg-amber-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
-                                                        {totalEntregas}
-                                                    </div>
+                                            {/* INFORMACIÓN DEL LOTE */}
+                                            <div className="flex items-center gap-4">
+                                                <div className="bg-blue-500 p-3 rounded-lg text-white">
+                                                    <IoCube className="h-6 w-6" />
                                                 </div>
+
                                                 <div>
-                                                    <Typography variant="h4" color="blue-gray" className="font-bold mb-2">
-                                                        {numeroLote}
-                                                    </Typography>
-                                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                                                        <div className="flex items-center gap-2 bg-blue-50 px-3 py-2 rounded-lg">
-                                                            <IoGrid className="h-4 w-4 text-blue-600" />
-                                                            <span className="font-medium text-blue-800">
-                                                    {totalEntregas} entregas
-                                                </span>
-                                                        </div>
-                                                        <div className="flex items-center gap-2 bg-green-50 px-3 py-2 rounded-lg">
-                                                            <IoCube className="h-4 w-4 text-green-600" />
-                                                            <span className="font-medium text-green-800">
-                                                    {loteData.total_materiales} equipos
-                                                </span>
-                                                        </div>
-                                                        <div className="flex items-center gap-2 bg-purple-50 px-3 py-2 rounded-lg">
-                                                            <IoFlask className="h-4 w-4 text-purple-600" />
-                                                            <span className="font-medium text-purple-800 truncate">
-                                                    {loteData.lote_info.proveedor_info?.nombre_comercial || 'Sin Proveedor'}
-                                                </span>
-                                                        </div>
+                                                    <div className="flex items-center gap-3 mb-1">
+                                                        <h3 className="text-xl font-bold text-gray-800">
+                                                            {numeroLote}
+                                                        </h3>
+                                                        <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-semibold">
+                                                {loteData.total_materiales} equipos
+                                            </span>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-6 text-sm text-gray-600">
+                                            <span>
+                                                <strong>Proveedor:</strong> {loteData.lote_info.proveedor_info?.nombre_comercial || 'Sin Proveedor'}
+                                            </span>
+                                                        <span>
+                                                <strong>Entregas:</strong> {totalEntregas}
+                                            </span>
                                                         {loteData.lote_info.fecha_recepcion && (
-                                                            <div className="flex items-center gap-2 bg-amber-50 px-3 py-2 rounded-lg">
-                                                                <IoCalendar className="h-4 w-4 text-amber-600" />
-                                                                <span className="font-medium text-amber-800">
-                                                        {new Date(loteData.lote_info.fecha_recepcion).toLocaleDateString('es-ES')}
-                                                    </span>
-                                                            </div>
+                                                            <span>
+                                                    <strong>Recepción:</strong> {new Date(loteData.lote_info.fecha_recepcion).toLocaleDateString('es-ES')}
+                                                </span>
                                                         )}
                                                     </div>
                                                 </div>
                                             </div>
 
-                                            <div className="flex items-center gap-4">
+                                            {/* BOTONES */}
+                                            <div className="flex items-center gap-3">
                                                 <Button
-                                                    size="lg"
                                                     color="green"
                                                     variant="gradient"
-                                                    className="flex items-center gap-3 px-8 py-4 shadow-lg hover:shadow-xl transition-shadow"
+                                                    size="lg"
+                                                    className="flex items-center gap-2"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         handleEnviarLoteCompleto(
@@ -554,104 +630,87 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
                                                     }}
                                                     disabled={loading}
                                                 >
-                                                    <IoSend className="h-6 w-6" />
-                                                    <div className="text-left">
-                                                        <div className="font-bold">Enviar Lote Completo</div>
-                                                        <div className="text-xs opacity-90">{loteData.total_materiales} equipos</div>
-                                                    </div>
+                                                    <IoSend className="h-5 w-5" />
+                                                    Enviar Lote Completo
                                                 </Button>
 
-                                                <div className="flex flex-col items-center">
-                                                    <IconButton
-                                                        variant="gradient"
-                                                        color="blue"
-                                                        size="lg"
-                                                        className="shadow-lg"
-                                                    >
-                                                        {loteAbierto ?
-                                                            <IoChevronUp className="h-6 w-6" /> :
-                                                            <IoChevronDown className="h-6 w-6" />
-                                                        }
-                                                    </IconButton>
-                                                    <Typography variant="small" color="gray" className="mt-1">
-                                                        {loteAbierto ? 'Ocultar' : 'Expandir'}
-                                                    </Typography>
-                                                </div>
+                                                <Button
+                                                    variant="outlined"
+                                                    color="blue-gray"
+                                                    size="lg"
+                                                    className="flex items-center gap-2"
+                                                >
+                                                    {loteAbierto ? (
+                                                        <>
+                                                            <IoChevronUp className="h-5 w-5" />
+                                                            Ocultar
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <IoChevronDown className="h-5 w-5" />
+                                                            Ver Entregas
+                                                        </>
+                                                    )}
+                                                </Button>
                                             </div>
                                         </div>
-                                    </CardHeader>
+                                    </div>
 
-                                    {/* ✅ CONTENIDO MEJORADO DEL LOTE (ENTREGAS) */}
+                                    {/* CONTENIDO EXPANDIBLE - ENTREGAS */}
                                     {loteAbierto && (
-                                        <CardBody className="pt-0 px-6 pb-6">
-                                            <div className="space-y-6">
-                                                <div className="border-t border-gray-200 pt-6">
-                                                    <Typography variant="h6" color="blue-gray" className="mb-4 flex items-center gap-2">
-                                                        <IoGitBranch className="h-5 w-5 text-blue-500" />
-                                                        Entregas Parciales ({totalEntregas})
-                                                    </Typography>
-                                                </div>
+                                        <div className="p-6">
+                                            <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                                                <IoGitBranch className="h-5 w-5 text-blue-500" />
+                                                Entregas del Lote ({totalEntregas})
+                                            </h4>
 
+                                            <div className="space-y-4">
                                                 {Object.entries(loteData.entregas)
                                                     .sort(([a], [b]) => parseInt(a) - parseInt(b))
                                                     .map(([numeroEntrega, entregaData]) => {
                                                         const cantidadEquipos = entregaData.materiales.length;
 
                                                         return (
-                                                            <Card key={numeroEntrega} className="bg-gradient-to-r from-gray-50 to-gray-100 border-l-4 border-l-amber-500 shadow-md">
-                                                                <CardBody className="p-6">
-                                                                    {/* ✅ HEADER MEJORADO DE LA ENTREGA */}
-                                                                    <div className="flex items-center justify-between mb-6">
-                                                                        <div className="flex items-center gap-4">
-                                                                            <div className={`p-3 rounded-xl shadow-md ${
+                                                            <div key={numeroEntrega} className="bg-gray-50 rounded-lg border border-gray-200">
+                                                                {/* HEADER DE LA ENTREGA */}
+                                                                <div className="p-4 border-b border-gray-200 bg-white rounded-t-lg">
+                                                                    <div className="flex items-center justify-between">
+                                                                        <div className="flex items-center gap-3">
+                                                                            <div className={`p-2 rounded-lg ${
                                                                                 entregaData.entrega_info.es_parcial
-                                                                                    ? 'bg-gradient-to-br from-amber-400 to-amber-500'
-                                                                                    : 'bg-gradient-to-br from-blue-400 to-blue-500'
-                                                                            }`}>
-                                                                                <IoGitBranch className="h-6 w-6 text-white" />
+                                                                                    ? 'bg-amber-500'
+                                                                                    : 'bg-blue-500'
+                                                                            } text-white`}>
+                                                                                <IoGitBranch className="h-4 w-4" />
                                                                             </div>
                                                                             <div>
-                                                                                <Typography variant="h5" color="blue-gray" className="font-bold mb-1">
+                                                                                <h5 className="font-semibold text-gray-800">
                                                                                     {entregaData.entrega_info.descripcion}
-                                                                                </Typography>
-                                                                                <div className="flex items-center gap-6 text-sm">
-                                                                                    <div className="flex items-center gap-2">
-                                                                                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                                                                                        <span className="font-medium">{cantidadEquipos} equipos</span>
-                                                                                    </div>
+                                                                                </h5>
+                                                                                <div className="flex items-center gap-4 text-sm text-gray-600">
+                                                                                    <span>{cantidadEquipos} equipos</span>
                                                                                     {entregaData.entrega_info.fecha_entrega && (
-                                                                                        <div className="flex items-center gap-2">
-                                                                                            <IoCalendar className="h-4 w-4 text-gray-500" />
-                                                                                            <span>{new Date(entregaData.entrega_info.fecha_entrega).toLocaleDateString('es-ES')}</span>
-                                                                                        </div>
+                                                                                        <span>
+                                                                                {new Date(entregaData.entrega_info.fecha_entrega).toLocaleDateString('es-ES')}
+                                                                            </span>
                                                                                     )}
-                                                                                    <Chip
-                                                                                        size="sm"
-                                                                                        variant="gradient"
-                                                                                        color={entregaData.entrega_info.es_parcial ? 'amber' : 'blue'}
-                                                                                        value={entregaData.entrega_info.es_parcial ? 'Entrega Parcial' : 'Recepción Inicial'}
-                                                                                        className="font-bold"
-                                                                                    />
+                                                                                    <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                                                                        entregaData.entrega_info.es_parcial
+                                                                                            ? 'bg-amber-100 text-amber-700'
+                                                                                            : 'bg-blue-100 text-blue-700'
+                                                                                    }`}>
+                                                                            {entregaData.entrega_info.es_parcial ? 'Parcial' : 'Inicial'}
+                                                                        </span>
                                                                                 </div>
                                                                             </div>
                                                                         </div>
 
                                                                         <Button
-                                                                            size="lg"
                                                                             color="blue"
                                                                             variant="gradient"
-                                                                            className="flex items-center gap-3 px-6 py-3 shadow-lg hover:shadow-xl transition-shadow"
+                                                                            size="md"
+                                                                            className="flex items-center gap-2"
                                                                             onClick={() => {
-                                                                                // Debug antes de enviar
-                                                                                console.log('🔍 MATERIALES DE LA ENTREGA:', {
-                                                                                    numero_entrega: numeroEntrega,
-                                                                                    materiales: entregaData.materiales.map(m => ({
-                                                                                        id: m.id,
-                                                                                        codigo: m.codigo_interno,
-                                                                                        numero_entrega_parcial: m.numero_entrega_parcial
-                                                                                    }))
-                                                                                });
-
                                                                                 handleEnviarEntregaEspecifica(
                                                                                     loteData.lote_info.id,
                                                                                     parseInt(numeroEntrega),
@@ -661,98 +720,87 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
                                                                             }}
                                                                             disabled={loading}
                                                                         >
-                                                                            <IoPlay className="h-5 w-5" />
-                                                                            <div className="text-left">
-                                                                                <div className="font-bold">Enviar Entrega</div>
-                                                                                <div className="text-xs opacity-90">{cantidadEquipos} equipos</div>
-                                                                            </div>
+                                                                            <IoPlay className="h-4 w-4" />
+                                                                            Enviar Entrega
                                                                         </Button>
                                                                     </div>
+                                                                </div>
 
-                                                                    {/* ✅ GRID MEJORADO DE EQUIPOS */}
-                                                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                                                {/* GRID DE EQUIPOS MÁS GRANDE */}
+                                                                <div className="p-4">
+                                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                                                                         {entregaData.materiales.map((material) => {
                                                                             const modeloInfo = obtenerModeloInfo(material);
 
                                                                             return (
-                                                                                <Card key={material.id} className="bg-white border-2 border-gray-200 hover:border-blue-300 hover:shadow-lg transition-all duration-200 group">
-                                                                                    <CardBody className="p-4">
-                                                                                        <div className="flex items-start justify-between mb-3">
-                                                                                            <div className="flex-1 min-w-0">
-                                                                                                <Typography variant="h6" color="blue-gray" className="font-bold truncate mb-1">
-                                                                                                    {material.codigo_interno}
-                                                                                                </Typography>
-                                                                                                <div className="space-y-1">
-                                                                                                    <Typography variant="small" color="gray" className="font-mono text-xs truncate bg-gray-100 px-2 py-1 rounded">
-                                                                                                        MAC: {material.mac_address}
-                                                                                                    </Typography>
-                                                                                                    <Typography variant="small" color="gray" className="font-mono text-xs truncate bg-blue-100 px-2 py-1 rounded">
-                                                                                                        GPON: {material.gpon_serial}
-                                                                                                    </Typography>
-                                                                                                </div>
-                                                                                            </div>
-                                                                                            <div className="flex gap-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                                                <Tooltip content="Ver detalles">
-                                                                                                    <IconButton variant="text" color="blue" size="sm">
-                                                                                                        <IoEye className="h-4 w-4" />
-                                                                                                    </IconButton>
-                                                                                                </Tooltip>
-                                                                                                <Tooltip content="Enviar individual">
-                                                                                                    <IconButton
-                                                                                                        variant="text"
-                                                                                                        color="green"
-                                                                                                        size="sm"
-                                                                                                        onClick={() => handleEnviarIndividual(material.id, material.codigo_interno)}
-                                                                                                        disabled={loading}
-                                                                                                    >
-                                                                                                        <IoPlay className="h-4 w-4" />
-                                                                                                    </IconButton>
-                                                                                                </Tooltip>
-                                                                                            </div>
+                                                                                <div key={material.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-md transition-all duration-200 group">
+                                                                                    <div className="flex items-start justify-between mb-3">
+                                                                                        <div className="flex-1">
+                                                                                            <h6 className="font-bold text-gray-800 mb-1">
+                                                                                                {material.codigo_interno}
+                                                                                            </h6>
+                                                                                            <p className="text-sm text-gray-600 mb-1">
+                                                                                                {modeloInfo.nombre_completo}
+                                                                                            </p>
                                                                                         </div>
-
-                                                                                        <Typography variant="small" color="blue-gray" className="font-medium mb-2 truncate">
-                                                                                            {modeloInfo.nombre_completo}
-                                                                                        </Typography>
-
-                                                                                        <div className="flex items-center justify-between">
-                                                                                            <Typography variant="small" color="gray" className="text-xs bg-blue-50 px-2 py-1 rounded">
-                                                                                                {material.codigo_item_equipo}
-                                                                                            </Typography>
-                                                                                            <Chip
-                                                                                                size="sm"
-                                                                                                variant="gradient"
-                                                                                                color="green"
-                                                                                                value="Nuevo"
-                                                                                                className="text-xs font-bold"
-                                                                                            />
+                                                                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                                            <Tooltip content="Ver detalles">
+                                                                                                <IconButton variant="text" color="blue" size="sm">
+                                                                                                    <IoEye className="h-4 w-4" />
+                                                                                                </IconButton>
+                                                                                            </Tooltip>
+                                                                                            <Tooltip content="Enviar individual">
+                                                                                                <IconButton
+                                                                                                    variant="text"
+                                                                                                    color="green"
+                                                                                                    size="sm"
+                                                                                                    onClick={() => handleEnviarIndividual(material.id, material.codigo_interno)}
+                                                                                                    disabled={loading}
+                                                                                                >
+                                                                                                    <IoPlay className="h-4 w-4" />
+                                                                                                </IconButton>
+                                                                                            </Tooltip>
                                                                                         </div>
-                                                                                    </CardBody>
-                                                                                </Card>
+                                                                                    </div>
+
+                                                                                    <div className="space-y-2 text-sm">
+                                                                                        <div className="bg-gray-100 px-3 py-2 rounded font-mono text-xs">
+                                                                                            <strong>MAC:</strong> {material.mac_address}
+                                                                                        </div>
+                                                                                        <div className="bg-blue-50 px-3 py-2 rounded font-mono text-xs">
+                                                                                            <strong>GPON:</strong> {material.gpon_serial}
+                                                                                        </div>
+                                                                                        {material.serial_manufacturer && (
+                                                                                            <div className="bg-green-50 px-3 py-2 rounded font-mono text-xs">
+                                                                                                <strong>D_SN:</strong> {material.serial_manufacturer}
+                                                                                            </div>
+                                                                                        )}
+                                                                                        <div className="flex items-center justify-between pt-2">
+                                                                                <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded">
+                                                                                    {material.codigo_item_equipo}
+                                                                                </span>
+                                                                                            <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-semibold">
+                                                                                    NUEVO
+                                                                                </span>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
                                                                             );
                                                                         })}
                                                                     </div>
-
-                                                                    {/* ✅ RESUMEN DE LA ENTREGA */}
-                                                                    <div className="mt-4 pt-4 border-t border-gray-200">
-                                                                        <div className="flex items-center justify-between text-sm text-gray-600">
-                                                                            <span>Total equipos en esta entrega: <strong>{cantidadEquipos}</strong></span>
-                                                                            <span>Estado: <strong>Pendiente inspección</strong></span>
-                                                                        </div>
-                                                                    </div>
-                                                                </CardBody>
-                                                            </Card>
+                                                                </div>
+                                                            </div>
                                                         );
                                                     })}
                                             </div>
-                                        </CardBody>
+                                        </div>
                                     )}
-                                </Card>
+                                </div>
                             );
                         })}
                 </div>
-            ) : (
-                // ✅ VISTA DE TABLA
+            )  : (
+                /* VISTA DE TABLA */
                 <div className="border border-gray-200 rounded-xl bg-white shadow-sm">
                     {filteredMateriales.length === 0 ? (
                         <div className="text-center py-12">
@@ -770,148 +818,153 @@ const MaterialesEnLaboratorio = ({ tipo = 'en_laboratorio' }) => {
                             </Typography>
                         </div>
                     ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full table-auto">
-                                <thead>
-                                <tr className="border-b border-gray-200 bg-gray-50/80">
-                                    <th className="px-4 py-3 text-left">
-                                        <Typography variant="small" color="blue-gray" className="font-semibold uppercase tracking-wide">
-                                            Equipo
-                                        </Typography>
-                                    </th>
-                                    <th className="px-4 py-3 text-left">
-                                        <Typography variant="small" color="blue-gray" className="font-semibold uppercase tracking-wide">
-                                            Modelo
-                                        </Typography>
-                                    </th>
-                                    <th className="px-4 py-3 text-left">
-                                        <Typography variant="small" color="blue-gray" className="font-semibold uppercase tracking-wide">
-                                            Lote
-                                        </Typography>
-                                    </th>
-                                    <th className="px-4 py-3 text-left">
-                                        <Typography variant="small" color="blue-gray" className="font-semibold uppercase tracking-wide">
-                                            Entrega
-                                        </Typography>
-                                    </th>
-                                    <th className="px-4 py-3 text-left">
-                                        <Typography variant="small" color="blue-gray" className="font-semibold uppercase tracking-wide">
-                                            Almacén
-                                        </Typography>
-                                    </th>
-                                    <th className="px-4 py-3 text-center">
-                                        <Typography variant="small" color="blue-gray" className="font-semibold uppercase tracking-wide">
-                                            Acciones
-                                        </Typography>
-                                    </th>
-                                </tr>
-                                </thead>
-                                <tbody>
-                                {filteredMateriales.map((material, index) => {
-                                    const loteInfo = obtenerLoteInfo(material);
-                                    const entregaInfo = obtenerEntregaInfo(material);
-                                    const modeloInfo = obtenerModeloInfo(material);
-                                    const almacenInfo = obtenerAlmacenInfo(material);
+                        <>
+                            <div className="overflow-x-auto">
+                                <table className="w-full table-auto">
+                                    <thead>
+                                    <tr className="border-b border-gray-200 bg-gray-50/80">
+                                        <th className="px-4 py-3 text-left">
+                                            <Typography variant="small" color="blue-gray" className="font-semibold uppercase tracking-wide">
+                                                Equipo
+                                            </Typography>
+                                        </th>
+                                        <th className="px-4 py-3 text-left">
+                                            <Typography variant="small" color="blue-gray" className="font-semibold uppercase tracking-wide">
+                                                Modelo
+                                            </Typography>
+                                        </th>
+                                        <th className="px-4 py-3 text-left">
+                                            <Typography variant="small" color="blue-gray" className="font-semibold uppercase tracking-wide">
+                                                Lote
+                                            </Typography>
+                                        </th>
+                                        <th className="px-4 py-3 text-left">
+                                            <Typography variant="small" color="blue-gray" className="font-semibold uppercase tracking-wide">
+                                                Entrega
+                                            </Typography>
+                                        </th>
+                                        <th className="px-4 py-3 text-left">
+                                            <Typography variant="small" color="blue-gray" className="font-semibold uppercase tracking-wide">
+                                                Almacén
+                                            </Typography>
+                                        </th>
+                                        <th className="px-4 py-3 text-center">
+                                            <Typography variant="small" color="blue-gray" className="font-semibold uppercase tracking-wide">
+                                                Acciones
+                                            </Typography>
+                                        </th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    {currentItems.map((material, index) => {
+                                        const loteInfo = obtenerLoteInfo(material);
+                                        const entregaInfo = obtenerEntregaInfo(material);
+                                        const modeloInfo = obtenerModeloInfo(material);
+                                        const almacenInfo = obtenerAlmacenInfo(material);
 
-                                    return (
-                                        <tr
-                                            key={material.id}
-                                            className={`border-b border-gray-100 hover:bg-gray-50/50 transition-colors ${
-                                                index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'
-                                            }`}
-                                        >
-                                            <td className="px-4 py-3">
-                                                <div>
-                                                    <Typography variant="small" color="blue-gray" className="font-semibold">
-                                                        {material.codigo_interno}
-                                                    </Typography>
-                                                    <div className="space-y-1 mt-1">
-                                                        <Typography variant="small" color="gray" className="font-mono text-xs">
-                                                            MAC: {material.mac_address}
+                                        return (
+                                            <tr
+                                                key={material.id}
+                                                className={`border-b border-gray-100 hover:bg-gray-50/50 transition-colors ${
+                                                    index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'
+                                                }`}
+                                            >
+                                                <td className="px-4 py-3">
+                                                    <div>
+                                                        <Typography variant="small" color="blue-gray" className="font-semibold">
+                                                            {material.codigo_interno}
                                                         </Typography>
-                                                        <Typography variant="small" color="gray" className="font-mono text-xs">
-                                                            GPON: {material.gpon_serial}
+                                                        <div className="space-y-1 mt-1">
+                                                            <Typography variant="small" color="gray" className="font-mono text-xs">
+                                                                MAC: {material.mac_address}
+                                                            </Typography>
+                                                            <Typography variant="small" color="gray" className="font-mono text-xs">
+                                                                GPON: {material.gpon_serial}
+                                                            </Typography>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div>
+                                                        <Typography variant="small" color="blue-gray" className="font-medium">
+                                                            {modeloInfo.nombre_completo}
+                                                        </Typography>
+                                                        <Typography variant="small" color="gray" className="text-xs mt-0.5">
+                                                            Tipo: {modeloInfo.tipo_material}
                                                         </Typography>
                                                     </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <div>
-                                                    <Typography variant="small" color="blue-gray" className="font-medium">
-                                                        {modeloInfo.nombre_completo}
-                                                    </Typography>
-                                                    <Typography variant="small" color="gray" className="text-xs mt-0.5">
-                                                        Tipo: {modeloInfo.tipo_material}
-                                                    </Typography>
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <Chip
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    color={loteInfo.numero_lote === 'Sin Lote' ? 'gray' : 'blue'}
-                                                    value={loteInfo.numero_lote}
-                                                    className="font-mono"
-                                                />
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                {entregaInfo.es_parcial ? (
-                                                    <Chip
-                                                        size="sm"
-                                                        variant="gradient"
-                                                        color="amber"
-                                                        value={`#${entregaInfo.numero_entrega}`}
-                                                        className="font-bold"
-                                                    />
-                                                ) : (
+                                                </td>
+                                                <td className="px-4 py-3">
                                                     <Chip
                                                         size="sm"
                                                         variant="ghost"
-                                                        color="blue"
-                                                        value="Inicial"
-                                                        className="font-medium"
+                                                        color={loteInfo.numero_lote === 'Sin Lote' ? 'gray' : 'blue'}
+                                                        value={loteInfo.numero_lote}
+                                                        className="font-mono"
                                                     />
-                                                )}
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <div>
-                                                    <Typography variant="small" color="blue-gray" className="font-medium">
-                                                        {almacenInfo.nombre}
-                                                    </Typography>
-                                                    <Typography variant="small" color="gray" className="text-xs mt-0.5">
-                                                        {almacenInfo.codigo} • {almacenInfo.ciudad}
-                                                    </Typography>
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <div className="flex items-center justify-center gap-1">
-                                                    <Tooltip content="Ver detalles" placement="top">
-                                                        <IconButton variant="text" color="blue" size="sm">
-                                                            <IoEye className="h-4 w-4" />
-                                                        </IconButton>
-                                                    </Tooltip>
-
-                                                    {tipo === 'pendientes_inspeccion' && (
-                                                        <Tooltip content="Enviar a laboratorio" placement="top">
-                                                            <IconButton
-                                                                variant="text"
-                                                                color="green"
-                                                                size="sm"
-                                                                onClick={() => handleEnviarLaboratorio(material.id, material.codigo_interno)}
-                                                                disabled={loading}
-                                                            >
-                                                                <IoPlay className="h-4 w-4" />
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    {entregaInfo.es_parcial ? (
+                                                        <Chip
+                                                            size="sm"
+                                                            variant="gradient"
+                                                            color="amber"
+                                                            value={`#${entregaInfo.numero_entrega}`}
+                                                            className="font-bold"
+                                                        />
+                                                    ) : (
+                                                        <Chip
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            color="blue"
+                                                            value="Inicial"
+                                                            className="font-medium"
+                                                        />
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div>
+                                                        <Typography variant="small" color="blue-gray" className="font-medium">
+                                                            {almacenInfo.nombre}
+                                                        </Typography>
+                                                        <Typography variant="small" color="gray" className="text-xs mt-0.5">
+                                                            {almacenInfo.codigo} • {almacenInfo.ciudad}
+                                                        </Typography>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className="flex items-center justify-center gap-1">
+                                                        <Tooltip content="Ver detalles" placement="top">
+                                                            <IconButton variant="text" color="blue" size="sm">
+                                                                <IoEye className="h-4 w-4" />
                                                             </IconButton>
                                                         </Tooltip>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                                </tbody>
-                            </table>
-                        </div>
+
+                                                        {tipo === 'pendientes_inspeccion' && (
+                                                            <Tooltip content="Enviar a laboratorio" placement="top">
+                                                                <IconButton
+                                                                    variant="text"
+                                                                    color="green"
+                                                                    size="sm"
+                                                                    onClick={() => handleEnviarLaboratorio(material.id, material.codigo_interno)}
+                                                                    disabled={loading}
+                                                                >
+                                                                    <IoPlay className="h-4 w-4" />
+                                                                </IconButton>
+                                                            </Tooltip>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {/* Paginación solo para vista tabla */}
+                            <PaginationComponent />
+                        </>
                     )}
                 </div>
             )}

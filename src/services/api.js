@@ -1,20 +1,17 @@
 import axios from 'axios';
 import { getToken, removeToken, getRefreshToken, setToken } from '../utils/storage';
 
-// Configuración de la URL base - SOLO desde .env
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
-// Verificar que existe la variable de entorno
 if (!API_BASE_URL) {
     console.error('❌ ERROR: VITE_API_URL no está definida en el archivo .env');
-    console.error('Crea un archivo .env con: VITE_API_URL=http://tu-ip:8000/api');
     throw new Error('VITE_API_URL es requerida');
 }
 
-// Crear instancia de axios
+// Crear instancia con timeout más largo
 export const api = axios.create({
     baseURL: API_BASE_URL,
-    timeout: 15000,
+    timeout: 30000, // 30 segundos en lugar de 15
 });
 
 console.log('🌐 API configurada en:', API_BASE_URL);
@@ -34,7 +31,24 @@ const processQueue = (error, token = null) => {
     failedQueue = [];
 };
 
-// Interceptor de REQUEST - Agregar token a todas las peticiones
+// Función para retry automático en errores de conexión
+const retryRequest = async (config, retryCount = 0) => {
+    const maxRetries = 2; // Máximo 2 reintentos
+
+    try {
+        return await api(config);
+    } catch (error) {
+        // Solo reintentar en errores de conexión (sin response)
+        if (!error.response && retryCount < maxRetries) {
+            console.log(`🔄 Reintento ${retryCount + 1}/${maxRetries} para:`, config.url);
+            await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1))); // Esperar 1s, 2s
+            return retryRequest(config, retryCount + 1);
+        }
+        throw error;
+    }
+};
+
+// Interceptor de REQUEST
 api.interceptors.request.use(
     (config) => {
         const token = getToken();
@@ -42,12 +56,9 @@ api.interceptors.request.use(
             config.headers.Authorization = `Bearer ${token}`;
         }
 
-        // Configurar Content-Type basado en el tipo de datos
         if (config.data instanceof FormData) {
-            // Para FormData, dejar que el navegador configure automáticamente
             delete config.headers['Content-Type'];
         } else if (config.data && typeof config.data === 'object') {
-            // Para objetos JSON
             config.headers['Content-Type'] = 'application/json';
         }
 
@@ -59,7 +70,7 @@ api.interceptors.request.use(
     }
 );
 
-// Interceptor de RESPONSE - Manejar errores y refresh token
+// Interceptor de RESPONSE mejorado
 api.interceptors.response.use(
     (response) => {
         return response;
@@ -67,17 +78,26 @@ api.interceptors.response.use(
     async (error) => {
         const originalRequest = error.config;
 
-        // Error de conexión (sin response)
+        // Error de conexión - intentar retry
         if (!error.response) {
-            console.error('🔌 Sin conexión al backend en:', API_BASE_URL);
-            console.error('Verifica que Django esté ejecutándose y la IP sea correcta');
+            console.warn('🔌 Error de conexión al backend:', API_BASE_URL);
+
+            // Solo hacer retry si no es un reintento previo
+            if (!originalRequest._retryAttempted) {
+                originalRequest._retryAttempted = true;
+                try {
+                    return await retryRequest(originalRequest);
+                } catch (retryError) {
+                    console.error('❌ Todos los reintentos fallaron');
+                    return Promise.reject(retryError);
+                }
+            }
+
             return Promise.reject(error);
         }
 
-        // Error 401 - Token expirado o inválido
+        // Error 401 - Token expirado
         if (error.response.status === 401 && !originalRequest._retry) {
-
-            // Si ya estamos procesando refresh, agregar a la cola
             if (isRefreshing) {
                 return new Promise((resolve, reject) => {
                     failedQueue.push({ resolve, reject });
@@ -94,7 +114,6 @@ api.interceptors.response.use(
 
             const refreshToken = getRefreshToken();
 
-            // Si no hay refresh token, hacer logout
             if (!refreshToken) {
                 console.warn('🚪 No hay refresh token, haciendo logout');
                 processQueue(error, null);
@@ -105,26 +124,19 @@ api.interceptors.response.use(
             try {
                 console.log('🔄 Intentando refresh del token...');
 
-                // Hacer refresh del token
                 const response = await axios.post(`${API_BASE_URL}/token/refresh/`, {
                     refresh: refreshToken
                 });
 
                 const { access } = response.data;
 
-                // Guardar nuevo token
                 setToken(access);
-
-                // Actualizar headers
                 api.defaults.headers.common['Authorization'] = `Bearer ${access}`;
                 originalRequest.headers.Authorization = `Bearer ${access}`;
 
                 console.log('✅ Token refrescado exitosamente');
 
-                // Procesar cola de peticiones pendientes
                 processQueue(null, access);
-
-                // Reintentar petición original
                 return api(originalRequest);
 
             } catch (refreshError) {
@@ -139,12 +151,10 @@ api.interceptors.response.use(
 
         // Otros errores HTTP
         logHttpError(error);
-
         return Promise.reject(error);
     }
 );
 
-// Función para loggear errores HTTP
 const logHttpError = (error) => {
     const status = error.response?.status;
     const url = error.config?.url;
@@ -172,12 +182,10 @@ const logHttpError = (error) => {
     }
 };
 
-// Función para hacer logout
 const handleLogout = () => {
     console.log('🚪 Haciendo logout...');
     removeToken();
 
-    // Solo redirigir si no estamos en rutas públicas
     const currentPath = window.location.pathname;
     if (currentPath !== '/login' && currentPath !== '/migration') {
         window.location.href = '/login';

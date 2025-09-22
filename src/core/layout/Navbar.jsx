@@ -317,7 +317,7 @@ const Navbar = () => {
                                 </Button>
 
                                 {dropdownConfig?.isOpen && (
-                                    <div className="absolute top-full left-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[280px] max-w-[320px] p-2">
+                                    <div className="absolute top-full left-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-[9999] min-w-[280px] max-w-[320px] p-2">
                                         {item.submenu?.map((subItem) => {
                                             if (subItem.type === 'submenu') {
                                                 return (
@@ -337,7 +337,7 @@ const Navbar = () => {
                                                                 <IoChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${submenuPosition === 'left' ? 'rotate-90' : '-rotate-90'}`} />
                                                             </div>
 
-                                                            <div className={`absolute top-0 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[250px] p-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 ${
+                                                            <div className={`absolute top-0 bg-white border border-gray-200 rounded-lg shadow-lg z-[9999] min-w-[250px] p-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 ${
                                                                 submenuPosition === 'left' ? 'right-full mr-2' : 'left-full ml-2'
                                                             }`}>
                                                                 {subItem.submenu?.map((nestedItem) => (
@@ -558,7 +558,7 @@ const Navbar = () => {
             </Button>
 
             {isProfileMenuOpen && (
-                <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[200px] max-w-[300px] p-2">
+                <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-[9999] min-w-[200px] max-w-[300px] p-2">
                     <div className="px-3 py-3 border-b border-gray-200 mb-2 bg-gray-50 rounded-lg">
                         <Typography variant="small" color="gray" className="font-normal text-gray-600">
                             {fullName}
@@ -613,6 +613,7 @@ const Navbar = () => {
         <MTNavbar className="sticky top-0 z-10 h-max max-w-full rounded-none px-4 py-3 lg:px-8 lg:py-4 bg-white border-b-2 border-orange-200 shadow-md">
             <div className="flex items-center justify-between text-blue-gray-900">
                 <Link to="/dashboard" className="flex items-center">
+                    <img src="/src/assets/login-2.png" alt="COTEL R.L. Logo" className="h-10 w-10 object-contain" />
                     <Typography className="mr-4 ml-2 cursor-pointer py-1.5 font-bold text-xl text-orange-600 hover:text-orange-700 transition-colors duration-200">
                         COTEL R.L.
                     </Typography>
