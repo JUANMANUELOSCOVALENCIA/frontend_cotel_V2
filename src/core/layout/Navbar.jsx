@@ -254,14 +254,14 @@ const Navbar = () => {
         {
             label: 'Laboratorio',
             icon: IoStorefront,
-            permissions: [{ recurso: 'almacenes', accion: 'leer' }],
+            permissions: [{ recurso: 'laboratorio', accion: 'leer' }],
             type: 'dropdown',
             submenu: [
                 {
                     label: 'Laboratorio',
                     href: '/laboratorio/laboratorio',
                     icon: IoCloudUpload,
-                    permissions: [{ recurso: 'almacenes', accion: 'leer' }],
+                    permissions: [{ recurso: 'laboratorio', accion: 'leer' }],
                     description: 'Laboratorio de equipos'
                 },
             ]

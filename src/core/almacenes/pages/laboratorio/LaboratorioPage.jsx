@@ -28,6 +28,7 @@ import { toast } from 'react-hot-toast';
 import MaterialesEnLaboratorio from './MaterialesEnLaboratorio.jsx';
 import InspeccionDetalle from './InspeccionDetalle.jsx';
 import { useLaboratorio } from '../../hooks/useLaboratorio';
+import Permission from '../../../../core/permissions/components/Permission.jsx';
 
 const LaboratorioPage = () => {
     const [activeTab, setActiveTab] = useState('pendientes');
@@ -65,7 +66,9 @@ const LaboratorioPage = () => {
             label: 'Pendientes',
             icon: IoTime,
             badge: dashboardData?.resumen?.pendientes_inspeccion || null,
-            color: 'amber'
+            color: 'amber',
+            permissions: [{ recurso: 'almacenes', accion: 'leer' }]
+
         },
         {
             value: 'en_proceso',
@@ -79,7 +82,8 @@ const LaboratorioPage = () => {
             label: 'Nueva Inspección',
             icon: IoCheckmarkCircle,
             badge: null,
-            color: 'green'
+            color: 'green',
+            permissions: [{ recurso: 'laboratorio', accion: 'crear' }]
         }
     ];
 
@@ -181,50 +185,61 @@ const LaboratorioPage = () => {
                 {/* Tabs customizados */}
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm">
                     {/* Header de Tabs customizado */}
+                    {/* Header de Tabs customizado */}
                     <div className="border-b border-gray-200 bg-gray-50 rounded-t-2xl">
                         <div className="flex flex-wrap gap-1 p-2">
-                            {tabs.map(({ value, label, icon: Icon, badge, color }) => (
-                                <button
-                                    key={value}
-                                    onClick={() => setActiveTab(value)}
-                                    className={`
-                                        flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition-all duration-200
-                                        ${activeTab === value
-                                        ? 'bg-white shadow-sm text-blue-600 border border-blue-200'
-                                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
-                                    }
-                                    `}
-                                >
-                                    <Icon className={`h-4 w-4 ${activeTab === value ? 'text-blue-500' : 'text-gray-500'}`} />
-                                    <span>{label}</span>
-                                    {badge && badge > 0 && (
-                                        <span className={`
-                                            inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold rounded-full min-w-[20px] h-5
-                                            ${activeTab === value
-                                            ? 'bg-red-100 text-red-600'
-                                            : 'bg-red-500 text-white'
-                                        }
-                                        `}>
-                                            {badge}
-                                        </span>
-                                    )}
-                                </button>
-                            ))}
+                            {tabs.map((tab) => {
+                                const { value, label, icon: Icon, badge, color, permissions } = tab;
+
+                                return (
+                                    <Permission key={value} permissions={permissions}>
+                                        <button
+                                            key={value}
+                                            onClick={() => setActiveTab(value)}
+                                            className={`
+                            flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition-all duration-200
+                            ${activeTab === value
+                                                ? 'bg-white shadow-sm text-blue-600 border border-blue-200'
+                                                : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
+                                            }
+                        `}
+                                        >
+                                            <Icon className={`h-4 w-4 ${activeTab === value ? 'text-blue-500' : 'text-gray-500'}`} />
+                                            <span>{label}</span>
+                                            {badge && badge > 0 && (
+                                                <span className={`
+                                inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold rounded-full min-w-[20px] h-5
+                                ${activeTab === value
+                                                    ? 'bg-red-100 text-red-600'
+                                                    : 'bg-red-500 text-white'
+                                                }
+                            `}>
+                                {badge}
+                            </span>
+                                            )}
+                                        </button>
+                                    </Permission>
+                                );
+                            })}
                         </div>
                     </div>
 
                     {/* Contenido de Tabs */}
                     <div className="p-6">
                         {activeTab === 'pendientes' && (
-                            <MaterialesEnLaboratorio tipo="pendientes_inspeccion" />
+                            <Permission permissions={[{ recurso: 'almacenes', accion: 'leer' }]}>
+                                <MaterialesEnLaboratorio tipo="pendientes_inspeccion" />
+                            </Permission>
                         )}
 
                         {activeTab === 'en_proceso' && (
-                            <MaterialesEnLaboratorio tipo="en_laboratorio" />
+                                <MaterialesEnLaboratorio tipo="en_laboratorio" />
                         )}
 
                         {activeTab === 'inspeccion' && (
-                            <InspeccionDetalle />
+                            <Permission permissions={[{ recurso: 'laboratorio', accion: 'crear' }]}>
+                                <InspeccionDetalle />
+                            </Permission>
                         )}
                     </div>
                 </div>

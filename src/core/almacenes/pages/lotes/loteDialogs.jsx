@@ -18,7 +18,7 @@ import {
     CardBody
 } from '@material-tailwind/react';
 import { useForm, Controller, useFieldArray } from 'react-hook-form';
-import { IoWarning, IoCheckmarkCircle, IoAdd, IoTrash, IoClose } from 'react-icons/io5';
+import { IoWarning, IoCheckmarkCircle, IoAdd, IoTrash, IoClose, IoRefresh } from 'react-icons/io5';
 import toast from 'react-hot-toast';
 import { useLotes } from '../../hooks/useAlmacenes';
 
@@ -101,7 +101,32 @@ const LoteDialogs = ({
                          onSuccess,
                          onLoteAction
                      }) => {
-    const { createLote, updateLote } = useLotes();
+    const { createLote, updateLote, getProximoNumeroLote } = useLotes();
+
+    // Agregar estado para el próximo número
+    const [proximoNumero, setProximoNumero] = useState('');
+    const [loadingNumero, setLoadingNumero] = useState(false);
+
+// Función para cargar próximo número
+    const cargarProximoNumero = async () => {
+        setLoadingNumero(true);
+        try {
+            const result = await getProximoNumeroLote();
+            if (result.success) {
+                setProximoNumero(result.data.proximo_numero);
+                // Establecer el valor en el formulario
+                setValue('numero_lote', result.data.proximo_numero);
+            } else {
+                console.error('Error cargando próximo número:', result.error);
+                toast.error('Error al obtener próximo número de lote');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            toast.error('Error al cargar número de lote');
+        } finally {
+            setLoadingNumero(false);
+        }
+    };
 
     // ========== FORMULARIO PARA CREAR/EDITAR ==========
     const {
@@ -136,7 +161,7 @@ const LoteDialogs = ({
                 numero_lote: '',
                 tipo_ingreso: '',
                 proveedor: '',
-                almacen_destino: '',
+                almacen_destino: '1',
                 tipo_servicio: '',
                 sector_solicitante: '', // ✅ NUEVO CAMPO
                 codigo_requerimiento_compra: '',
@@ -147,6 +172,7 @@ const LoteDialogs = ({
                 observaciones: '',
                 detalles: [{ modelo: '', cantidad: 1 }] // ✅ Solo en creación
             });
+            cargarProximoNumero()
         } else if (dialogs.edit && selectedLote) {
             console.log('✏️ Modo EDITAR - Sin detalles');
             reset({
@@ -171,7 +197,7 @@ const LoteDialogs = ({
                 console.log('🧹 Errores de detalles limpiados para edición');
             }, 100);
         }
-    }, [dialogs.create, dialogs.edit, selectedLote, reset, clearErrors]);
+    }, [dialogs.create, dialogs.edit, selectedLote, reset, clearErrors, setValue]);
 
     // ========== HANDLERS ==========
     const handleCreateLote = async (data) => {
@@ -367,14 +393,34 @@ const LoteDialogs = ({
                             📋 Información Básica
                         </Typography>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <Input
-                                label="Número de Lote *"
-                                {...register('numero_lote', {
-                                    required: 'El número de lote es obligatorio',
-                                    minLength: { value: 3, message: 'Mínimo 3 caracteres' }
-                                })}
-                                error={!!errors.numero_lote}
-                            />
+                            <div className="relative">
+                                <Input
+                                    label="Número de Lote (Automático) *"
+                                    {...register('numero_lote', {
+                                        required: 'El número de lote es obligatorio'
+                                    })}
+                                    readOnly={true}
+                                    value={watch('numero_lote') || ''}
+                                    className="pr-10"
+                                    error={!!errors.numero_lote}
+                                    success={!!watch('numero_lote')}
+                                />
+                                <IconButton
+                                    variant="text"
+                                    color="blue"
+                                    size="sm"
+                                    className="absolute right-1 top-1"
+                                    onClick={cargarProximoNumero}
+                                    disabled={loadingNumero}
+                                    title="Recargar próximo número"
+                                >
+                                    {loadingNumero ? (
+                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                                    ) : (
+                                        <IoRefresh className="h-4 w-4" />
+                                    )}
+                                </IconButton>
+                            </div>
 
                             <Controller
                                 name="tipo_ingreso"
@@ -439,6 +485,7 @@ const LoteDialogs = ({
                                             opciones.almacenes.map((almacen) => (
                                                 <Option key={almacen.id} value={almacen.id.toString()}>
                                                     {almacen.nombre} ({almacen.codigo})
+                                                    {almacen.id === 1 ? ' 🏢 Principal' : ''}
                                                 </Option>
                                             ))
                                         ) : (
@@ -691,6 +738,19 @@ const LoteDialogs = ({
                             ))}
                         </Alert>
                     )}
+                    <div className="space-y-3 mt-4">
+                        <Alert color="blue">
+                            <Typography variant="small">
+                                🔢 <strong>Número Automático:</strong> El sistema genera automáticamente el próximo número correlativo disponible.
+                            </Typography>
+                        </Alert>
+
+                        <Alert color="green">
+                            <Typography variant="small">
+                                🏢 <strong>Almacén Principal:</strong> Por defecto se asigna el Almacén/Galpón Oruro como destino.
+                            </Typography>
+                        </Alert>
+                    </div>
                 </DialogBody>
 
                 <DialogFooter className="space-x-2">
@@ -704,8 +764,8 @@ const LoteDialogs = ({
                     >
                         Cancelar
                     </Button>
-                    <Button type="submit" color="orange" loading={loading}>
-                        Crear Lote Completo
+                    <Button type="submit" color="orange" loading={loading} disabled={!watch('numero_lote')}>
+                        Crear Lote Completo {watch('numero_lote')}
                     </Button>
                 </DialogFooter>
             </form>
@@ -753,12 +813,12 @@ const LoteDialogs = ({
                         </Typography>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <Input
-                                label="Número de Lote *"
-                                {...register('numero_lote', {
-                                    required: 'El número de lote es obligatorio',
-                                    minLength: { value: 3, message: 'Mínimo 3 caracteres' }
-                                })}
-                                error={!!errors.numero_lote}
+                                label="Número de Lote (No modificable)"
+                                {...register('numero_lote')}
+                                readOnly={true}
+                                value={selectedLote?.numero_lote || ''}
+                                className="bg-gray-50"
+                                success={true}
                             />
 
                             <Controller

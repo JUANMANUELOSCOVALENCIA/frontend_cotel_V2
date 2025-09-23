@@ -149,6 +149,8 @@ export const ENDPOINTS = {
     ENTREGA_PARCIAL_CREATE: (loteId) => `/almacenes/lotes/${loteId}/agregar_entrega_parcial/`,
     LOTE_ELIMINAR_ENTREGA: (loteId, entregaId) => `/almacenes/lotes/${loteId}/entregas_parciales/${entregaId}/`,
 
+    LOTE_PROXIMO_NUMERO: '/almacenes/lotes/proximo_numero/',
+
 
     // === MATERIALES ===
     MATERIALES: '/almacenes/materiales/',

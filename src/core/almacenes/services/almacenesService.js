@@ -616,6 +616,32 @@ class AlmacenesService {
         }
     }
 
+    async getProximoNumeroLote() {
+        try {
+            console.log('🔍 SERVICE - Solicitando próximo número de lote...');
+            console.log('🌐 SERVICE - URL:', ENDPOINTS.LOTE_PROXIMO_NUMERO);
+
+            const response = await api.get(ENDPOINTS.LOTE_PROXIMO_NUMERO);
+
+            console.log('✅ SERVICE - Respuesta exitosa:', response.data);
+            return {
+                success: true,
+                data: response.data
+            };
+        } catch (error) {
+            console.error('❌ SERVICE - Error obteniendo próximo número:', error);
+            console.error('❌ SERVICE - Error response:', error.response?.data);
+            console.error('❌ SERVICE - Error status:', error.response?.status);
+
+            return {
+                success: false,
+                error: error.response?.data?.error ||
+                    error.response?.data?.message ||
+                    'Error al obtener próximo número'
+            };
+        }
+    }
+
     async createLote(loteData) {
         try {
             console.log('🌐 SERVICE: Enviando al backend:', JSON.stringify(loteData, null, 2));
@@ -733,6 +759,8 @@ class AlmacenesService {
             };
         }
     }
+
+
 
     async getLoteResumen(id) {
         try {
@@ -953,21 +981,6 @@ class AlmacenesService {
         }
     }
     // ========== MATERIALES ==========
-    async getMateriales(params = {}) {
-        try {
-            const queryString = buildQuery(params);
-            const response = await api.get(`${ENDPOINTS.MATERIALES}${queryString}`);
-            return {
-                success: true,
-                data: response.data
-            };
-        } catch (error) {
-            return {
-                success: false,
-                error: error.response?.data?.message || 'Error al obtener materiales'
-            };
-        }
-    }
 
     async getMaterial(id) {
         try {

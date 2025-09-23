@@ -724,6 +724,22 @@ export const useLotes = () => {
         }
     }, []);
 
+    const getProximoNumeroLote = useCallback(async () => {
+        try {
+            const result = await almacenesService.getProximoNumeroLote();
+            if (result.success) {
+                return { success: true, data: result.data };
+            } else {
+                setError(result.error);
+                return { success: false, error: result.error };
+            }
+        } catch (err) {
+            const error = 'Error al obtener próximo número';
+            setError(error);
+            return { success: false, error };
+        }
+    }, []);
+
     return {
         lotes,
             loteActual,
@@ -734,6 +750,7 @@ export const useLotes = () => {
             updateLote,
             deleteLote,
             loadLoteDetail,
+            getProximoNumeroLote,
             clearError: () => setError(null),
             permissions: {
             canCreate: hasPermission('lotes', 'crear'),
