@@ -25,9 +25,11 @@ import {
     IoStorefront,
     IoCloudUpload,
     IoArchive,
+    IoTelescopeOutline, IoClipboardOutline,
 } from 'react-icons/io5';
 import { useAuth, useUser, useLogout } from '../auth/hooks/useAuth';
 import Permission from '../permissions/components/Permission';
+import {IoLogoRss} from "react-icons/io";
 
 const Navbar = () => {
     const location = useLocation();
@@ -231,7 +233,7 @@ const Navbar = () => {
                 {
                     label: 'Equipos ONU',
                     href: '/almacenes/onus',
-                    icon: IoCloudUpload,
+                    icon: IoLogoRss,
                     permissions: [{ recurso: 'almacenes', accion: 'leer' }],
                     description: 'Equipos ONU'
                 },
@@ -241,6 +243,13 @@ const Navbar = () => {
                     icon: IoCloudUpload,
                     permissions: [{ recurso: 'almacenes', accion: 'leer' }],
                     description: 'Devoluciones de equipos'
+                },
+                {
+                    label: 'Materiales',
+                    href: '/materiales/materiales',
+                    icon: IoClipboardOutline,
+                    permissions: [{ recurso: 'almacenes', accion: 'leer' }],
+                    description: 'Materiales'
                 },
             ]
         },
@@ -253,14 +262,14 @@ const Navbar = () => {
         },
         {
             label: 'Laboratorio',
-            icon: IoStorefront,
+            icon: IoTelescopeOutline,
             permissions: [{ recurso: 'laboratorio', accion: 'leer' }],
             type: 'dropdown',
             submenu: [
                 {
                     label: 'Laboratorio',
                     href: '/laboratorio/laboratorio',
-                    icon: IoCloudUpload,
+                    icon: IoTelescopeOutline,
                     permissions: [{ recurso: 'laboratorio', accion: 'leer' }],
                     description: 'Laboratorio de equipos'
                 },

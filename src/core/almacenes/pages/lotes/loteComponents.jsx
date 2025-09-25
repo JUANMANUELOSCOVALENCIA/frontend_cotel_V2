@@ -32,6 +32,8 @@ import {
     IoCheckmark,
     IoGitBranch
 } from 'react-icons/io5';
+import { toast } from "react-hot-toast";
+import { api } from '../../../../services/api.js';
 
 // ========== TABLA DE LOTES ==========
 export const LotesTable = ({
@@ -58,6 +60,38 @@ export const LotesTable = ({
                 return 'gray';
             default:
                 return 'gray';
+        }
+    };
+
+    const getTipoLote = (lote) => {
+        if (!lote.detalles || lote.detalles.length === 0) {
+            return { tieneMaterialesUnicos: false, tieneMaterialesNoUnicos: false };
+        }
+
+        const tieneMaterialesUnicos = lote.detalles.some(d =>
+            d.modelo_info?.tipo_material?.es_unico
+        );
+        const tieneMaterialesNoUnicos = lote.detalles.some(d =>
+            !d.modelo_info?.tipo_material?.es_unico
+        );
+
+        return { tieneMaterialesUnicos, tieneMaterialesNoUnicos };
+    };
+
+    const handleAutoCompletarLote = async (lote) => {
+        try {
+            const response = await api.post(`/almacenes/lotes/${lote.id}/completar_recepcion/`);
+
+            if (response.data.materiales_creados > 0) {
+                toast.success(`${response.data.materiales_creados} materiales auto-completados`);
+                // Recargar página o callback
+                window.location.reload();
+            } else {
+                toast.info('No hay materiales pendientes para completar');
+            }
+        } catch (error) {
+            console.error('Error al completar recepción:', error);
+            toast.error(error.response?.data?.error || 'Error al completar recepción');
         }
     };
 
@@ -145,7 +179,12 @@ export const LotesTable = ({
                         </tr>
                         </thead>
                         <tbody>
-                        {lotes.map((lote) => (
+                        {lotes.map((lote) => {
+                            const { tieneMaterialesUnicos, tieneMaterialesNoUnicos } = getTipoLote(lote);
+                            const yaCompletado = lote.cantidad_recibida > 0;
+                            const esLoteMixto = tieneMaterialesUnicos && tieneMaterialesNoUnicos;
+
+                            return(
                             <tr key={lote.id} className="even:bg-blue-gray-50/50">
                                 <td className="p-4">
                                     <div>
@@ -185,14 +224,41 @@ export const LotesTable = ({
                                 </td>
                                 <td className="p-4">
                                     <div className="w-max">
-                                        <Typography variant="small" color="gray" className="mb-1">
-                                            {lote.cantidad_recibida || 0}/{lote.cantidad_total || 0}
-                                        </Typography>
-                                        <Progress
-                                            value={lote.porcentaje_recibido || 0}
-                                            color={lote.porcentaje_recibido === 100 ? 'green' : lote.porcentaje_recibido > 0 ? 'amber' : 'gray'}
-                                            size="sm"
-                                        />
+                                        {(() => {
+                                            const { tieneMaterialesUnicos, tieneMaterialesNoUnicos } = getTipoLote(lote);
+                                            const soloMaterialesNoUnicos = tieneMaterialesNoUnicos && !tieneMaterialesUnicos;
+
+                                            if (soloMaterialesNoUnicos) {
+                                                // Para materiales no únicos: solo 0% o 100%
+                                                const completado = lote.cantidad_recibida > 0;
+                                                return (
+                                                    <>
+                                                        <Typography variant="small" color="gray" className="mb-1">
+                                                            {completado ? 'Completado' : 'Pendiente'}
+                                                        </Typography>
+                                                        <Progress
+                                                            value={completado ? 100 : 0}
+                                                            color={completado ? 'green' : 'gray'}
+                                                            size="sm"
+                                                        />
+                                                    </>
+                                                );
+                                            } else {
+                                                // Para materiales únicos o mixtos: progreso normal
+                                                return (
+                                                    <>
+                                                        <Typography variant="small" color="gray" className="mb-1">
+                                                            {lote.cantidad_recibida || 0}/{lote.cantidad_total || 0}
+                                                        </Typography>
+                                                        <Progress
+                                                            value={lote.porcentaje_recibido || 0}
+                                                            color={lote.porcentaje_recibido === 100 ? 'green' : lote.porcentaje_recibido > 0 ? 'amber' : 'gray'}
+                                                            size="sm"
+                                                        />
+                                                    </>
+                                                );
+                                            }
+                                        })()}
                                     </div>
                                 </td>
                                 <td className="p-4">
@@ -204,6 +270,7 @@ export const LotesTable = ({
                                 </td>
                                 <td className="p-4">
                                     <div className="flex gap-2">
+                                        {/* VER DETALLES - Siempre disponible */}
                                         {permissions?.canView && (
                                             <Tooltip content="Ver detalles">
                                                 <IconButton
@@ -217,34 +284,68 @@ export const LotesTable = ({
                                             </Tooltip>
                                         )}
 
-                                        {permissions?.canImport && lote.estado_info?.codigo !== 'CERRADO' && (
-                                            <Tooltip content="Importar materiales">
+                                        {/* ACCIONES PARA MATERIALES ÚNICOS */}
+                                        {tieneMaterialesUnicos && lote.estado_info?.codigo !== 'CERRADO' && (
+                                            <>
+                                                {permissions?.canImport && (
+                                                    <Tooltip content="Importar equipos únicos">
+                                                        <IconButton
+                                                            variant="text"
+                                                            color="green"
+                                                            size="sm"
+                                                            onClick={() => onImport(lote)}
+                                                        >
+                                                            <IoCloudUpload className="h-4 w-4" />
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                )}
+
+                                                {permissions?.canEdit && (
+                                                    <Tooltip content="Gestionar entregas parciales">
+                                                        <IconButton
+                                                            variant="text"
+                                                            color="amber"
+                                                            size="sm"
+                                                            onClick={() => onEntregas(lote)}
+                                                        >
+                                                            <IoGitBranch className="h-4 w-4" />
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                )}
+                                            </>
+                                        )}
+
+                                        {/* ACCIONES PARA MATERIALES NO ÚNICOS */}
+                                        {tieneMaterialesNoUnicos && !yaCompletado && lote.estado_info?.codigo !== 'CERRADO' && (
+                                            <Tooltip content="Completar recepción automática">
                                                 <IconButton
                                                     variant="text"
-                                                    color="green"
+                                                    color="teal"
                                                     size="sm"
-                                                    onClick={() => onImport(lote)}
+                                                    onClick={() => handleAutoCompletarLote(lote)}
                                                 >
-                                                    <IoCloudUpload className="h-4 w-4" />
+                                                    <IoCheckmark className="h-4 w-4" />
                                                 </IconButton>
                                             </Tooltip>
                                         )}
 
-                                        {permissions?.canEdit && lote.estado_info?.codigo !== 'CERRADO' && (
-                                            <Tooltip content="Entregas Parciales">
+                                        {/* INDICADOR PARA LOTES MIXTOS */}
+                                        {esLoteMixto && (
+                                            <Tooltip content="Lote mixto: únicos y por cantidad">
                                                 <IconButton
                                                     variant="text"
-                                                    color="amber"
+                                                    color="purple"
                                                     size="sm"
-                                                    onClick={() => onEntregas(lote)}
+                                                    onClick={() => onView(lote)}
                                                 >
-                                                    <IoGitBranch className="h-4 w-4" />
+                                                    <IoInformationCircle className="h-4 w-4" />
                                                 </IconButton>
                                             </Tooltip>
                                         )}
 
+                                        {/* EDITAR - Solo si no está cerrado */}
                                         {permissions?.canEdit && lote.estado_info?.codigo !== 'CERRADO' && (
-                                            <Tooltip content="Editar">
+                                            <Tooltip content="Editar lote">
                                                 <IconButton
                                                     variant="text"
                                                     color="orange"
@@ -256,8 +357,9 @@ export const LotesTable = ({
                                             </Tooltip>
                                         )}
 
+                                        {/* ELIMINAR - Solo lotes registrados */}
                                         {permissions?.canDelete && lote.estado_info?.codigo === 'REGISTRADO' && (
-                                            <Tooltip content="Eliminar">
+                                            <Tooltip content="Eliminar lote">
                                                 <IconButton
                                                     variant="text"
                                                     color="red"
@@ -271,7 +373,8 @@ export const LotesTable = ({
                                     </div>
                                 </td>
                             </tr>
-                        ))}
+                        );
+                        })}
                         </tbody>
                     </table>
                 </div>
@@ -355,7 +458,7 @@ export const LoteStatsCard = ({
 
 // ========== DETALLE DE LOTE (SIMPLIFICADO) ==========
 
-export const LoteDetailCard = ({ lote, onClose, onImport, permissions }) => {
+export const LoteDetailCard = ({ lote, onClose, onImport,onSuccess, permissions }) => {
     if (!lote) return null;
 
     const formatDate = (dateString) => {
@@ -384,6 +487,32 @@ export const LoteDetailCard = ({ lote, onClose, onImport, permissions }) => {
         }
     };
 
+    const tieneMaterialesUnicos = lote.detalles?.some(d =>
+        d.modelo_info?.tipo_material?.es_unico
+    );
+    const tieneMaterialesNoUnicos = lote.detalles?.some(d =>
+        !d.modelo_info?.tipo_material?.es_unico
+    );
+
+    const handleAutoCompletar = async () => {
+        try {
+            const response = await api.post(`/almacenes/lotes/${lote.id}/completar_recepcion/`);
+
+            if (response.data.materiales_creados > 0) {
+                toast.success(`${response.data.materiales_creados} materiales auto-completados`);
+                // Llamar callback si existe
+                if (onSuccess) {
+                    onSuccess();
+                }
+            } else {
+                toast.info('No hay materiales pendientes para completar');
+            }
+        } catch (error) {
+            console.error('Error al completar recepción:', error);
+            toast.error(error.response?.data?.error || 'Error al completar recepción');
+        }
+    };
+
     return (
         <Card className="w-full">
             <CardHeader className="bg-white border-b border-gray-200 px-6 py-4">
@@ -405,6 +534,73 @@ export const LoteDetailCard = ({ lote, onClose, onImport, permissions }) => {
                 </div>
             </CardHeader>
 
+            <CardBody className="px-6 py-4 bg-gray-50">
+                <Typography variant="h6" color="blue-gray" className="mb-4">
+                    Acciones Disponibles
+                </Typography>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Para materiales únicos (ONUs) */}
+                    {tieneMaterialesUnicos && (
+                        <Card className="border-blue-200">
+                            <CardBody>
+                                <div className="flex items-center gap-3 mb-3">
+                                    <IoCube className="h-6 w-6 text-blue-500" />
+                                    <Typography variant="h6" color="blue">
+                                        Materiales Únicos
+                                    </Typography>
+                                </div>
+                                <Typography variant="small" color="gray" className="mb-4">
+                                    Equipos con identificadores únicos (MAC, GPON, etc.)
+                                </Typography>
+                                <Button
+                                    color="blue"
+                                    size="sm"
+                                    onClick={() => onImport(lote)}
+                                    className="flex items-center gap-2 w-full"
+                                    disabled={lote.estado_info?.codigo === 'CERRADO'}
+                                >
+                                    <IoCloudUpload className="h-4 w-4" />
+                                    Importar desde Excel
+                                </Button>
+                            </CardBody>
+                        </Card>
+                    )}
+
+                    {/* Para materiales no únicos */}
+                    {tieneMaterialesNoUnicos && (
+                        <Card className="border-green-200">
+                            <CardBody>
+                                <div className="flex items-center gap-3 mb-3">
+                                    <IoCheckmarkCircle className="h-6 w-6 text-green-500" />
+                                    <Typography variant="h6" color="green">
+                                        Materiales por Cantidad
+                                    </Typography>
+                                </div>
+                                <Typography variant="small" color="gray" className="mb-4">
+                                    Cables, conectores, materiales medidos por cantidad
+                                </Typography>
+                                <Button
+                                    color="green"
+                                    size="sm"
+                                    onClick={handleAutoCompletar}
+                                    className="flex items-center gap-2 w-full"
+                                    disabled={lote.estado_info?.codigo === 'CERRADO' || lote.cantidad_recibida > 0}
+                                >
+                                    <IoCheckmark className="h-4 w-4" />
+                                    Completar Recepción Automática
+                                </Button>
+                                {lote.cantidad_recibida > 0 && (
+                                    <Typography variant="small" color="gray" className="mt-2">
+                                        Ya completado
+                                    </Typography>
+                                )}
+                            </CardBody>
+                        </Card>
+                    )}
+                </div>
+            </CardBody>
+
             <CardBody className="px-6 py-8">
                 <div className="space-y-8">
                     {/* Progreso de Recepción */}
@@ -413,18 +609,56 @@ export const LoteDetailCard = ({ lote, onClose, onImport, permissions }) => {
                             <Typography variant="h6" color="blue-gray" className="font-semibold">
                                 Progreso de Recepción
                             </Typography>
-                            <div className="text-right">
-                                <Typography variant="h5" color="blue-gray" className="font-bold">
-                                    {lote.porcentaje_recibido || 0}%
-                                </Typography>
-                                <Typography variant="small" color="gray">
-                                    {lote.cantidad_recibida || 0} de {lote.cantidad_total || 0} unidades
-                                </Typography>
-                            </div>
+                            {(() => {
+                                const soloMaterialesNoUnicos = tieneMaterialesNoUnicos && !tieneMaterialesUnicos;
+                                const completado = lote.cantidad_recibida > 0;
+
+                                if (soloMaterialesNoUnicos) {
+                                    return (
+                                        <div className="text-right">
+                                            <Typography variant="h5" color="blue-gray" className="font-bold">
+                                                {completado ? '100%' : '0%'}
+                                            </Typography>
+                                            <Typography variant="small" color="gray">
+                                                {completado ? 'Recepción Completada' : 'Pendiente de Recepción'}
+                                            </Typography>
+                                        </div>
+                                    );
+                                } else {
+                                    return (
+                                        <div className="text-right">
+                                            <Typography variant="h5" color="blue-gray" className="font-bold">
+                                                {lote.porcentaje_recibido || 0}%
+                                            </Typography>
+                                            <Typography variant="small" color="gray">
+                                                {lote.cantidad_recibida || 0} de {lote.cantidad_total || 0} unidades
+                                            </Typography>
+                                        </div>
+                                    );
+                                }
+                            })()}
                         </div>
                         <Progress
-                            value={lote.porcentaje_recibido || 0}
-                            color={lote.porcentaje_recibido === 100 ? 'green' : lote.porcentaje_recibido > 0 ? 'blue' : 'gray'}
+                            value={(() => {
+                                const soloMaterialesNoUnicos = tieneMaterialesNoUnicos && !tieneMaterialesUnicos;
+                                const completado = lote.cantidad_recibida > 0;
+
+                                if (soloMaterialesNoUnicos) {
+                                    return completado ? 100 : 0;
+                                } else {
+                                    return lote.porcentaje_recibido || 0;
+                                }
+                            })()}
+                            color={(() => {
+                                const soloMaterialesNoUnicos = tieneMaterialesNoUnicos && !tieneMaterialesUnicos;
+                                const completado = lote.cantidad_recibida > 0;
+
+                                if (soloMaterialesNoUnicos) {
+                                    return completado ? 'green' : 'gray';
+                                } else {
+                                    return lote.porcentaje_recibido === 100 ? 'green' : lote.porcentaje_recibido > 0 ? 'blue' : 'gray';
+                                }
+                            })()}
                             className="h-2"
                         />
                     </div>

@@ -7,11 +7,6 @@ import {
     Button,
     Input,
     IconButton,
-    Tabs,
-    TabsHeader,
-    TabsBody,
-    Tab,
-    TabPanel,
     Alert,
     Spinner,
     Dialog,
@@ -25,7 +20,6 @@ import {
     IoRefresh,
     IoCloudUpload,
     IoCube,
-    IoList,
     IoStatsChart,
     IoFilterOutline,
     IoCheckmarkCircle,
@@ -148,7 +142,6 @@ const LotesPage = () => {
     } = useOpcionesCompletas();
 
     // ========== ESTADO LOCAL ==========
-    const [activeTab, setActiveTab] = useState('lista');
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedLote, setSelectedLote] = useState(null);
     const [showDetail, setShowDetail] = useState(false);
@@ -315,98 +308,12 @@ const LotesPage = () => {
         closeDialog('import');
         await loadLotes();
         toast.success('¡Importación completada! Los materiales han sido registrados.');
-        setActiveTab('materiales');
     };
 
     const handleEntregasSuccess = async () => {
         closeDialog('entregas');
         await loadLotes();
         toast.success('Entrega parcial registrada exitosamente');
-    };
-
-    // ========== RENDERIZADO DE TABS ==========
-    const tabs = [
-        { value: 'lista', label: 'Lista de Lotes', icon: IoList },
-        { value: 'materiales', label: 'Materiales Recientes', icon: IoCube },
-        { value: 'estadisticas', label: 'Estadísticas', icon: IoStatsChart }
-    ];
-
-    // ========== COMPONENTE DE MATERIALES RECIENTES ==========
-    const MaterialesRecientes = () => {
-        const [materialesRecientes, setMaterialesRecientes] = useState([]);
-        const [loadingMateriales, setLoadingMateriales] = useState(false);
-
-        useEffect(() => {
-            if (activeTab === 'materiales') {
-                loadMaterialesRecientes();
-            }
-        }, [activeTab]);
-
-        const loadMaterialesRecientes = async () => {
-            setLoadingMateriales(true);
-            try {
-                setMaterialesRecientes([]);
-            } catch (error) {
-                toast.error('Error al cargar materiales recientes');
-            } finally {
-                setLoadingMateriales(false);
-            }
-        };
-
-        if (loadingMateriales) {
-            return (
-                <Card>
-                    <CardBody className="flex justify-center items-center h-32">
-                        <Spinner className="h-8 w-8" />
-                        <Typography color="gray" className="ml-2">
-                            Cargando materiales...
-                        </Typography>
-                    </CardBody>
-                </Card>
-            );
-        }
-
-        return (
-            <Card>
-                <CardHeader className="flex items-center justify-between">
-                    <Typography variant="h6" color="blue-gray">
-                        Materiales Importados Recientemente
-                    </Typography>
-                    <Button
-                        size="sm"
-                        variant="outlined"
-                        className="flex items-center gap-2"
-                        onClick={loadMaterialesRecientes}
-                    >
-                        <IoRefresh className="h-4 w-4" />
-                        Actualizar
-                    </Button>
-                </CardHeader>
-                <CardBody>
-                    {materialesRecientes.length === 0 ? (
-                        <div className="text-center py-8">
-                            <IoCube className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                            <Typography color="gray" className="mb-2">
-                                No hay materiales recientes
-                            </Typography>
-                            <Typography variant="small" color="gray">
-                                Los materiales importados aparecerán aquí
-                            </Typography>
-                        </div>
-                    ) : (
-                        <div className="space-y-3">
-                            {materialesRecientes.map((material, index) => (
-                                <div key={index} className="border rounded-lg p-3">
-                                    <Typography variant="small" color="blue-gray">
-                                        Material: {material.codigo_interno}
-                                    </Typography>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </CardBody>
-            </Card>
-        );
     };
 
     // ========== RENDER PRINCIPAL ==========
@@ -524,100 +431,19 @@ const LotesPage = () => {
                 onLimpiarFiltros={handleLimpiarFiltros}
             />
 
-            {/* Tabs principales */}
-            <Card>
-                <CardHeader>
-                    <Tabs value={activeTab} onChange={setActiveTab}>
-                        <TabsHeader>
-                            {tabs.map(({ value, label, icon: Icon }) => (
-                                <Tab key={value} value={value}>
-                                    <div className="flex items-center gap-2">
-                                        <Icon className="h-4 w-4" />
-                                        {label}
-                                    </div>
-                                </Tab>
-                            ))}
-                        </TabsHeader>
-                    </Tabs>
-                </CardHeader>
-            </Card>
+            {/* Tabla de lotes */}
+            <LotesTable
+                lotes={lotes}
+                loading={loading}
+                onView={handleViewLote}
+                onEdit={handleEditLote}
+                onDelete={handleDeleteLote}
+                onImport={handleImportLote}
+                onEntregas={handleEntregasLote}
+                permissions={permissions}
+            />
 
-            {/* Contenido de tabs */}
-            <div>
-                {activeTab === 'lista' && (
-                    <LotesTable
-                        lotes={lotes}
-                        loading={loading}
-                        onView={handleViewLote}
-                        onEdit={handleEditLote}
-                        onDelete={handleDeleteLote}
-                        onImport={handleImportLote}
-                        onEntregas={handleEntregasLote}
-                        permissions={permissions}
-                    />
-                )}
-
-                {activeTab === 'materiales' && (
-                    <MaterialesRecientes />
-                )}
-
-                {activeTab === 'estadisticas' && (
-                    <Card>
-                        <CardHeader>
-                            <Typography variant="h6" color="blue-gray">
-                                Estadísticas Detalladas
-                            </Typography>
-                        </CardHeader>
-                        <CardBody>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <Typography variant="h6" color="blue-gray" className="mb-4">
-                                        Por Estado
-                                    </Typography>
-                                    <div className="space-y-2">
-                                        {opciones.estados_lote?.map((estado) => {
-                                            const count = lotes.filter(l => l.estado_info?.codigo === estado.codigo).length;
-                                            return (
-                                                <div key={estado.id} className="flex justify-between items-center">
-                                                    <Typography variant="small" color="gray">
-                                                        {estado.nombre}
-                                                    </Typography>
-                                                    <Typography variant="small" color="blue-gray" className="font-medium">
-                                                        {count}
-                                                    </Typography>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <Typography variant="h6" color="blue-gray" className="mb-4">
-                                        Por Proveedor
-                                    </Typography>
-                                    <div className="space-y-2">
-                                        {opciones.proveedores?.slice(0, 5).map((proveedor) => {
-                                            const count = lotes.filter(l => l.proveedor_info?.id === proveedor.id).length;
-                                            return (
-                                                <div key={proveedor.id} className="flex justify-between items-center">
-                                                    <Typography variant="small" color="gray">
-                                                        {proveedor.nombre_comercial}
-                                                    </Typography>
-                                                    <Typography variant="small" color="blue-gray" className="font-medium">
-                                                        {count}
-                                                    </Typography>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            </div>
-                        </CardBody>
-                    </Card>
-                )}
-            </div>
-
-            {/* Modal de detalle - VERSIÓN CORREGIDA */}
+            {/* Modal de detalle */}
             <Modal
                 open={showDetail}
                 onClose={() => closeDialog('detail')}
@@ -642,6 +468,10 @@ const LotesPage = () => {
                                 lote={selectedLote}
                                 onClose={() => closeDialog('detail')}
                                 onImport={handleImportLote}
+                                onSuccess={async () => {
+                                    await loadLotes(); // Recargar lotes
+                                    closeDialog('detail'); // Cerrar modal
+                                }}
                                 permissions={permissions}
                             />
                         </DialogBody>

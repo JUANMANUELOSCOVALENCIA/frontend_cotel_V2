@@ -79,6 +79,49 @@ const ImportacionMasivaDialog = ({
         }
     };
 
+    const ImportacionMasivaDialog = ({ open, onClose, lote, opciones, onSuccess }) => {
+        // NUEVA VALIDACIÓN: Solo permitir para materiales únicos
+        const tieneMaterialesUnicos = lote?.detalles?.some(d =>
+            d.modelo_info?.tipo_material?.es_unico
+        );
+
+        if (open && !tieneMaterialesUnicos) {
+            return (
+                <Dialog open={open} handler={onClose} size="md">
+                    <DialogHeader>
+                        <Typography variant="h5" color="blue-gray">
+                            Importación No Disponible
+                        </Typography>
+                    </DialogHeader>
+                    <DialogBody>
+                        <Alert color="blue">
+                            <div className="flex items-start gap-3">
+                                <IoInformationCircle className="h-6 w-6 flex-shrink-0 mt-1"/>
+                                <div>
+                                    <Typography className="font-semibold mb-2">
+                                        Este lote contiene materiales por cantidad
+                                    </Typography>
+                                    <Typography variant="small">
+                                        Los materiales como cables, conectores y otros que se miden por
+                                        cantidad no requieren importación desde Excel.
+                                    </Typography>
+                                    <Typography variant="small" className="mt-2">
+                                        Use la opción <strong>"Completar Recepción Automática"</strong>
+                                        en el detalle del lote para registrar estos materiales.
+                                    </Typography>
+                                </div>
+                            </div>
+                        </Alert>
+                    </DialogBody>
+                    <DialogFooter>
+                        <Button color="blue" onClick={onClose}>
+                            Entendido
+                        </Button>
+                    </DialogFooter>
+                </Dialog>
+            );
+        }
+    };
     // Efecto para cargar entregas cuando cambia el lote
     useEffect(() => {
         if (selectedLote) {

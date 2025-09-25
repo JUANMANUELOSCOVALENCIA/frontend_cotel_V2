@@ -75,7 +75,8 @@ const LaboratorioPage = () => {
             label: 'En Proceso',
             icon: IoFlask,
             badge: dashboardData?.resumen?.en_laboratorio_actual || null,
-            color: 'blue'
+            color: 'blue',
+            permissions: [{ recurso: 'almacenes', accion: 'leer' }]
         },
         {
             value: 'inspeccion',
