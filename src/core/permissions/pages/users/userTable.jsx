@@ -283,11 +283,10 @@ const UserTable = ({
                         {/* Búsqueda */}
                         <div className="md:col-span-2">
                             <Input
-                                label="Buscar usuarios"
+                                label="Buscar usuarios (Nombre, apellido o código COTEL)"
                                 icon={<IoSearch />}
                                 value={searchInput}
                                 onChange={(e) => onSearchChange(e.target.value)}
-                                placeholder="Nombre, apellido o código COTEL"
                                 className={loading ? "opacity-60" : ""}
                             />
                             {loading && searchInput && (

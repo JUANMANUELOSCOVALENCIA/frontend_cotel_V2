@@ -151,16 +151,20 @@ export const AuthProvider = ({ children }) => {
 
                 return { success: true, requiresPasswordChange: result.requiresPasswordChange };
             } else {
+                console.log('❌ AuthContext: Login falló:', result.error);
                 dispatch({ type: AUTH_ACTIONS.LOGIN_FAILURE, payload: result.error });
                 toast.error(result.error);
                 return { success: false, error: result.error };
             }
         } catch (error) {
             const errorMessage = 'Error de conexión';
-            console.error('❌ AuthContext: Error en login:', error);
+            console.error('❌ AuthContext: Error en login (catch):', error);
             dispatch({ type: AUTH_ACTIONS.LOGIN_FAILURE, payload: errorMessage });
             toast.error(errorMessage);
             return { success: false, error: errorMessage };
+        } finally {
+            // ⭐ Asegurar que loading siempre vuelva a false
+            dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: false });
         }
     };
 
@@ -230,7 +234,7 @@ export const AuthProvider = ({ children }) => {
     const loading = state.loading;
     const user = state.user;
     const isAuthenticated = state.isAuthenticated;
-    const requiresPasswordChange = user?.password_reset_required || !user?.password_changed;
+    const requiresPasswordChange = user ? (user.password_reset_required || !user.password_changed) : false;
 
     // Log del estado actual para debug
     console.log('📊 AuthContext Estado actual:', {

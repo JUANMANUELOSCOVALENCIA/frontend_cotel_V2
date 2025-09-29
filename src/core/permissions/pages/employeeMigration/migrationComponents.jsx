@@ -106,7 +106,6 @@ StatisticsCards.displayName = 'StatisticsCards';
 const SearchInput = React.memo(({
                                     searchValue,
                                     onSearchChange,
-                                    placeholder = "Nombre, apellido o código COTEL"
                                 }) => {
     // Estado local para el input (inmediato)
     const [localValue, setLocalValue] = React.useState(searchValue || '');
@@ -146,11 +145,10 @@ const SearchInput = React.memo(({
 
     return (
         <Input
-            label="Buscar empleados"
+            label="Buscar empleados (Nombre, apellido o código COTEL)"
             icon={<IoSearch />}
             value={localValue}
             onChange={handleInputChange}
-            placeholder={placeholder}
         />
     );
 });

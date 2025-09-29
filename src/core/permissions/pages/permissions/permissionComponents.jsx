@@ -57,11 +57,10 @@ const PermissionComponents = ({
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     {/* Búsqueda */}
                     <Input
-                        label="Buscar permisos"
+                        label="Buscar permisos (Recurso o descripción)"
                         icon={<IoSearch />}
                         value={filters.search}
                         onChange={(e) => onSearch(e.target.value)}
-                        placeholder="Recurso o descripción"
                         className={loading ? "opacity-60" : ""}
                     />
 

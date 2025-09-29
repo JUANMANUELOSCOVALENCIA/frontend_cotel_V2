@@ -48,6 +48,19 @@ const retryRequest = async (config, retryCount = 0) => {
     }
 };
 
+// ⭐ Helper para detectar si es un endpoint público (no requiere autenticación)
+const isPublicEndpoint = (url) => {
+    const publicEndpoints = [
+        '/usuarios/login/',
+        '/login/',
+        '/usuarios/migrar/',
+        '/migration/',
+        '/token/refresh/'
+    ];
+
+    return publicEndpoints.some(endpoint => url?.includes(endpoint));
+};
+
 // Interceptor de REQUEST
 api.interceptors.request.use(
     (config) => {
@@ -96,8 +109,15 @@ api.interceptors.response.use(
             return Promise.reject(error);
         }
 
-        // Error 401 - Token expirado
+        // ⭐ Error 401 - Token expirado o credenciales inválidas
         if (error.response.status === 401 && !originalRequest._retry) {
+            // ⭐ NO hacer logout si es un endpoint público (login, migración, etc)
+            if (isPublicEndpoint(originalRequest.url)) {
+                console.log('🔐 Error 401 en endpoint público, no hacer logout');
+                return Promise.reject(error);
+            }
+
+            // Para endpoints protegidos, intentar refresh token
             if (isRefreshing) {
                 return new Promise((resolve, reject) => {
                     failedQueue.push({ resolve, reject });
