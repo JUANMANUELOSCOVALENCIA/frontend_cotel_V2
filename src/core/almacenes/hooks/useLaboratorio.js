@@ -1,4 +1,4 @@
-// src/core/almacenes/hooks/useLaboratorio.js - SIMPLIFICADO
+// src/core/almacenes/hooks/useLaboratorio.js - ACTUALIZADO
 import { useState, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import { api } from '../../../services/api';
@@ -27,19 +27,14 @@ export const useLaboratorio = () => {
         }
     }, []);
 
-    // ✅ SIMPLIFICADO: El backend ya devuelve información expandida
+    // Materiales por tipo
     const getMaterialesPorTipo = useCallback(async (tipo) => {
         try {
             setLoading(true);
             setError(null);
-
             const response = await api.get(`/almacenes/laboratorio/consultas/?tipo=${tipo}`);
-
-            console.log('📦 Respuesta expandida del backend:', response.data);
-
             return { success: true, data: response.data };
         } catch (error) {
-            console.error('❌ Error al cargar materiales:', error.response?.data || error.message);
             const errorMessage = error.response?.data?.error || 'Error al cargar materiales';
             setError(errorMessage);
             return { success: false, error: errorMessage };
@@ -48,14 +43,11 @@ export const useLaboratorio = () => {
         }
     }, []);
 
-    // ✅ OPERACIÓN MASIVA CORREGIDA
+    // Operación masiva
     const operacionMasiva = useCallback(async (accion, criterios = {}) => {
         try {
             setLoading(true);
             setError(null);
-
-            console.log('🚀 Operación masiva:', accion, criterios);
-
             const response = await api.post('/almacenes/laboratorio/masivo/', {
                 accion,
                 criterios
@@ -70,7 +62,7 @@ export const useLaboratorio = () => {
         }
     }, []);
 
-    // Resto de funciones iguales...
+    // Enviar material individual a laboratorio
     const enviarMaterialLaboratorio = useCallback(async (materialId) => {
         try {
             setLoading(true);
@@ -89,56 +81,20 @@ export const useLaboratorio = () => {
         }
     }, []);
 
-    const registrarInspeccion = useCallback(async (inspeccionData) => {
+    // Inspección individual
+    const registrarInspeccionIndividual = useCallback(async (inspeccionData) => {
         try {
             setLoading(true);
             setError(null);
 
-            // ✅ CORREGIR: Usar 'api' en lugar de 'apiService'
             const response = await api.post('/almacenes/laboratorio/inspeccion/', inspeccionData);
-
-            if (response.data) {
-                return {
-                    success: true,
-                    data: response.data
-                };
-            } else {
-                return {
-                    success: false,
-                    error: 'No se recibió respuesta del servidor'
-                };
-            }
-        } catch (error) {
-            console.error('Error en registrarInspeccion:', error);
-            const errorMessage = error.response?.data?.error ||
-                error.response?.data?.message ||
-                'Error al registrar inspección';
-            setError(errorMessage);
-            return {
-                success: false,
-                error: errorMessage
-            };
-        } finally {
-            setLoading(false);
-        }
-    }, []); // ✅ AGREGAR: useCallback con dependencias vacías
-
-    const getHistorialInspecciones = useCallback(async (params = {}) => {
-        try {
-            setLoading(true);
-            setError(null);
-
-            // Construir query params
-            const queryParams = new URLSearchParams();
-            if (params.material_id) queryParams.append('material_id', params.material_id);
-            if (params.days) queryParams.append('days', params.days);
-
-            const response = await api.get(`/almacenes/laboratorio/inspeccion/?${queryParams}`);
 
             return { success: true, data: response.data };
         } catch (error) {
-            console.error('Error al cargar historial de inspecciones:', error);
-            const errorMessage = error.response?.data?.error || 'Error al cargar historial de inspecciones';
+            console.error('Error en inspección individual:', error);
+            const errorMessage = error.response?.data?.error ||
+                error.response?.data?.message ||
+                'Error al registrar inspección';
             setError(errorMessage);
             return { success: false, error: errorMessage };
         } finally {
@@ -146,8 +102,48 @@ export const useLaboratorio = () => {
         }
     }, []);
 
+    // Inspección masiva
+    const registrarInspeccionMasiva = useCallback(async (inspeccionData) => {
+        try {
+            setLoading(true);
+            setError(null);
 
-// ✅ AGREGAR: Exportar la función en el return
+            const response = await api.post('/almacenes/laboratorio/inspeccion/', inspeccionData);
+
+            return { success: true, data: response.data };
+        } catch (error) {
+            console.error('Error en inspección masiva:', error);
+            const errorMessage = error.response?.data?.error ||
+                error.response?.data?.message ||
+                'Error al registrar inspección masiva';
+            setError(errorMessage);
+            return { success: false, error: errorMessage };
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    // Historial de inspecciones
+    const getHistorialInspecciones = useCallback(async (params = {}) => {
+        try {
+            setLoading(true);
+            setError(null);
+
+            const queryParams = new URLSearchParams();
+            if (params.material_id) queryParams.append('material_id', params.material_id);
+            if (params.days) queryParams.append('days', params.days);
+
+            const response = await api.get(`/almacenes/laboratorio/inspeccion/?${queryParams}`);
+            return { success: true, data: response.data };
+        } catch (error) {
+            const errorMessage = error.response?.data?.error || 'Error al cargar historial';
+            setError(errorMessage);
+            return { success: false, error: errorMessage };
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
     return {
         loading,
         error,
@@ -156,7 +152,8 @@ export const useLaboratorio = () => {
         getMaterialesPorTipo,
         enviarMaterialLaboratorio,
         operacionMasiva,
-        registrarInspeccion,
+        registrarInspeccionIndividual,
+        registrarInspeccionMasiva,
         getHistorialInspecciones,
     };
 };

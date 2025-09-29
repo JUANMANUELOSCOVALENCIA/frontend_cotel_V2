@@ -20,13 +20,15 @@ import {
     IoList,
     IoRefresh,
     IoHome,
-    IoInformationCircle
+    IoInformationCircle,
+    IoSpeedometer
 } from 'react-icons/io5';
 import { toast } from 'react-hot-toast';
 
 // Componentes y hooks
 import MaterialesEnLaboratorio from './MaterialesEnLaboratorio.jsx';
 import InspeccionDetalle from './InspeccionDetalle.jsx';
+import InspeccionMasiva from './InspeccionMasiva.jsx';
 import { useLaboratorio } from '../../hooks/useLaboratorio';
 import Permission from '../../../../core/permissions/components/Permission.jsx';
 
@@ -85,6 +87,14 @@ const LaboratorioPage = () => {
             badge: null,
             color: 'green',
             permissions: [{ recurso: 'laboratorio', accion: 'crear' }]
+        },
+        {
+            value: 'inspeccion_masiva',
+            label: 'Inspección Masiva',
+            icon: IoSpeedometer,
+            badge: null,
+            color: 'purple',
+            permissions: [{ recurso: 'laboratorio', accion: 'crear' }]
         }
     ];
 
@@ -106,13 +116,6 @@ const LaboratorioPage = () => {
             <div className="p-6 space-y-6">
                 {/* Breadcrumb y Header */}
                 <div className="space-y-4">
-                    <Breadcrumbs className="bg-white px-4 py-2 rounded-lg border border-gray-200">
-                        <a href="#" className="flex items-center gap-1 opacity-60 hover:opacity-100 transition-opacity">
-                            <IoHome className="h-4 w-4" />
-                            Almacenes
-                        </a>
-                        <span>Laboratorio</span>
-                    </Breadcrumbs>
 
                     <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
                         <div className="flex items-center gap-4">
@@ -121,25 +124,9 @@ const LaboratorioPage = () => {
                             </div>
                             <div>
                                 <Typography variant="h3" color="blue-gray" className="mb-2">
-                                    Laboratorio de Calidad
-                                </Typography>
-                                <Typography color="gray" className="text-lg">
                                     Control de calidad e inspección de equipos ONUs
                                 </Typography>
                             </div>
-                        </div>
-
-                        <div className="flex items-center gap-4">
-                            <Button
-                                variant="gradient"
-                                color="blue"
-                                className="flex items-center gap-2"
-                                onClick={loadDashboard}
-                                disabled={loading}
-                            >
-                                <IoRefresh className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                                Actualizar
-                            </Button>
                         </div>
                     </div>
                 </div>
@@ -240,6 +227,11 @@ const LaboratorioPage = () => {
                         {activeTab === 'inspeccion' && (
                             <Permission permissions={[{ recurso: 'laboratorio', accion: 'crear' }]}>
                                 <InspeccionDetalle />
+                            </Permission>
+                        )}
+                        {activeTab === 'inspeccion_masiva' && (
+                            <Permission permissions={[{ recurso: 'laboratorio', accion: 'crear' }]}>
+                                <InspeccionMasiva />
                             </Permission>
                         )}
                     </div>

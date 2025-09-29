@@ -1,4 +1,4 @@
-// src/core/almacenes/pages/laboratorio/InspeccionDetalle.jsx - ACTUALIZADO CON NUEVAS PRUEBAS
+// src/core/almacenes/pages/laboratorio/InspeccionMasiva.jsx - NUEVO
 import React, { useState, useEffect } from 'react';
 import {
     Card,
@@ -10,6 +10,9 @@ import {
     Switch,
     Alert,
     Chip,
+    Checkbox,
+    IconButton,
+    Tooltip
 } from '@material-tailwind/react';
 import {
     IoCheckmarkCircle,
@@ -24,25 +27,29 @@ import {
     IoRefresh,
     IoTv,
     IoCall,
-    IoExtensionPuzzle
+    IoExtensionPuzzle,
+    IoCheckbox,
+    IoSquare,
+    IoTrash,
+    IoSpeedometer
 } from 'react-icons/io5';
 import { useForm, Controller } from 'react-hook-form';
 import { toast } from 'react-hot-toast';
 import { useLaboratorio } from '../../hooks/useLaboratorio';
 import { useAuth } from '../../../auth/context/AuthContext';
 
-const InspeccionDetalle = () => {
+const InspeccionMasiva = () => {
     const { user } = useAuth();
     const [materialesDisponibles, setMaterialesDisponibles] = useState([]);
-    const [materialSeleccionado, setMaterialSeleccionado] = useState(null);
+    const [materialesSeleccionados, setMaterialesSeleccionados] = useState(new Set());
     const [searchTerm, setSearchTerm] = useState('');
+    const [todosMarcados, setTodosMarcados] = useState(false);
 
     const {
         loading,
         error,
         getMaterialesPorTipo,
-        registrarInspeccion,
-        registrarInspeccionIndividual,
+        registrarInspeccionMasiva,
         clearError
     } = useLaboratorio();
 
@@ -56,40 +63,38 @@ const InspeccionDetalle = () => {
         formState: { errors }
     } = useForm({
         defaultValues: {
-            // ✅ ACTUALIZADAS: Las 8 pruebas técnicas
             serie_logica_ok: true,
             wifi_24_ok: true,
             wifi_5_ok: true,
             puerto_ethernet_ok: true,
             puerto_lan_ok: true,
-            puerto_catv_ok: true,           // ← NUEVO
-            puerto_telefonia_rf_ok: true,   // ← NUEVO
-            otros_ok: true,                 // ← NUEVO
+            puerto_catv_ok: true,
+            puerto_telefonia_rf_ok: true,
+            otros_ok: true,
             aprobado: true,
             tecnico_revisor: user?.codigocotel || '',
             observaciones_tecnico: '',
             comentarios_adicionales: '',
-            fallas_detectadas: []
+            fallas_detectadas: [],
+            tiempo_inspeccion_minutos: 5
         }
     });
 
-    // ✅ ACTUALIZADO: Observar las 8 pruebas
     const watchFields = watch([
         'serie_logica_ok',
         'wifi_24_ok',
         'wifi_5_ok',
         'puerto_ethernet_ok',
         'puerto_lan_ok',
-        'puerto_catv_ok',           // ← NUEVO
-        'puerto_telefonia_rf_ok',   // ← NUEVO
-        'otros_ok'                  // ← NUEVO
+        'puerto_catv_ok',
+        'puerto_telefonia_rf_ok',
+        'otros_ok'
     ]);
 
     useEffect(() => {
         loadMaterialesEnLaboratorio();
     }, []);
 
-    // ✅ ACTUALIZADO: Calcular aprobación con las 8 pruebas
     useEffect(() => {
         const todasPruebas = watchFields.every(field => field === true);
         setValue('aprobado', todasPruebas);
@@ -100,9 +105,9 @@ const InspeccionDetalle = () => {
         if (!watchFields[2]) fallas.push('WIFI_5_DEFECTUOSO');
         if (!watchFields[3]) fallas.push('PUERTO_ETHERNET_DEFECTUOSO');
         if (!watchFields[4]) fallas.push('PUERTO_LAN_DEFECTUOSO');
-        if (!watchFields[5]) fallas.push('PUERTO_CATV_DEFECTUOSO');           // ← NUEVO
-        if (!watchFields[6]) fallas.push('PUERTO_TELEFONIA_RF_DEFECTUOSO');   // ← NUEVO
-        if (!watchFields[7]) fallas.push('OTROS_DEFECTUOSOS');                // ← NUEVO
+        if (!watchFields[5]) fallas.push('PUERTO_CATV_DEFECTUOSO');
+        if (!watchFields[6]) fallas.push('PUERTO_TELEFONIA_RF_DEFECTUOSO');
+        if (!watchFields[7]) fallas.push('OTROS_DEFECTUOSOS');
 
         setValue('fallas_detectadas', fallas);
     }, [watchFields, setValue]);
@@ -129,85 +134,100 @@ const InspeccionDetalle = () => {
             material.codigo_interno?.toLowerCase().includes(searchLower) ||
             material.mac_address?.toLowerCase().includes(searchLower) ||
             material.gpon_serial?.toLowerCase().includes(searchLower) ||
-            material.serial_manufacturer?.toLowerCase().includes(searchLower) ||
-            material.modelo?.toLowerCase().includes(searchLower) ||
-            material.lote?.toLowerCase().includes(searchLower)
+            material.modelo?.toLowerCase().includes(searchLower)
         );
     });
 
-    const handleSeleccionarMaterial = (material) => {
-        setMaterialSeleccionado(material);
+    // Funciones de selección
+    const handleToggleMaterial = (materialId) => {
+        const nuevaSeleccion = new Set(materialesSeleccionados);
+        if (nuevaSeleccion.has(materialId)) {
+            nuevaSeleccion.delete(materialId);
+        } else {
+            nuevaSeleccion.add(materialId);
+        }
+        setMaterialesSeleccionados(nuevaSeleccion);
 
-        const fechaHoy = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-        const numeroInforme = `INF-${fechaHoy}-${material.codigo_interno}`;
-        setValue('numero_informe', numeroInforme);
-
-        // ✅ ACTUALIZADO: Reset con las 8 pruebas
-        reset({
-            numero_informe: numeroInforme,
-            serie_logica_ok: true,
-            wifi_24_ok: true,
-            wifi_5_ok: true,
-            puerto_ethernet_ok: true,
-            puerto_lan_ok: true,
-            puerto_catv_ok: true,           // ← NUEVO
-            puerto_telefonia_rf_ok: true,   // ← NUEVO
-            otros_ok: true,                 // ← NUEVO
-            aprobado: true,
-            tecnico_revisor: user?.codigocotel || '',
-            observaciones_tecnico: '',
-            comentarios_adicionales: '',
-            fallas_detectadas: []
-        });
+        // Actualizar estado de "todos marcados"
+        setTodosMarcados(nuevaSeleccion.size === materialesFiltrados.length && materialesFiltrados.length > 0);
     };
 
-    const handleFinalizarInspeccion = async (data) => {
-        if (!materialSeleccionado) {
-            toast.error('Selecciona un material para inspeccionar');
+    const handleToggleTodos = () => {
+        if (todosMarcados) {
+            setMaterialesSeleccionados(new Set());
+            setTodosMarcados(false);
+        } else {
+            const todosMateriales = new Set(materialesFiltrados.map(m => m.id));
+            setMaterialesSeleccionados(todosMateriales);
+            setTodosMarcados(true);
+        }
+    };
+
+    const handleLimpiarSeleccion = () => {
+        setMaterialesSeleccionados(new Set());
+        setTodosMarcados(false);
+    };
+
+    const handleInspeccionMasiva = async (data) => {
+        if (materialesSeleccionados.size < 2) {
+            toast.error('Selecciona al menos 2 equipos para inspección masiva');
             return;
         }
 
         try {
             const inspeccionData = {
-                material: materialSeleccionado.id,
-                numero_informe: data.numero_informe,
+                materiales_ids: Array.from(materialesSeleccionados),
                 serie_logica_ok: data.serie_logica_ok,
                 wifi_24_ok: data.wifi_24_ok,
                 wifi_5_ok: data.wifi_5_ok,
                 puerto_ethernet_ok: data.puerto_ethernet_ok,
                 puerto_lan_ok: data.puerto_lan_ok,
-                puerto_catv_ok: data.puerto_catv_ok,                   // ← NUEVO
-                puerto_telefonia_rf_ok: data.puerto_telefonia_rf_ok,   // ← NUEVO
-                otros_ok: data.otros_ok,                               // ← NUEVO
+                puerto_catv_ok: data.puerto_catv_ok,
+                puerto_telefonia_rf_ok: data.puerto_telefonia_rf_ok,
+                otros_ok: data.otros_ok,
                 aprobado: data.aprobado,
                 observaciones_tecnico: data.observaciones_tecnico || '',
                 comentarios_adicionales: data.comentarios_adicionales || '',
                 fallas_detectadas: data.fallas_detectadas || [],
-                tecnico_revisor: user?.codigocotel || ''
+                tecnico_revisor: user?.codigocotel || '',
+                tiempo_inspeccion_minutos: data.tiempo_inspeccion_minutos || 5
             };
 
-            console.log('📤 Enviando inspección:', inspeccionData);
+            console.log('📤 Enviando inspección masiva:', inspeccionData);
 
-            const result = await registrarInspeccionIndividual(inspeccionData);
+            const result = await registrarInspeccionMasiva(inspeccionData);
 
             if (result.success) {
-                toast.success(result.data.message || 'Inspección completada correctamente');
+                toast.success(`${result.data.message} - ${result.data.inspecciones_creadas} equipos procesados`);
 
-                setMaterialSeleccionado(null);
+                // Limpiar selección y recargar
+                setMaterialesSeleccionados(new Set());
+                setTodosMarcados(false);
                 reset({
+                    serie_logica_ok: true,
+                    wifi_24_ok: true,
+                    wifi_5_ok: true,
+                    puerto_ethernet_ok: true,
+                    puerto_lan_ok: true,
+                    puerto_catv_ok: true,
+                    puerto_telefonia_rf_ok: true,
+                    otros_ok: true,
+                    aprobado: true,
                     tecnico_revisor: user?.codigocotel || '',
+                    observaciones_tecnico: '',
+                    comentarios_adicionales: '',
+                    tiempo_inspeccion_minutos: 5
                 });
                 loadMaterialesEnLaboratorio();
             } else {
                 toast.error(result.error);
             }
         } catch (error) {
-            console.error('Error al registrar inspección:', error);
-            toast.error('Error al registrar inspección');
+            console.error('Error al registrar inspección masiva:', error);
+            toast.error('Error al registrar inspección masiva');
         }
     };
 
-    // ✅ NUEVA: Configuración de las pruebas técnicas
     const pruebasTecnicas = [
         {
             key: 'serie_logica_ok',
@@ -267,6 +287,14 @@ const InspeccionDetalle = () => {
         }
     ];
 
+
+    const aplicarPreset = (preset) => {
+        Object.entries(preset.valores).forEach(([key, value]) => {
+            setValue(key, value);
+        });
+        toast.success(`Preset aplicado: ${preset.nombre}`);
+    };
+
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Error handling */}
@@ -277,18 +305,12 @@ const InspeccionDetalle = () => {
                             <IoWarning className="h-5 w-5 mt-0.5" />
                             <div>
                                 <Typography variant="small" className="font-bold text-red-800 mb-1">
-                                    Error en el laboratorio
+                                    Error en inspección masiva
                                 </Typography>
                                 <Typography variant="small" className="text-red-700">
                                     {error}
                                 </Typography>
-                                <Button
-                                    size="sm"
-                                    color="red"
-                                    variant="outlined"
-                                    onClick={clearError}
-                                    className="mt-2"
-                                >
+                                <Button size="sm" color="red" variant="outlined" onClick={clearError} className="mt-2">
                                     Cerrar
                                 </Button>
                             </div>
@@ -297,13 +319,13 @@ const InspeccionDetalle = () => {
                 </div>
             )}
 
-            {/* Panel de selección de material */}
+            {/* Panel de selección de materiales */}
             <div className="lg:col-span-1">
                 <Card>
                     <CardBody className="space-y-4">
                         <div className="flex items-center justify-between mb-4">
                             <Typography variant="h6" color="blue-gray">
-                                Seleccionar Equipo
+                                Seleccionar Equipos
                             </Typography>
                             <Button
                                 size="sm"
@@ -317,191 +339,146 @@ const InspeccionDetalle = () => {
                             </Button>
                         </div>
 
-                        {/* Buscador */}
+                        {/* Controles de selección */}
                         <div className="space-y-3">
                             <Input
-                                label="Buscar equipos (código, MAC, GPON, modelo)"
+                                label="Buscar equipos"
                                 icon={<IoSearch className="h-5 w-5" />}
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                containerProps={{ className: "min-w-0" }}
                             />
 
                             <div className="flex items-center justify-between">
                                 <Chip
                                     variant="ghost"
                                     color="blue"
-                                    value={`${materialesFiltrados.length} de ${materialesDisponibles.length} equipos`}
+                                    value={`${materialesSeleccionados.size} de ${materialesFiltrados.length} seleccionados`}
                                     className="text-xs"
                                 />
-                                {searchTerm && (
-                                    <Button
-                                        size="sm"
-                                        variant="text"
-                                        color="gray"
-                                        onClick={() => setSearchTerm('')}
-                                        className="text-xs"
-                                    >
-                                        Limpiar
-                                    </Button>
-                                )}
+                                <div className="flex gap-1">
+                                    <Tooltip content="Seleccionar todos">
+                                        <IconButton
+                                            size="sm"
+                                            variant="outlined"
+                                            color="blue"
+                                            onClick={handleToggleTodos}
+                                        >
+                                            {todosMarcados ? <IoCheckbox className="h-4 w-4" /> : <IoSquare className="h-4 w-4" />}
+                                        </IconButton>
+                                    </Tooltip>
+                                    <Tooltip content="Limpiar selección">
+                                        <IconButton
+                                            size="sm"
+                                            variant="outlined"
+                                            color="red"
+                                            onClick={handleLimpiarSeleccion}
+                                            disabled={materialesSeleccionados.size === 0}
+                                        >
+                                            <IoTrash className="h-4 w-4" />
+                                        </IconButton>
+                                    </Tooltip>
+                                </div>
                             </div>
                         </div>
 
-                        {loading ? (
-                            <div className="text-center py-4">
-                                <Typography color="gray">Cargando equipos...</Typography>
-                            </div>
-                        ) : materialesFiltrados.length === 0 ? (
-                            <div className="text-center py-8">
-                                <IoFlask className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                                <Typography color="gray" className="mb-2">
-                                    {searchTerm ? 'No se encontraron equipos' : 'No hay equipos en laboratorio'}
-                                </Typography>
-                                {searchTerm && (
-                                    <Typography variant="small" color="gray">
-                                        Intenta con otros términos de búsqueda
-                                    </Typography>
-                                )}
-                            </div>
-                        ) : (
-                            <div className="space-y-2 max-h-96 overflow-y-auto">
-                                {materialesFiltrados.map((material) => (
-                                    <Card
-                                        key={material.id}
-                                        className={`cursor-pointer transition-colors ${
-                                            materialSeleccionado?.id === material.id
-                                                ? 'bg-blue-50 border-blue-200 border-2'
-                                                : 'hover:bg-gray-50 border border-gray-200'
-                                        }`}
-                                        onClick={() => handleSeleccionarMaterial(material)}
-                                    >
-                                        <CardBody className="p-3">
-                                            <Typography variant="small" color="blue-gray" className="font-medium mb-2">
-                                                {material.codigo_interno}
-                                            </Typography>
-                                            <div className="space-y-1 mb-2">
-                                                <Typography variant="small" color="gray" className="font-mono text-xs">
-                                                    MAC: {material.mac_address}
+                        {/* Lista de materiales con checkbox */}
+                        <div className="space-y-2 max-h-96 overflow-y-auto">
+                            {materialesFiltrados.map((material) => (
+                                <Card
+                                    key={material.id}
+                                    className={`cursor-pointer transition-colors border ${
+                                        materialesSeleccionados.has(material.id)
+                                            ? 'bg-blue-50 border-blue-200 border-2'
+                                            : 'hover:bg-gray-50 border-gray-200'
+                                    }`}
+                                    onClick={() => handleToggleMaterial(material.id)}
+                                >
+                                    <CardBody className="p-3">
+                                        <div className="flex items-start gap-3">
+                                            <Checkbox
+                                                checked={materialesSeleccionados.has(material.id)}
+                                                onChange={() => handleToggleMaterial(material.id)}
+                                                className="mt-1"
+                                            />
+                                            <div className="flex-1">
+                                                <Typography variant="small" color="blue-gray" className="font-medium mb-2">
+                                                    {material.codigo_interno}
                                                 </Typography>
-                                                <Typography variant="small" color="gray" className="font-mono text-xs">
-                                                    GPON: {material.gpon_serial}
-                                                </Typography>
-                                            </div>
-                                            <div className="flex items-center justify-between mt-2">
-                                                <Typography variant="small" color="gray" className="truncate">
-                                                    {material.modelo}
-                                                </Typography>
-                                                <div className="flex gap-1">
-                                                    <Chip
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        color={material.dias_en_laboratorio > 10 ? 'red' : 'blue'}
-                                                        value={`${material.dias_en_laboratorio || 0}d`}
-                                                    />
-                                                    {materialSeleccionado?.id === material.id && (
-                                                        <Chip
-                                                            size="sm"
-                                                            variant="filled"
-                                                            color="blue"
-                                                            value="SELECCIONADO"
-                                                        />
-                                                    )}
+                                                <div className="space-y-1">
+                                                    <Typography variant="small" color="gray" className="font-mono text-xs">
+                                                        MAC: {material.mac_address}
+                                                    </Typography>
+                                                    <Typography variant="small" color="gray" className="font-mono text-xs">
+                                                        GPON: {material.gpon_serial}
+                                                    </Typography>
+                                                    <Typography variant="small" color="gray" className="text-xs">
+                                                        {material.modelo}
+                                                    </Typography>
                                                 </div>
                                             </div>
-                                        </CardBody>
-                                    </Card>
-                                ))}
+                                        </div>
+                                    </CardBody>
+                                </Card>
+                            ))}
+                        </div>
+
+                        {materialesFiltrados.length === 0 && (
+                            <div className="text-center py-8">
+                                <IoFlask className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                                <Typography color="gray">
+                                    No hay equipos en laboratorio
+                                </Typography>
                             </div>
                         )}
                     </CardBody>
                 </Card>
             </div>
 
-            {/* Panel de inspección */}
+            {/* Panel de inspección masiva */}
             <div className="lg:col-span-2">
                 <Card>
                     <CardBody>
                         <div className="mb-6">
-                            <Typography variant="h6" color="blue-gray">
-                                Inspección de Calidad
+                            <Typography variant="h6" color="blue-gray" className="flex items-center gap-2">
+                                <IoSpeedometer className="h-5 w-5" />
+                                Inspección Masiva
+                            </Typography>
+                            <Typography variant="small" color="gray">
+                                Inspeccionar múltiples equipos con el mismo resultado
                             </Typography>
                         </div>
 
-                        {!materialSeleccionado ? (
+                        {materialesSeleccionados.size === 0 ? (
                             <div className="text-center py-12">
                                 <IoSearch className="mx-auto h-16 w-16 text-gray-400 mb-4" />
                                 <Typography variant="h6" color="gray" className="mb-2">
-                                    Selecciona un equipo para inspeccionar
+                                    Selecciona equipos para inspección masiva
                                 </Typography>
                                 <Typography variant="small" color="gray">
-                                    Elige un equipo de la lista para comenzar la inspección
+                                    Mínimo 2 equipos requeridos
                                 </Typography>
                             </div>
                         ) : (
-                            <form onSubmit={handleSubmit(handleFinalizarInspeccion)} className="space-y-6">
-                                {/* Información del equipo */}
-                                <Alert color="blue">
+                            <form onSubmit={handleSubmit(handleInspeccionMasiva)} className="space-y-6">
+                                {/* Información de la inspección masiva */}
+                                <Alert color="green">
                                     <div className="flex items-center gap-3">
-                                        <IoHardwareChip className="h-5 w-5" />
+                                        <IoSpeedometer className="h-5 w-5" />
                                         <div>
                                             <Typography variant="small" className="font-medium">
-                                                Inspeccionando: {materialSeleccionado.codigo_interno}
+                                                Inspección Masiva: {materialesSeleccionados.size} equipos
                                             </Typography>
-                                            <div className="flex flex-col gap-1 mt-1">
-                                                <Typography variant="small">
-                                                    MAC: {materialSeleccionado.mac_address}
-                                                </Typography>
-                                                <Typography variant="small">
-                                                    GPON: {materialSeleccionado.gpon_serial} | Modelo: {materialSeleccionado.modelo}
-                                                </Typography>
-                                            </div>
+                                            <Typography variant="small">
+                                                Todos tendrán el mismo resultado de inspección
+                                            </Typography>
                                         </div>
                                     </div>
                                 </Alert>
 
-                                {/* Información del informe */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <Input
-                                        label="Número de Informe *"
-                                        {...register('numero_informe', { required: true })}
-                                        error={!!errors.numero_informe}
-                                    />
-
-                                    <div>
-                                        <Typography variant="small" color="blue-gray" className="font-medium mb-2">
-                                            Técnico Revisor
-                                        </Typography>
-                                        <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                                            <div className="p-2 bg-blue-100 rounded-full">
-                                                <IoPersonCircle className="h-6 w-6 text-blue-600" />
-                                            </div>
-                                            <div className="flex-1">
-                                                <Typography variant="small" color="blue-gray" className="font-bold">
-                                                    {user?.codigocotel || 'Sin código'} - {user?.nombres || 'Usuario actual'}
-                                                </Typography>
-                                                <Typography variant="small" color="gray" className="text-xs">
-                                                    Técnico responsable de la inspección
-                                                </Typography>
-                                            </div>
-                                            <div className="bg-green-100 px-2 py-1 rounded-full">
-                                                <Typography variant="small" color="green" className="text-xs font-medium">
-                                                    Auto-asignado
-                                                </Typography>
-                                            </div>
-                                        </div>
-                                        <input
-                                            type="hidden"
-                                            {...register('tecnico_revisor')}
-                                            value={user?.codigocotel || ''}
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* ✅ ACTUALIZADO: Pruebas técnicas organizadas */}
+                                {/* Pruebas técnicas */}
                                 <div>
                                     <Typography variant="h6" color="blue-gray" className="mb-4 flex items-center gap-2">
-                                        Pruebas Técnicas <Chip size="sm" value="8 pruebas" color="blue" variant="ghost" />
+                                        Resultado de Pruebas <Chip size="sm" value="8 pruebas" color="blue" variant="ghost" />
                                     </Typography>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -543,7 +520,7 @@ const InspeccionDetalle = () => {
                                 <div className="p-4 border rounded-lg">
                                     <div className="flex items-center justify-between">
                                         <Typography variant="h6" color="blue-gray">
-                                            Resultado de la Inspección
+                                            Resultado General
                                         </Typography>
                                         <Controller
                                             name="aprobado"
@@ -563,7 +540,7 @@ const InspeccionDetalle = () => {
                                         />
                                     </div>
                                     <Typography variant="small" color="gray" className="mt-2">
-                                        El resultado se determina automáticamente según las 8 pruebas realizadas
+                                        Este resultado se aplicará a todos los equipos seleccionados
                                     </Typography>
                                 </div>
 
@@ -581,26 +558,37 @@ const InspeccionDetalle = () => {
                                     />
                                 </div>
 
+                                {/* Técnico revisor */}
+                                <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                    <IoPersonCircle className="h-6 w-6 text-blue-600" />
+                                    <div className="flex-1">
+                                        <Typography variant="small" color="blue-gray" className="font-bold">
+                                            Técnico: {user?.codigocotel || 'Sin código'} - {user?.nombres || 'Usuario actual'}
+                                        </Typography>
+                                        <Typography variant="small" color="gray" className="text-xs">
+                                            Responsable de la inspección masiva
+                                        </Typography>
+                                    </div>
+                                </div>
+
                                 {/* Botones de acción */}
                                 <div className="flex justify-end gap-3">
                                     <Button
                                         variant="outlined"
                                         color="gray"
-                                        onClick={() => {
-                                            setMaterialSeleccionado(null);
-                                            reset();
-                                        }}
+                                        onClick={handleLimpiarSeleccion}
                                     >
-                                        Cancelar
+                                        Limpiar Selección
                                     </Button>
                                     <Button
                                         type="submit"
                                         color="green"
                                         loading={loading}
                                         className="flex items-center gap-2"
+                                        disabled={materialesSeleccionados.size < 2}
                                     >
                                         <IoSave className="h-4 w-4" />
-                                        Finalizar Inspección
+                                        Procesar {materialesSeleccionados.size} Equipos
                                     </Button>
                                 </div>
                             </form>
@@ -612,4 +600,4 @@ const InspeccionDetalle = () => {
     );
 };
 
-export default InspeccionDetalle;
+export default InspeccionMasiva;
