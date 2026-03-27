@@ -27,6 +27,7 @@ import ProveedoresPage from "./core/almacenes/pages/provedores/index.jsx";
 import LaboratorioPage from "./core/almacenes/pages/laboratorio/LaboratorioPage.jsx";
 import DevolucionesPage from "./core/almacenes/pages/devoluciones/index.jsx";
 import MaterialesNoUnicosPage from "./core/almacenes/pages/materiales/index.jsx";
+import NuevaSolicitudPage from "./core/solicitudes/NuevaSolicitudPage.jsx";
 function App() {
     const { isAuthenticated, loading, user } = useContext(AuthContext);
 
@@ -99,6 +100,7 @@ function App() {
                     <Route path="laboratorio/laboratorio" element={<LaboratorioPage />} />
                     <Route path="devoluciones/devoluciones" element={<DevolucionesPage />} />
                     <Route path="materiales/materiales" element={<MaterialesNoUnicosPage />} />
+                    <Route path="solicitudes/nueva" element={<NuevaSolicitudPage />} />
                 </Route>
 
                 {/* Catch all */}

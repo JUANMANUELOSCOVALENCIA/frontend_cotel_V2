@@ -10,8 +10,8 @@ import { usePermissionFilters, usePermissionActions, useResourceGroups } from '.
 // Componentes
 import Permission from '../../components/Permission';
 import Loader from '../../../layout/Loader';
-import PermissionComponents from './PermissionComponents';
-import PermissionDialogs from './PermissionDialogs';
+import PermissionComponents from './permissionComponents.jsx';
+import PermissionDialogs from './permissionDialogs.jsx';
 
 const Permissions = () => {
     // ========== ESTADOS PRINCIPALES ==========

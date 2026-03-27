@@ -25,7 +25,7 @@ import {
     IoStorefront,
     IoCloudUpload,
     IoArchive,
-    IoTelescopeOutline, IoClipboardOutline,
+    IoTelescopeOutline, IoClipboardOutline,IoDocumentText,
 } from 'react-icons/io5';
 import { useAuth, useUser, useLogout } from '../auth/hooks/useAuth';
 import Permission from '../permissions/components/Permission';
@@ -274,7 +274,14 @@ const Navbar = () => {
                     description: 'Laboratorio de equipos'
                 },
             ]
-        }
+        },
+        {
+            label: 'Solicitudes',
+            href: '/solicitudes/nueva',
+            icon: IoDocumentText,
+            permissions: [{ recurso: 'usuarios', accion: 'leer' }],
+            type: 'link'
+        },
     ];
 
     const profileMenuItems = [
