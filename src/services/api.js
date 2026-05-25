@@ -64,9 +64,11 @@ const isPublicEndpoint = (url) => {
 // Interceptor de REQUEST
 api.interceptors.request.use(
     (config) => {
-        const token = getToken();
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
+        if (!isPublicEndpoint(config.url)) {
+            const token = getToken();
+            if (token) {
+                config.headers.Authorization = `Bearer ${token}`;
+            }
         }
 
         if (config.data instanceof FormData) {
