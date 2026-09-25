@@ -18,6 +18,7 @@ import Roles from './core/permissions/pages/roles/index.jsx';
 import Permissions from './core/permissions/pages/permissions/index.jsx';
 import Profile from './core/auth/pages/Profile';
 import EmployeeMigration from "./core/permissions/pages/employeeMigration/index.jsx";
+import AuditLogs from './core/permissions/pages/AuditLogs.jsx';
 import AlmacenesPage from "./core/almacenes/pages/almacenes/index.jsx";
 import MarcasPage from "./core/almacenes/pages/marcas/index.jsx";
 import LotesPage from "./core/almacenes/pages/lotes/index.jsx";
@@ -91,6 +92,8 @@ function App() {
                     <Route path="usuarios/roles" element={<Roles />} />
                     <Route path="usuarios/permisos" element={<Permissions />} />
                     <Route path="usuarios/migracion" element={<EmployeeMigration />} />
+                    <Route path="usuarios/auditoria" element={<AuditLogs />} />
+                    <Route path="audit" element={<Navigate to="/usuarios/auditoria" replace />} />
                     <Route path="almacenes/almacen" element={<AlmacenesPage />} />
                     <Route path="almacenes/marcas" element={<MarcasPage />} />
                     <Route path="almacenes/lotes" element={<LotesPage />} />

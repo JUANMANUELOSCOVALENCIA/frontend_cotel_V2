@@ -597,9 +597,10 @@ class PermissionService {
         }
     }
 
-    async getLogStatistics() {
+    async getLogStatistics(params = {}) {
         try {
-            const response = await api.get(ENDPOINTS.ESTADISTICAS_LOGS);
+            const queryString = buildQuery(params);
+            const response = await api.get(`${ENDPOINTS.ESTADISTICAS_LOGS}${queryString}`);
             return {
                 success: true,
                 data: response.data
@@ -609,6 +610,23 @@ class PermissionService {
             return {
                 success: false,
                 error: this.extractErrorMessage(error, 'Error al obtener estadísticas de logs')
+            };
+        }
+    }
+
+    async exportLogs(params = {}) {
+        try {
+            const queryString = buildQuery(params);
+            const response = await api.get(`${ENDPOINTS.EXPORTAR_LOGS}${queryString}`);
+            return {
+                success: true,
+                data: response.data
+            };
+        } catch (error) {
+            console.error('Export logs error:', error);
+            return {
+                success: false,
+                error: this.extractErrorMessage(error, 'Error al exportar logs')
             };
         }
     }

@@ -65,6 +65,7 @@ export const ENDPOINTS = {
     // === AUDITORÍA ===
     LOGS: '/usuarios/logs/',
     ESTADISTICAS_LOGS: '/usuarios/logs/estadisticas/',
+    EXPORTAR_LOGS: '/usuarios/logs/exportar/',
 
     // ========== MÓDULO ALMACENES ==========
 
