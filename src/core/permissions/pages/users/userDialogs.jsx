@@ -1,397 +1,177 @@
-// src/core/permissions/pages/Users/UserDialogs.jsx
-import React from 'react';
-import {
-    Dialog,
-    DialogHeader,
-    DialogBody,
-    DialogFooter,
-    Button,
-    Input,
-    Select,
-    Option,
-    Alert,
-    Typography
-} from '@material-tailwind/react';
-import { useForm, Controller } from 'react-hook-form';
-import { IoWarning, IoCheckmarkCircle, IoPersonAdd } from 'react-icons/io5';
+// src/core/permissions/pages/users/userDialogs.jsx
+// Modales de usuarios: crear/editar, confirmación de acciones y aviso de credenciales.
+import React, { useEffect, useState } from 'react';
+import { IoCheckmarkCircleOutline, IoCopyOutline } from 'react-icons/io5';
 import toast from 'react-hot-toast';
-import { useUsersCRUD } from '../../hooks/usePermissions';
+import { Modal, ConfirmModal, Button, Field, TextInput, SelectInput } from '../../../../shared/components/ui';
 
-const UserDialogs = ({
-                         dialogs,
-                         selectedUser,
-                         confirmAction,
-                         roles,
-                         loading,
-                         onCloseDialog,
-                         onSuccess,
-                         onUserAction
-                     }) => {
-    const { createUser, updateUser } = useUsersCRUD();
+const EMPTY = { nombres: '', apellidopaterno: '', apellidomaterno: '', rol: '' };
 
-    // ========== FORMULARIO PARA CREAR/EDITAR ==========
+const NAME_RE = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'.-]+$/;
 
-    const {
-        register,
-        handleSubmit,
-        formState: { errors },
-        reset,
-        control,
-        setValue
-    } = useForm();
+const validar = (f) => {
+    const e = {};
+    [['nombres', 'Los nombres'], ['apellidopaterno', 'El apellido paterno'], ['apellidomaterno', 'El apellido materno']].forEach(([k, label]) => {
+        const v = f[k].trim();
+        if (!v) e[k] = `${label} es obligatorio`;
+        else if (v.length < 2) e[k] = 'Mínimo 2 caracteres';
+        else if (!NAME_RE.test(v)) e[k] = 'Solo letras y espacios';
+    });
+    if (!f.rol) e.rol = 'Selecciona un rol';
+    return e;
+};
 
-    // Efecto para llenar formulario al editar
-    React.useEffect(() => {
-        if (dialogs.edit && selectedUser) {
-            setValue('nombres', selectedUser.nombres || '');
-            setValue('apellidopaterno', selectedUser.apellidopaterno || '');
-            setValue('apellidomaterno', selectedUser.apellidomaterno || '');
-            setValue('rol', selectedUser.rol_id || '');
-        }
-    }, [dialogs.edit, selectedUser, setValue]);
+// ---------- Crear / editar ----------
+export const UserFormModal = ({ open, mode, user, roles, onClose, onSubmit }) => {
+    const [form, setForm] = useState(EMPTY);
+    const [errors, setErrors] = useState({});
+    const [saving, setSaving] = useState(false);
 
-    // ========== HANDLERS ==========
+    useEffect(() => {
+        if (!open) return;
+        setErrors({});
+        setForm(
+            mode === 'edit' && user
+                ? {
+                      nombres: user.nombres || '',
+                      apellidopaterno: user.apellidopaterno || '',
+                      apellidomaterno: user.apellidomaterno || '',
+                      rol: user.rol_id ? String(user.rol_id) : '',
+                  }
+                : EMPTY
+        );
+    }, [open, mode, user]);
 
-    const handleCreateUser = async (data) => {
-        const result = await createUser(data);
-        if (result.success) {
-            toast.success('Usuario creado correctamente');
-            reset();
-            onSuccess('create');
-        } else {
-            toast.error(result.error);
-        }
+    const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+    const handleSubmit = async (e) => {
+        e?.preventDefault();
+        const errs = validar(form);
+        setErrors(errs);
+        if (Object.keys(errs).length) return;
+        setSaving(true);
+        await onSubmit({
+            nombres: form.nombres.trim(),
+            apellidopaterno: form.apellidopaterno.trim(),
+            apellidomaterno: form.apellidomaterno.trim(),
+            rol: parseInt(form.rol, 10),
+        });
+        setSaving(false);
     };
 
-    const handleEditUser = async (data) => {
-        const updateData = {
-            nombres: data.nombres,
-            apellidopaterno: data.apellidopaterno,
-            apellidomaterno: data.apellidomaterno,
-            rol: parseInt(data.rol)
-        };
-
-        const result = await updateUser(selectedUser.id, updateData);
-        if (result.success) {
-            toast.success('Usuario actualizado correctamente');
-            reset();
-            onSuccess('edit');
-        } else {
-            toast.error(result.error);
-        }
-    };
-
-    const handleConfirmAction = async () => {
-        if (confirmAction) {
-            await onUserAction(confirmAction.action, confirmAction.user);
-            onSuccess('confirm');
-        }
-    };
-
-    const getActionText = (action) => {
-        switch (action) {
-            case 'activate': return 'activar';
-            case 'deactivate': return 'desactivar';
-            case 'delete': return 'eliminar';
-            case 'restore': return 'restaurar';
-            case 'resetPassword': return 'resetear la contraseña de';
-            case 'unlock': return 'desbloquear';
-            default: return '';
-        }
-    };
-
-    // ========== CREAR USUARIO DIALOG ==========
-
-    const CreateUserDialog = () => (
-        <Dialog
-            open={dialogs.create}
-            handler={() => onCloseDialog('create')}
-            size="md"
-        >
-            <DialogHeader>Crear Usuario</DialogHeader>
-            <form onSubmit={handleSubmit(handleCreateUser)}>
-                <DialogBody divider className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <Input
-                            label="Nombres *"
-                            {...register('nombres', {
-                                required: 'Los nombres son obligatorios',
-                                minLength: { value: 2, message: 'Mínimo 2 caracteres' }
-                            })}
-                            error={!!errors.nombres}
-                        />
-                        <Input
-                            label="Apellido Paterno *"
-                            {...register('apellidopaterno', {
-                                required: 'El apellido paterno es obligatorio',
-                                minLength: { value: 2, message: 'Mínimo 2 caracteres' }
-                            })}
-                            error={!!errors.apellidopaterno}
-                        />
-                        <Input
-                            label="Apellido Materno *"
-                            {...register('apellidomaterno', {
-                                required: 'El apellido materno es obligatorio',
-                                minLength: { value: 2, message: 'Mínimo 2 caracteres' }
-                            })}
-                            error={!!errors.apellidomaterno}
-                        />
-                        <Controller
-                            name="rol"
-                            control={control}
-                            rules={{ required: 'El rol es obligatorio' }}
-                            render={({ field }) => (
-                                <Select
-                                    label="Rol *"
-                                    value={field.value}
-                                    onChange={(value) => field.onChange(value)}
-                                    error={!!errors.rol}
-                                >
-                                    {roles.map((role) => (
-                                        <Option key={role.id} value={role.id.toString()}>
-                                            {role.nombre}
-                                        </Option>
-                                    ))}
-                                </Select>
-                            )}
-                        />
-                    </div>
-
-                    {Object.keys(errors).length > 0 && (
-                        <Alert color="red">
-                            {Object.values(errors).map((error, index) => (
-                                <div key={index}>{error.message}</div>
-                            ))}
-                        </Alert>
-                    )}
-                </DialogBody>
-                <DialogFooter className="space-x-2">
-                    <Button
-                        variant="text"
-                        color="gray"
-                        onClick={() => {
-                            reset();
-                            onCloseDialog('create');
-                        }}
-                    >
-                        Cancelar
-                    </Button>
-                    <Button type="submit" color="orange" loading={loading}>
-                        Crear Usuario
-                    </Button>
-                </DialogFooter>
-            </form>
-        </Dialog>
-    );
-
-    // ========== EDITAR USUARIO DIALOG ==========
-
-    const EditUserDialog = () => (
-        <Dialog
-            open={dialogs.edit}
-            handler={() => onCloseDialog('edit')}
-            size="md"
-        >
-            <DialogHeader>Editar Usuario</DialogHeader>
-            <form onSubmit={handleSubmit(handleEditUser)}>
-                <DialogBody divider className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <Input
-                            label="Nombres *"
-                            {...register('nombres', {
-                                required: 'Los nombres son obligatorios',
-                                minLength: { value: 2, message: 'Mínimo 2 caracteres' }
-                            })}
-                            error={!!errors.nombres}
-                        />
-                        <Input
-                            label="Apellido Paterno *"
-                            {...register('apellidopaterno', {
-                                required: 'El apellido paterno es obligatorio',
-                                minLength: { value: 2, message: 'Mínimo 2 caracteres' }
-                            })}
-                            error={!!errors.apellidopaterno}
-                        />
-                        <Input
-                            label="Apellido Materno *"
-                            {...register('apellidomaterno', {
-                                required: 'El apellido materno es obligatorio',
-                                minLength: { value: 2, message: 'Mínimo 2 caracteres' }
-                            })}
-                            error={!!errors.apellidomaterno}
-                        />
-                        <Controller
-                            name="rol"
-                            control={control}
-                            rules={{ required: 'El rol es obligatorio' }}
-                            render={({ field }) => (
-                                <Select
-                                    label="Rol *"
-                                    value={field.value ? field.value.toString() : ''}
-                                    onChange={(value) => {
-                                        const roleId = parseInt(value);
-                                        field.onChange(roleId);
-                                    }}
-                                    error={!!errors.rol}
-                                >
-                                    {roles.map((role) => (
-                                        <Option key={role.id} value={role.id.toString()}>
-                                            {role.nombre}
-                                        </Option>
-                                    ))}
-                                </Select>
-                            )}
-                        />
-                    </div>
-
-                    {selectedUser && (
-                        <Alert color="blue" className="mt-4">
-                            <Typography variant="small">
-                                Código COTEL: {selectedUser.codigocotel}
-                                {selectedUser.tipo_usuario === 'migrado' && (
-                                    <span className="ml-2 text-xs">(Usuario migrado - datos limitados)</span>
-                                )}
-                            </Typography>
-                        </Alert>
-                    )}
-
-                    {Object.keys(errors).length > 0 && (
-                        <Alert color="red">
-                            {Object.values(errors).map((error, index) => (
-                                <div key={index}>{error.message}</div>
-                            ))}
-                        </Alert>
-                    )}
-                </DialogBody>
-                <DialogFooter className="space-x-2">
-                    <Button
-                        variant="text"
-                        color="gray"
-                        onClick={() => {
-                            reset();
-                            onCloseDialog('edit');
-                        }}
-                    >
-                        Cancelar
-                    </Button>
-                    <Button type="submit" color="orange" loading={loading}>
-                        Actualizar Usuario
-                    </Button>
-                </DialogFooter>
-            </form>
-        </Dialog>
-    );
-
-    // ========== MIGRAR EMPLEADO DIALOG ==========
-
-    const MigrateUserDialog = () => (
-        <Dialog
-            open={dialogs.migrate}
-            handler={() => onCloseDialog('migrate')}
-            size="md"
-        >
-            <DialogHeader>Migrar Empleado</DialogHeader>
-            <DialogBody divider>
-                <Typography color="gray" className="mb-4">
-                    Funcionalidad para migrar empleados desde el sistema legacy.
-                </Typography>
-                <Alert color="amber">
-                    <Typography variant="small">
-                        Esta funcionalidad estará disponible próximamente.
-                    </Typography>
-                </Alert>
-            </DialogBody>
-            <DialogFooter>
-                <Button
-                    variant="text"
-                    color="gray"
-                    onClick={() => onCloseDialog('migrate')}
-                >
-                    Cerrar
-                </Button>
-            </DialogFooter>
-        </Dialog>
-    );
-
-    // ========== CONFIRMAR ACCIÓN DIALOG ==========
-
-    const ConfirmActionDialog = () => (
-        <Dialog
-            open={dialogs.confirm}
-            handler={() => onCloseDialog('confirm')}
-            size="sm"
-        >
-            <DialogHeader className="flex items-center gap-2">
-                <IoWarning className="h-6 w-6 text-orange-500" />
-                Confirmar Acción
-            </DialogHeader>
-            <DialogBody>
-                {confirmAction ? (
-                    <div>
-                        <Typography>
-                            ¿Estás seguro de que deseas {getActionText(confirmAction.action)} al usuario{' '}
-                            <strong>{confirmAction.user?.nombre_completo}</strong>?
-                        </Typography>
-
-                        {confirmAction.action === 'resetPassword' && (
-                            <Typography variant="small" color="gray" className="mt-2">
-                                La nueva contraseña será el código COTEL del usuario.
-                            </Typography>
-                        )}
-
-                        {confirmAction.action === 'delete' && (
-                            <Typography variant="small" color="red" className="mt-2">
-                                Esta acción eliminará lógicamente al usuario. Podrá ser restaurado posteriormente.
-                            </Typography>
-                        )}
-
-                        {confirmAction.action === 'restore' && (
-                            <Alert color="green" className="mt-4">
-                                <Typography variant="small">
-                                    <strong>Al restaurar:</strong><br />
-                                    • El usuario volverá a estar activo en el sistema<br />
-                                    • Recuperará su acceso y permisos<br />
-                                    • Aparecerá nuevamente en la lista de usuarios activos
-                                </Typography>
-                            </Alert>
-                        )}
-                    </div>
-                ) : (
-                    <Typography>
-                        Cargando información de la acción...
-                    </Typography>
-                )}
-            </DialogBody>
-            <DialogFooter className="space-x-2">
-                <Button
-                    variant="text"
-                    color="gray"
-                    onClick={() => onCloseDialog('confirm')}
-                >
-                    Cancelar
-                </Button>
-                <Button
-                    color={confirmAction?.action === 'delete' ? 'red' :
-                        confirmAction?.action === 'restore' ? 'green' : 'orange'}
-                    loading={loading}
-                    onClick={handleConfirmAction}
-                >
-                    {confirmAction?.action === 'restore' ? 'Restaurar' : 'Confirmar'}
-                </Button>
-            </DialogFooter>
-        </Dialog>
-    );
-
-    // ========== RENDER PRINCIPAL ==========
+    const activos = roles.filter((r) => r.activo || String(r.id) === form.rol);
 
     return (
-        <>
-            <CreateUserDialog />
-            <EditUserDialog />
-            <MigrateUserDialog />
-            <ConfirmActionDialog />
-        </>
+        <Modal
+            open={open}
+            onClose={onClose}
+            busy={saving}
+            title={mode === 'edit' ? 'Editar usuario' : 'Nuevo usuario'}
+            subtitle={mode === 'edit' ? `Código COTEL ${user?.codigocotel}` : 'El código COTEL se asigna automáticamente'}
+            footer={
+                <>
+                    <Button variant="ghost" onClick={onClose} disabled={saving}>Cancelar</Button>
+                    <Button onClick={handleSubmit} loading={saving}>{mode === 'edit' ? 'Guardar cambios' : 'Crear usuario'}</Button>
+                </>
+            }
+        >
+            <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field label="Nombres" required error={errors.nombres} className="sm:col-span-2">
+                    <TextInput value={form.nombres} onChange={set('nombres')} error={errors.nombres} autoFocus maxLength={100} />
+                </Field>
+                <Field label="Apellido paterno" required error={errors.apellidopaterno}>
+                    <TextInput value={form.apellidopaterno} onChange={set('apellidopaterno')} error={errors.apellidopaterno} maxLength={100} />
+                </Field>
+                <Field label="Apellido materno" required error={errors.apellidomaterno}>
+                    <TextInput value={form.apellidomaterno} onChange={set('apellidomaterno')} error={errors.apellidomaterno} maxLength={100} />
+                </Field>
+                <Field label="Rol" required error={errors.rol} className="sm:col-span-2">
+                    <SelectInput value={form.rol} onChange={set('rol')}>
+                        <option value="">Seleccionar rol…</option>
+                        {activos.map((r) => (
+                            <option key={r.id} value={r.id}>{r.nombre}{!r.activo ? ' (inactivo)' : ''}</option>
+                        ))}
+                    </SelectInput>
+                </Field>
+                <button type="submit" className="hidden" />
+            </form>
+        </Modal>
     );
 };
 
-export default UserDialogs;
+// ---------- Credenciales del usuario recién creado ----------
+export const CredencialesModal = ({ user, onClose }) => {
+    const copiar = async () => {
+        try {
+            await navigator.clipboard.writeText(`Usuario (código COTEL): ${user.codigocotel}\nContraseña inicial: ${user.codigocotel}`);
+            toast.success('Copiado al portapapeles');
+        } catch {
+            toast.error('No se pudo copiar');
+        }
+    };
+    return (
+        <Modal
+            open={!!user}
+            onClose={onClose}
+            size="sm"
+            title="Usuario creado"
+            footer={
+                <>
+                    <Button variant="secondary" icon={IoCopyOutline} onClick={copiar}>Copiar datos</Button>
+                    <Button onClick={onClose}>Listo</Button>
+                </>
+            }
+        >
+            {user && (
+                <div className="space-y-4 text-sm">
+                    <div className="flex items-center gap-2 text-green-700">
+                        <IoCheckmarkCircleOutline className="h-5 w-5" />
+                        <span className="font-medium">{user.nombre_completo || `${user.nombres} ${user.apellidopaterno}`}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 rounded-lg bg-gray-50 p-4">
+                        <div>
+                            <p className="text-xs text-gray-500">Código COTEL (usuario)</p>
+                            <p className="font-mono text-lg font-bold text-gray-800">{user.codigocotel}</p>
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-500">Contraseña inicial</p>
+                            <p className="font-mono text-lg font-bold text-gray-800">{user.codigocotel}</p>
+                        </div>
+                    </div>
+                    <p className="text-gray-500">Al iniciar sesión por primera vez, el sistema le pedirá cambiar la contraseña.</p>
+                </div>
+            )}
+        </Modal>
+    );
+};
+
+// ---------- Confirmación de acciones ----------
+const TEXTOS = {
+    activate: { titulo: 'Activar usuario', verbo: 'activar', boton: 'Activar' },
+    deactivate: { titulo: 'Desactivar usuario', verbo: 'desactivar', boton: 'Desactivar', danger: true, nota: 'No podrá iniciar sesión hasta que se vuelva a activar.' },
+    delete: { titulo: 'Eliminar usuario', verbo: 'eliminar', boton: 'Eliminar', danger: true, nota: 'Podrás restaurarlo luego filtrando por "Eliminados".' },
+    restore: { titulo: 'Restaurar usuario', verbo: 'restaurar', boton: 'Restaurar' },
+    resetPassword: { titulo: 'Resetear contraseña', verbo: 'resetear la contraseña de', boton: 'Resetear', nota: 'La contraseña volverá a ser su código COTEL y deberá cambiarla al ingresar.' },
+    unlock: { titulo: 'Desbloquear usuario', verbo: 'desbloquear', boton: 'Desbloquear' },
+};
+
+export const UserConfirmModal = ({ action, user, loading, onClose, onConfirm }) => {
+    const t = TEXTOS[action] || {};
+    return (
+        <ConfirmModal
+            open={!!action}
+            onClose={onClose}
+            onConfirm={onConfirm}
+            loading={loading}
+            danger={t.danger}
+            title={t.titulo}
+            confirmText={t.boton}
+            message={
+                <>
+                    <p>¿Seguro que deseas {t.verbo} a <strong>{user?.nombre_completo}</strong> ({user?.codigocotel})?</p>
+                    {t.nota && <p className="mt-2 text-gray-500">{t.nota}</p>}
+                </>
+            }
+        />
+    );
+};

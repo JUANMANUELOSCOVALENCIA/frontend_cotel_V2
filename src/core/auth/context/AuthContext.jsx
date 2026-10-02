@@ -42,7 +42,6 @@ const authReducer = (state, action) => {
             return { ...state, loading: action.payload, error: null };
 
         case AUTH_ACTIONS.LOGIN_SUCCESS:
-            console.log('📊 AuthContext: LOGIN_SUCCESS con usuario:', action.payload.user);
             return {
                 ...state,
                 isAuthenticated: true,
@@ -53,7 +52,6 @@ const authReducer = (state, action) => {
             };
 
         case AUTH_ACTIONS.LOGIN_FAILURE:
-            console.log('📊 AuthContext: LOGIN_FAILURE:', action.payload);
             return {
                 ...state,
                 isAuthenticated: false,
@@ -64,11 +62,9 @@ const authReducer = (state, action) => {
             };
 
         case AUTH_ACTIONS.LOGOUT:
-            console.log('📊 AuthContext: LOGOUT');
             return { ...initialState, loading: false };
 
         case AUTH_ACTIONS.UPDATE_USER:
-            console.log('📊 AuthContext: UPDATE_USER:', action.payload);
             return { ...state, user: { ...state.user, ...action.payload } };
 
         case AUTH_ACTIONS.SET_ERROR:
@@ -88,7 +84,6 @@ export const AuthProvider = ({ children }) => {
 
     // Inicializar autenticación
     useEffect(() => {
-        console.log('🚀 AuthContext: Inicializando...');
         initializeAuth();
     }, []);
 
@@ -98,7 +93,6 @@ export const AuthProvider = ({ children }) => {
         try {
             if (hasValidSession()) {
                 const userData = getUserData();
-                console.log('🔍 AuthContext: Datos de usuario en storage:', userData);
 
                 if (userData) {
                     dispatch({
@@ -108,12 +102,10 @@ export const AuthProvider = ({ children }) => {
                             permissions: userData.permisos || [],
                         },
                     });
-                    console.log('✅ AuthContext: Usuario autenticado desde storage');
                     return;
                 }
             }
 
-            console.log('❌ AuthContext: No hay sesión válida');
             dispatch({ type: AUTH_ACTIONS.LOGOUT });
         } catch (error) {
             console.error('❌ AuthContext: Error en inicialización:', error);
@@ -123,14 +115,14 @@ export const AuthProvider = ({ children }) => {
     };
 
     // Login
+    // Nota: login y cambio de contraseña NO usan el "loading" global (ese es solo para
+    // la carga inicial); si lo usaran, la app mostraría el cargador y el formulario
+    // se desmontaría perdiendo lo escrito y el mensaje de error.
     const login = async (credentials) => {
-        console.log('🔐 AuthContext: Iniciando login...');
-        dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: true });
         dispatch({ type: AUTH_ACTIONS.CLEAR_ERROR });
 
         try {
             const result = await authService.login(credentials);
-            console.log('🔐 AuthContext: Resultado de login:', result);
 
             if (result.success) {
                 dispatch({
@@ -142,35 +134,27 @@ export const AuthProvider = ({ children }) => {
                 });
 
                 if (result.requiresPasswordChange) {
-                    console.log('🔄 AuthContext: Usuario debe cambiar contraseña');
                     toast.success('Debes cambiar tu contraseña');
                 } else {
-                    console.log('✅ AuthContext: Login completo exitoso');
                     toast.success(`Bienvenido ${result.userData.nombres}`);
                 }
 
                 return { success: true, requiresPasswordChange: result.requiresPasswordChange };
             } else {
-                console.log('❌ AuthContext: Login falló:', result.error);
+                // el error se muestra en el formulario (sin toast duplicado)
                 dispatch({ type: AUTH_ACTIONS.LOGIN_FAILURE, payload: result.error });
-                toast.error(result.error);
                 return { success: false, error: result.error };
             }
         } catch (error) {
             const errorMessage = 'Error de conexión';
             console.error('❌ AuthContext: Error en login (catch):', error);
             dispatch({ type: AUTH_ACTIONS.LOGIN_FAILURE, payload: errorMessage });
-            toast.error(errorMessage);
             return { success: false, error: errorMessage };
-        } finally {
-            // ⭐ Asegurar que loading siempre vuelva a false
-            dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: false });
         }
     };
 
     // Logout
     const logout = async () => {
-        console.log('🚪 AuthContext: Haciendo logout...');
         dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: true });
         try {
             await authService.logout();
@@ -184,8 +168,6 @@ export const AuthProvider = ({ children }) => {
 
     // Change Password
     const changePassword = async (passwordData) => {
-        console.log('🔐 AuthContext: Cambiando contraseña...');
-        dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: true });
 
         try {
             const result = await authService.changePassword(passwordData);
@@ -200,17 +182,13 @@ export const AuthProvider = ({ children }) => {
                 return { success: true };
             } else {
                 dispatch({ type: AUTH_ACTIONS.SET_ERROR, payload: result.error });
-                toast.error(result.error);
-                return { success: false, error: result.error };
+                return { success: false, error: result.error, fieldErrors: result.fieldErrors };
             }
         } catch (error) {
             const errorMessage = 'Error al cambiar contraseña';
             console.error('❌ AuthContext: Error cambiando contraseña:', error);
             dispatch({ type: AUTH_ACTIONS.SET_ERROR, payload: errorMessage });
-            toast.error(errorMessage);
             return { success: false, error: errorMessage };
-        } finally {
-            dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: false });
         }
     };
 
@@ -236,13 +214,6 @@ export const AuthProvider = ({ children }) => {
     const isAuthenticated = state.isAuthenticated;
     const requiresPasswordChange = user ? (user.password_reset_required || !user.password_changed) : false;
 
-    // Log del estado actual para debug
-    console.log('📊 AuthContext Estado actual:', {
-        isAuthenticated,
-        loading,
-        user: user ? `${user.nombres} (${user.codigocotel})` : null,
-        requiresPasswordChange,
-    });
 
     const value = {
         // State compatibility
@@ -271,4 +242,4 @@ export const AuthProvider = ({ children }) => {
 };
 
 export { AuthContext };
-export default AuthContext;
+export default AuthContext;

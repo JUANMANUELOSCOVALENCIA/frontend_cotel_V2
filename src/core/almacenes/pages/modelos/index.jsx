@@ -1,757 +1,205 @@
-// src/core/almacenes/pages/modelos/index.jsx - COMPLETO CON MODAL DE ELIMINACIÓN
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import {
-    Card,
-    CardBody,
-    CardHeader,
-    Typography,
-    Button,
-    Input,
-    IconButton,
-    Tooltip,
-    Chip,
-    Alert,
-    Spinner,
-    Select,
-    Option
-} from '@material-tailwind/react';
-import {
-    IoSearch,
-    IoAdd,
-    IoPencil,
-    IoTrash,
-    IoEyeOff,
-    IoEye,
-    IoFilter,
-    IoRefresh
-} from 'react-icons/io5';
-import { usePermissions } from '../../../permissions/hooks/usePermissions';
-import { useModelos, useOpcionesCompletas } from '../../hooks/useAlmacenes';
-import ModeloDialog from './ModeloDialog';
-import DeleteConfirmDialog from './DeleteConfirmDialog';
+// src/core/almacenes/pages/modelos/index.jsx
+import React, { useEffect, useMemo, useState } from 'react';
+import { IoHardwareChipOutline } from 'react-icons/io5';
+import CatalogoPage from '../catalogos/CatalogoPage';
+import CampoForm from '../catalogos/CampoForm';
+import ContenidoCaja from './ContenidoCaja';
+import { Badge, Field, Toggle } from '../../../../shared/components/ui';
+import { modelosApi, marcasApi, opcionesApi } from '../../services/catalogosService';
+import { PRUEBAS_LAB, TODAS_LAS_PRUEBAS, pruebasDeModelo } from '../laboratorio/pruebas';
 
-// ========== COMPONENTE BUSCADOR OPTIMIZADO ==========
-const SearchInput = React.memo(({ searchValue, onSearchChange }) => {
-    const [localValue, setLocalValue] = useState(searchValue || '');
-    const debounceRef = React.useRef(null);
+const vacio = {
+    nombre: '', codigo_modelo: '', marca: '', tipo_material: '', unidad_medida: '',
+    descripcion: '', requiere_inspeccion_inicial: false, componentes: [], pruebas_laboratorio: TODAS_LAS_PRUEBAS,
+};
 
-    React.useEffect(() => {
-        setLocalValue(searchValue || '');
-    }, [searchValue]);
+const Modelos = () => {
+    const [marcas, setMarcas] = useState([]);
+    const [tipos, setTipos] = useState([]);
+    const [unidades, setUnidades] = useState([]);
 
-    const handleInputChange = useCallback((e) => {
-        const newValue = e.target.value;
-        setLocalValue(newValue);
-
-        if (debounceRef.current) {
-            clearTimeout(debounceRef.current);
-        }
-
-        debounceRef.current = setTimeout(() => {
-            onSearchChange(newValue);
-        }, 500);
-    }, [onSearchChange]);
-
-    React.useEffect(() => {
-        return () => {
-            if (debounceRef.current) {
-                clearTimeout(debounceRef.current);
-            }
-        };
+    useEffect(() => {
+        marcasApi.listar().then((r) => r.success && setMarcas(r.data));
+        opcionesApi.tiposMaterial().then((r) => r.success && setTipos(r.data));
+        opcionesApi.unidadesMedida().then((r) => r.success && setUnidades(r.data));
     }, []);
 
-    return (
-        <Input
-            label="Buscar modelos..."
-            icon={<IoSearch className="h-5 w-5" />}
-            value={localValue}
-            onChange={handleInputChange}
-            className="min-w-0"
-        />
-    );
-});
+    const tipoPorId = useMemo(() => Object.fromEntries(tipos.map((t) => [String(t.id), t])), [tipos]);
 
-SearchInput.displayName = 'SearchInput';
-
-// ========== COMPONENTE FILTROS OPTIMIZADO ==========
-const FilterSection = React.memo(({
-                                      filterMarca,
-                                      filterTipo,
-                                      marcas,
-                                      tiposMaterial,
-                                      onMarcaChange,
-                                      onTipoChange,
-                                      onClearFilters
-                                  }) => {
-    const hasFilters = filterMarca || filterTipo;
-
-    return (
-        <div className="flex flex-col md:flex-row gap-4 items-center">
-            <div className="flex items-center gap-2">
-                <IoFilter className="h-4 w-4 text-gray-500" />
-                <Typography variant="small" color="gray">
-                    Filtros:
-                </Typography>
-            </div>
-
-            <div className="flex flex-col md:flex-row gap-2 flex-1">
-                <Select
-                    label="Filtrar por Marca"
-                    value={filterMarca}
-                    onChange={onMarcaChange}
-                    className="min-w-48"
-                >
-                    <Option value="">Todas las marcas</Option>
-                    {marcas.map(marca => (
-                        <Option key={marca.id} value={marca.id.toString()}>
-                            {marca.nombre}
-                        </Option>
-                    ))}
-                </Select>
-
-                <Select
-                    label="Filtrar por Tipo"
-                    value={filterTipo}
-                    onChange={onTipoChange}
-                    className="min-w-48"
-                >
-                    <Option value="">Todos los tipos</Option>
-                    {tiposMaterial.map(tipo => (
-                        <Option key={tipo.id} value={tipo.id.toString()}>
-                            {tipo.nombre} {tipo.es_unico ? '(ONU)' : '(Material)'}
-                        </Option>
-                    ))}
-                </Select>
-
-                {hasFilters && (
-                    <Button
-                        variant="text"
-                        size="sm"
-                        color="red"
-                        onClick={onClearFilters}
-                    >
-                        Limpiar
-                    </Button>
-                )}
-            </div>
-        </div>
-    );
-});
-
-FilterSection.displayName = 'FilterSection';
-
-// ========== COMPONENTE TOOLBAR OPTIMIZADO ==========
-const Toolbar = React.memo(({
-                                searchValue,
-                                showInactive,
-                                filterMarca,
-                                filterTipo,
-                                marcas,
-                                tiposMaterial,
-                                canCreate,
-                                onSearchChange,
-                                onToggleInactive,
-                                onMarcaChange,
-                                onTipoChange,
-                                onClearFilters,
-                                onCreateClick,
-                                onRefresh
-                            }) => {
-    const handleToggleInactive = useCallback(() => {
-        onToggleInactive(!showInactive);
-    }, [showInactive, onToggleInactive]);
-
-    return (
-        <Card className="mb-6">
-            <CardBody className="p-4">
-                <div className="flex flex-col gap-4">
-                    {/* Primera fila - Búsqueda y acciones principales */}
-                    <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-                        <div className="w-full md:w-96">
-                            <SearchInput
-                                searchValue={searchValue}
-                                onSearchChange={onSearchChange}
-                            />
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                            <Button
-                                variant={showInactive ? "filled" : "outlined"}
-                                size="sm"
-                                onClick={handleToggleInactive}
-                                className="flex items-center gap-2"
-                            >
-                                {showInactive ? <IoEye className="h-4 w-4" /> : <IoEyeOff className="h-4 w-4" />}
-                                {showInactive ? 'Ocultar Inactivos' : 'Mostrar Inactivos'}
-                            </Button>
-
-                            <IconButton
-                                variant="outlined"
-                                size="sm"
-                                onClick={onRefresh}
-                            >
-                                <IoRefresh className="h-4 w-4" />
-                            </IconButton>
-
-                            {canCreate && (
-                                <Button
-                                    onClick={onCreateClick}
-                                    className="flex items-center gap-2"
-                                    color="blue"
-                                >
-                                    <IoAdd className="h-4 w-4" />
-                                    Nuevo Modelo
-                                </Button>
+    const columnas = useMemo(() => [
+        {
+            label: 'Modelo',
+            render: (m) => (
+                <>
+                    <p className="font-medium text-gray-800">{m.nombre}</p>
+                    <p className="text-xs text-gray-500">Código {m.codigo_modelo} · {m.marca_info?.nombre}</p>
+                </>
+            ),
+        },
+        {
+            label: 'Tipo',
+            render: (m) => (
+                <div className="space-y-1">
+                    <Badge color={m.tipo_material_info?.es_unico ? 'purple' : 'blue'}>{m.tipo_material_info?.nombre}</Badge>
+                    <p className="text-xs text-gray-500">Unidad: {m.unidad_medida_info?.simbolo || m.unidad_medida_info?.nombre}</p>
+                    {m.requiere_inspeccion_inicial && (
+                        <div>
+                            <Badge color="amber">Va a laboratorio</Badge>
+                            {m.tipo_material_info?.es_unico && (
+                                <p className="mt-1 text-xs text-gray-500">{pruebasDeModelo(m.pruebas_laboratorio).length} de {PRUEBAS_LAB.length} pruebas</p>
                             )}
                         </div>
-                    </div>
+                    )}
+                </div>
+            ),
+        },
+        {
+            label: 'Contenido de la caja',
+            render: (m) => (m.componentes?.length ? (
+                <div className="flex max-w-xs flex-wrap gap-1">
+                    {m.componentes.map((c) => <Badge key={c.id} color="orange">{c.cantidad}× {c.componente_info?.nombre}</Badge>)}
+                </div>
+            ) : <span className="text-xs text-gray-400">—</span>),
+        },
+        {
+            label: 'Inventario',
+            render: (m) => (
+                <>
+                    <p className="text-gray-800">{m.materiales_count ?? 0} en total</p>
+                    <p className="text-xs text-green-700">{m.materiales_disponibles ?? 0} disponibles</p>
+                </>
+            ),
+        },
+    ], []);
 
-                    {/* Segunda fila - Filtros */}
-                    <FilterSection
-                        filterMarca={filterMarca}
-                        filterTipo={filterTipo}
-                        marcas={marcas}
-                        tiposMaterial={tiposMaterial}
-                        onMarcaChange={onMarcaChange}
-                        onTipoChange={onTipoChange}
-                        onClearFilters={onClearFilters}
+    const filtros = useMemo(() => [
+        { key: 'marca', label: 'Todas las marcas', opciones: marcas.map((m) => ({ value: String(m.id), label: m.nombre })), aplicar: (m, v) => String(m.marca) === v },
+        { key: 'tipo', label: 'Todos los tipos', opciones: tipos.map((t) => ({ value: String(t.id), label: t.nombre })), aplicar: (m, v) => String(m.tipo_material) === v },
+    ], [marcas, tipos]);
+
+    const renderFormulario = ({ valores, set, errores, item, disabled }) => {
+        const marcasOpc = marcas.filter((m) => m.activo || String(m.id) === String(valores.marca));
+        const tipo = tipoPorId[valores.tipo_material];
+        const elegirTipo = (v) => {
+            set('tipo_material', v);
+            const t = tipoPorId[v];
+            if (t) {
+                // Al crear, se propone lo que define el tipo (las ONU van a laboratorio)
+                if (!item) set('requiere_inspeccion_inicial', Boolean(t.requiere_inspeccion_inicial));
+                if (!valores.unidad_medida && t.unidad_medida_default) set('unidad_medida', String(t.unidad_medida_default));
+            }
+        };
+        const campo = (c) => <CampoForm key={c.name} campo={c} valor={valores[c.name]} error={errores[c.name]} onChange={(v) => set(c.name, v)} disabled={disabled} />;
+        return (
+            <>
+                {campo({ name: 'nombre', label: 'Nombre del modelo', required: true, maxLength: 100, ancho: 'medio', placeholder: 'Ej: HG8245H' })}
+                {campo({ name: 'codigo_modelo', label: 'Código', required: true, type: 'number', min: 1, ancho: 'medio', hint: 'Número único del modelo' })}
+                {campo({ name: 'marca', label: 'Marca', required: true, type: 'select', ancho: 'medio', opciones: marcasOpc.map((m) => ({ value: String(m.id), label: m.nombre })) })}
+                <Field label="Tipo de material" required error={errores.tipo_material}>
+                    <select
+                        className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 pr-8 text-sm text-gray-800 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20"
+                        value={valores.tipo_material}
+                        disabled={disabled}
+                        onChange={(e) => elegirTipo(e.target.value)}
+                    >
+                        <option value="">Seleccionar…</option>
+                        {tipos.map((t) => <option key={t.id} value={t.id}>{t.nombre}{t.es_unico ? ' (con serie)' : ''}</option>)}
+                    </select>
+                </Field>
+                {campo({ name: 'unidad_medida', label: 'Unidad de medida', required: true, type: 'select', ancho: 'medio', opciones: unidades.map((u) => ({ value: String(u.id), label: `${u.nombre} (${u.simbolo})` })) })}
+                <div className="sm:col-span-1 flex items-end pb-2">
+                    <Toggle
+                        checked={valores.requiere_inspeccion_inicial}
+                        onChange={(v) => set('requiere_inspeccion_inicial', v)}
+                        disabled={disabled}
+                        label="Enviar a laboratorio al ingresar"
                     />
                 </div>
-            </CardBody>
-        </Card>
-    );
-});
-
-Toolbar.displayName = 'Toolbar';
-
-// ========== COMPONENTE FILA DE TABLA OPTIMIZADO ==========
-const ModeloRow = React.memo(({
-                                  modelo,
-                                  isLast,
-                                  canEdit,
-                                  canDelete,
-                                  onToggleActivo,
-                                  onEdit,
-                                  onDelete
-                              }) => {
-    const classes = isLast ? "p-4" : "p-4 border-b border-blue-gray-50";
-
-    const handleToggleActivo = useCallback(() => {
-        onToggleActivo(modelo);
-    }, [modelo, onToggleActivo]);
-
-    const handleEdit = useCallback(() => {
-        onEdit(modelo);
-    }, [modelo, onEdit]);
-
-    const handleDelete = useCallback(() => {
-        onDelete(modelo);
-    }, [modelo, onDelete]);
-
-    return (
-        <tr className="hover:bg-blue-gray-50/50">
-            {/* PRIMERA COLUMNA: Marca & Tipo */}
-            <td className={classes}>
-                <div>
-                    <Typography variant="small" color="blue-gray" className="font-medium">
-                        {modelo.marca_info?.nombre || 'Sin marca'}
-                    </Typography>
-                    <div className="flex items-center gap-1 mt-1">
-                        <Chip
-                            size="sm"
-                            variant="ghost"
-                            color={modelo.tipo_material_info?.es_unico ? "purple" : "blue"}
-                            value={modelo.tipo_material_info?.es_unico ? "ONU" : "Material"}
-                        />
-                    </div>
-                </div>
-            </td>
-
-            {/* SEGUNDA COLUMNA: Modelo */}
-            <td className={classes}>
-                <div>
-                    <Typography variant="small" color="blue-gray" className="font-semibold">
-                        {modelo.nombre}
-                    </Typography>
-                    <Typography variant="small" color="gray" className="font-mono">
-                        {modelo.codigo_modelo}
-                    </Typography>
-                </div>
-            </td>
-
-            {/* TERCERA COLUMNA: Especificaciones */}
-            <td className={classes}>
-                <div>
-                    <Typography variant="small" color="blue-gray">
-                        {modelo.tipo_material_info?.nombre || 'Sin tipo'}
-                    </Typography>
-                    <Typography variant="small" color="gray">
-                        Unidad: {modelo.unidad_medida_info?.simbolo || 'N/A'}
-                    </Typography>
-                    {modelo.requiere_inspeccion_inicial && (
-                        <Chip
-                            size="sm"
-                            variant="ghost"
-                            color="amber"
-                            value="Req. Inspección"
-                            className="mt-1"
-                        />
-                    )}
-                </div>
-            </td>
-
-            {/* CUARTA COLUMNA: Materiales */}
-            <td className={classes}>
-                <div className="flex flex-col">
-                    <Typography variant="small" color="blue-gray" className="font-medium">
-                        {modelo.materiales_count || 0} totales
-                    </Typography>
-                    <Typography variant="small" color="green" className="font-normal">
-                        {modelo.materiales_disponibles || 0} disponibles
-                    </Typography>
-                </div>
-            </td>
-
-            {/* QUINTA COLUMNA: Estado */}
-            <td className={classes}>
-                <Chip
-                    variant="ghost"
-                    color={modelo.activo ? "green" : "red"}
-                    size="sm"
-                    value={modelo.activo ? "Activo" : "Inactivo"}
-                    icon={
-                        <span
-                            className={`mx-auto mt-1 block h-2 w-2 rounded-full ${
-                                modelo.activo ? 'bg-green-900' : 'bg-red-900'
-                            } content-['']`}
-                        />
-                    }
-                />
-            </td>
-
-            {/* SEXTA COLUMNA: Acciones */}
-            <td className={classes}>
-                <div className="flex items-center gap-2">
-                    {canEdit && (
-                        <>
-                            <Tooltip content={modelo.activo ? "Desactivar" : "Activar"}>
-                                <IconButton
-                                    variant="text"
-                                    color={modelo.activo ? "orange" : "green"}
-                                    onClick={handleToggleActivo}
-                                >
-                                    {modelo.activo ?
-                                        <IoEyeOff className="h-4 w-4" /> :
-                                        <IoEye className="h-4 w-4" />
-                                    }
-                                </IconButton>
-                            </Tooltip>
-
-                            <Tooltip content="Editar">
-                                <IconButton
-                                    variant="text"
-                                    color="blue-gray"
-                                    onClick={handleEdit}
-                                >
-                                    <IoPencil className="h-4 w-4" />
-                                </IconButton>
-                            </Tooltip>
-                        </>
-                    )}
-
-                    {canDelete && (
-                        <Tooltip content="Eliminar">
-                            <IconButton
-                                variant="text"
-                                color="red"
-                                onClick={handleDelete}
-                            >
-                                <IoTrash className="h-4 w-4" />
-                            </IconButton>
-                        </Tooltip>
-                    )}
-                </div>
-            </td>
-        </tr>
-    );
-});
-
-ModeloRow.displayName = 'ModeloRow';
-
-// ========== COMPONENTE TABLA OPTIMIZADO ==========
-const ModelosTable = React.memo(({
-                                     modelos,
-                                     canEdit,
-                                     canDelete,
-                                     onToggleActivo,
-                                     onEdit,
-                                     onDelete
-                                 }) => {
-    return (
-        <Card>
-            <CardHeader floated={false} shadow={false} className="rounded-none">
-                <div className="flex items-center justify-between">
-                    <Typography variant="h6" color="blue-gray">
-                        Modelos Registrados
-                    </Typography>
-                    <Typography color="gray" className="text-sm">
-                        {modelos.length} modelos encontrados
-                    </Typography>
-                </div>
-            </CardHeader>
-            <CardBody className="px-0">
-                {modelos.length === 0 ? (
-                    <div className="text-center py-12">
-                        <Typography variant="h6" color="blue-gray" className="mt-4">
-                            No hay modelos registrados
-                        </Typography>
-                        <Typography color="gray" className="mt-2">
-                            Comienza creando tu primer modelo
-                        </Typography>
-                    </div>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full min-w-max table-auto text-left">
-                            <thead>
-                            <tr>
-                                <th className="border-b border-blue-gray-100 bg-blue-gray-50 p-4">
-                                    <Typography
-                                        variant="small"
-                                        color="blue-gray"
-                                        className="font-normal leading-none opacity-70"
-                                    >
-                                        Marca & Tipo
-                                    </Typography>
-                                </th>
-                                <th className="border-b border-blue-gray-100 bg-blue-gray-50 p-4">
-                                    <Typography
-                                        variant="small"
-                                        color="blue-gray"
-                                        className="font-normal leading-none opacity-70"
-                                    >
-                                        Modelo
-                                    </Typography>
-                                </th>
-                                <th className="border-b border-blue-gray-100 bg-blue-gray-50 p-4">
-                                    <Typography
-                                        variant="small"
-                                        color="blue-gray"
-                                        className="font-normal leading-none opacity-70"
-                                    >
-                                        Especificaciones
-                                    </Typography>
-                                </th>
-                                <th className="border-b border-blue-gray-100 bg-blue-gray-50 p-4">
-                                    <Typography
-                                        variant="small"
-                                        color="blue-gray"
-                                        className="font-normal leading-none opacity-70"
-                                    >
-                                        Materiales
-                                    </Typography>
-                                </th>
-                                <th className="border-b border-blue-gray-100 bg-blue-gray-50 p-4">
-                                    <Typography
-                                        variant="small"
-                                        color="blue-gray"
-                                        className="font-normal leading-none opacity-70"
-                                    >
-                                        Estado
-                                    </Typography>
-                                </th>
-                                <th className="border-b border-blue-gray-100 bg-blue-gray-50 p-4">
-                                    <Typography
-                                        variant="small"
-                                        color="blue-gray"
-                                        className="font-normal leading-none opacity-70"
-                                    >
-                                        Acciones
-                                    </Typography>
-                                </th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            {modelos.map((modelo, index) => (
-                                <ModeloRow
-                                    key={modelo.id}
-                                    modelo={modelo}
-                                    isLast={index === modelos.length - 1}
-                                    canEdit={canEdit}
-                                    canDelete={canDelete}
-                                    onToggleActivo={onToggleActivo}
-                                    onEdit={onEdit}
-                                    onDelete={onDelete}
-                                />
-                            ))}
-                            </tbody>
-                        </table>
+                {campo({ name: 'descripcion', label: 'Descripción', type: 'textarea', rows: 2 })}
+                {tipo?.es_unico && valores.requiere_inspeccion_inicial && (
+                    <div className="sm:col-span-2">
+                        <Field label="Pruebas de laboratorio" required error={errores.pruebas_laboratorio} hint="Marca solo lo que tiene este equipo (por ejemplo, sin CATV ni telefonía si no trae esos puertos).">
+                            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                {PRUEBAS_LAB.map((p) => {
+                                    const marcada = valores.pruebas_laboratorio.includes(p.campo);
+                                    return (
+                                        <label key={p.campo} className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${marcada ? 'border-orange-300 bg-orange-50 text-gray-800' : 'border-gray-200 text-gray-500'}`}>
+                                            <input
+                                                type="checkbox"
+                                                className="h-4 w-4 accent-orange-500"
+                                                checked={marcada}
+                                                disabled={disabled}
+                                                onChange={() => set('pruebas_laboratorio', marcada
+                                                    ? valores.pruebas_laboratorio.filter((c) => c !== p.campo)
+                                                    : TODAS_LAS_PRUEBAS.filter((c) => c === p.campo || valores.pruebas_laboratorio.includes(c)))}
+                                            />
+                                            {p.nombre}
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                        </Field>
                     </div>
                 )}
-            </CardBody>
-        </Card>
-    );
-});
-
-ModelosTable.displayName = 'ModelosTable';
-
-// ========== COMPONENTE PRINCIPAL ==========
-const ModelosPage = () => {
-    const { hasPermission } = usePermissions();
-    const {
-        modelos,
-        loading,
-        error,
-        loadModelos,
-        createModelo,
-        updateModelo,
-        deleteModelo,
-        toggleActivoModelo,
-        clearError
-    } = useModelos();
-
-    const { opciones, loading: loadingOpciones } = useOpcionesCompletas();
-
-    const [searchTerm, setSearchTerm] = useState('');
-    const [showInactive, setShowInactive] = useState(false);
-    const [filterMarca, setFilterMarca] = useState('');
-    const [filterTipo, setFilterTipo] = useState('');
-
-    // Estados para dialogs
-    const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-    const [selectedModelo, setSelectedModelo] = useState(null);
-
-    // Memoizar opciones seguras
-    const safeOptions = useMemo(() => ({
-        marcas: opciones?.marcas?.filter(marca =>
-            marca && marca.id !== null && marca.id !== undefined && marca.nombre && marca.activo
-        ) || [],
-        tiposMaterial: opciones?.tipos_material?.filter(tipo =>
-            tipo && tipo.id !== null && tipo.id !== undefined && tipo.nombre
-        ) || []
-    }), [opciones]);
-
-    // Memoizar permisos
-    const permissions = useMemo(() => ({
-        canCreate: hasPermission('almacenes', 'create') || true,
-        canEdit: hasPermission('almacenes', 'update') || true,
-        canDelete: hasPermission('almacenes', 'delete') || true
-    }), [hasPermission]);
-
-    // Cargar modelos al montar
-    useEffect(() => {
-        if (!loadingOpciones) {
-            loadModelos({
-                incluir_inactivos: showInactive,
-                marca: filterMarca,
-                tipo_material: filterTipo
-            });
-        }
-    }, [loadModelos, showInactive, filterMarca, filterTipo, loadingOpciones]);
-
-    // Buscar con debounce
-    useEffect(() => {
-        if (!loadingOpciones) {
-            const timer = setTimeout(() => {
-                loadModelos({
-                    search: searchTerm,
-                    incluir_inactivos: showInactive,
-                    marca: filterMarca,
-                    tipo_material: filterTipo
-                });
-            }, 500);
-
-            return () => clearTimeout(timer);
-        }
-    }, [searchTerm, showInactive, filterMarca, filterTipo, loadModelos, loadingOpciones]);
-
-    // ========== HANDLERS OPTIMIZADOS ==========
-    const handleSearchChange = useCallback((value) => {
-        setSearchTerm(value);
-    }, []);
-
-    const handleToggleInactive = useCallback((show) => {
-        setShowInactive(show);
-    }, []);
-
-    const handleMarcaChange = useCallback((value) => {
-        setFilterMarca(value || '');
-    }, []);
-
-    const handleTipoChange = useCallback((value) => {
-        setFilterTipo(value || '');
-    }, []);
-
-    const handleClearFilters = useCallback(() => {
-        setSearchTerm('');
-        setFilterMarca('');
-        setFilterTipo('');
-        setShowInactive(false);
-    }, []);
-
-    const handleCreate = useCallback(() => {
-        setSelectedModelo(null);
-        setIsCreateDialogOpen(true);
-    }, []);
-
-    const handleEdit = useCallback((modelo) => {
-        setSelectedModelo(modelo);
-        setIsEditDialogOpen(true);
-    }, []);
-
-    const handleDelete = useCallback((modelo) => {
-        setSelectedModelo(modelo);
-        setIsDeleteDialogOpen(true);
-    }, []);
-
-    const handleToggleActivo = useCallback(async (modelo) => {
-        await toggleActivoModelo(modelo.id);
-    }, [toggleActivoModelo]);
-
-    const handleRefresh = useCallback(() => {
-        loadModelos({ incluir_inactivos: showInactive });
-    }, [loadModelos, showInactive]);
-
-    const handleCreateSubmit = useCallback(async (modeloData) => {
-        const result = await createModelo(modeloData);
-        if (result.success) {
-            setIsCreateDialogOpen(false);
-        }
-        return result;
-    }, [createModelo]);
-
-    const handleEditSubmit = useCallback(async (modeloData) => {
-        const result = await updateModelo(selectedModelo.id, modeloData);
-        if (result.success) {
-            setIsEditDialogOpen(false);
-            setSelectedModelo(null);
-        }
-        return result;
-    }, [selectedModelo?.id, updateModelo]);
-
-    const handleDeleteConfirm = useCallback(async () => {
-        if (selectedModelo) {
-            const result = await deleteModelo(selectedModelo.id);
-            if (result.success) {
-                setIsDeleteDialogOpen(false);
-                setSelectedModelo(null);
-            }
-            return result;
-        }
-    }, [selectedModelo, deleteModelo]);
-
-    const handleCloseCreateDialog = useCallback(() => {
-        setIsCreateDialogOpen(false);
-    }, []);
-
-    const handleCloseEditDialog = useCallback(() => {
-        setIsEditDialogOpen(false);
-        setSelectedModelo(null);
-    }, []);
-
-    const handleCloseDeleteDialog = useCallback(() => {
-        setIsDeleteDialogOpen(false);
-        setSelectedModelo(null);
-    }, []);
-
-    if (loadingOpciones) {
-        return (
-            <div className="flex justify-center items-center h-64">
-                <Spinner className="h-8 w-8" />
-                <Typography color="gray" className="ml-2">
-                    Cargando configuración...
-                </Typography>
-            </div>
+                {(!tipo || tipo.es_unico) && (
+                    <div className="sm:col-span-2">
+                        <ContenidoCaja
+                            value={valores.componentes}
+                            onChange={(v) => set('componentes', v)}
+                            initialNames={Object.fromEntries((item?.componentes || []).map((c) => [c.componente, c.componente_info?.nombre]))}
+                            disabled={disabled}
+                        />
+                    </div>
+                )}
+            </>
         );
-    }
-
-    if (loading && modelos.length === 0) {
-        return (
-            <div className="flex justify-center items-center h-64">
-                <Spinner className="h-8 w-8" />
-                <Typography color="gray" className="ml-2">
-                    Cargando modelos...
-                </Typography>
-            </div>
-        );
-    }
+    };
 
     return (
-        <div className="p-6">
-            {/* Header */}
-            <div className="mb-8">
-                <Typography variant="h4" color="blue-gray" className="mb-2">
-                    Gestión de Modelos
-                </Typography>
-                <Typography color="gray" className="text-sm">
-                    Administra los modelos de equipos ONUs y materiales generales
-                </Typography>
-            </div>
-
-            {/* Toolbar */}
-            <Toolbar
-                searchValue={searchTerm}
-                showInactive={showInactive}
-                filterMarca={filterMarca}
-                filterTipo={filterTipo}
-                marcas={safeOptions.marcas}
-                tiposMaterial={safeOptions.tiposMaterial}
-                canCreate={permissions.canCreate}
-                onSearchChange={handleSearchChange}
-                onToggleInactive={handleToggleInactive}
-                onMarcaChange={handleMarcaChange}
-                onTipoChange={handleTipoChange}
-                onClearFilters={handleClearFilters}
-                onCreateClick={handleCreate}
-                onRefresh={handleRefresh}
-            />
-
-            {/* Error Alert */}
-            {error && (
-                <Alert color="red" className="mb-4" dismissible onClose={clearError}>
-                    {error}
-                </Alert>
-            )}
-
-            {/* Tabla */}
-            <ModelosTable
-                modelos={modelos}
-                canEdit={permissions.canEdit}
-                canDelete={permissions.canDelete}
-                onToggleActivo={handleToggleActivo}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-            />
-
-            {/* Dialogs */}
-            <ModeloDialog
-                open={isCreateDialogOpen}
-                onClose={handleCloseCreateDialog}
-                onSubmit={handleCreateSubmit}
-                title="Crear Nuevo Modelo"
-                mode="create"
-            />
-
-            <ModeloDialog
-                open={isEditDialogOpen}
-                onClose={handleCloseEditDialog}
-                onSubmit={handleEditSubmit}
-                title="Editar Modelo"
-                mode="edit"
-                initialData={selectedModelo}
-            />
-
-            <DeleteConfirmDialog
-                open={isDeleteDialogOpen}
-                onClose={handleCloseDeleteDialog}
-                onConfirm={handleDeleteConfirm}
-                itemName={selectedModelo?.nombre}
-                itemType="modelo"
-                additionalInfo={selectedModelo ? `Código: ${selectedModelo.codigo_modelo}` : ''}
-            />
-        </div>
+        <CatalogoPage
+            titulo="Modelos"
+            subtitulo="Modelos de equipos y materiales, y lo que trae cada caja"
+            recurso="modelos"
+            api={modelosApi}
+            singular="modelo"
+            icono={IoHardwareChipOutline}
+            anchoModal="lg"
+            columnas={columnas}
+            filtros={filtros}
+            renderFormulario={renderFormulario}
+            nombreDe={(m) => `${m.marca_info?.nombre ?? ''} ${m.nombre}`.trim()}
+            valoresIniciales={(m) => (m ? {
+                nombre: m.nombre, codigo_modelo: String(m.codigo_modelo ?? ''), marca: String(m.marca), tipo_material: String(m.tipo_material),
+                unidad_medida: String(m.unidad_medida), descripcion: m.descripcion ?? '', requiere_inspeccion_inicial: !!m.requiere_inspeccion_inicial,
+                componentes: (m.componentes || []).map((c) => ({ componente_id: c.componente, cantidad: c.cantidad })),
+                pruebas_laboratorio: pruebasDeModelo(m.pruebas_laboratorio),
+            } : vacio)}
+            validar={(v) => ({
+                nombre: !v.nombre.trim() ? 'El nombre es obligatorio' : v.nombre.trim().length < 2 ? 'Mínimo 2 caracteres' : undefined,
+                codigo_modelo: !String(v.codigo_modelo).trim() ? 'El código es obligatorio' : !/^\d+$/.test(String(v.codigo_modelo).trim()) ? 'Solo números' : undefined,
+                marca: !v.marca ? 'Elige la marca' : undefined,
+                tipo_material: !v.tipo_material ? 'Elige el tipo' : undefined,
+                unidad_medida: !v.unidad_medida ? 'Elige la unidad' : undefined,
+                pruebas_laboratorio: tipoPorId[v.tipo_material]?.es_unico && v.requiere_inspeccion_inicial && !v.pruebas_laboratorio.length ? 'Marca al menos una prueba' : undefined,
+            })}
+            preparar={(v) => {
+                const t = tipoPorId[v.tipo_material];
+                return {
+                    nombre: v.nombre.trim(),
+                    codigo_modelo: parseInt(v.codigo_modelo, 10),
+                    marca: parseInt(v.marca, 10),
+                    tipo_material: parseInt(v.tipo_material, 10),
+                    unidad_medida: parseInt(v.unidad_medida, 10),
+                    descripcion: v.descripcion.trim(),
+                    requiere_inspeccion_inicial: !!v.requiere_inspeccion_inicial,
+                    componentes: t && !t.es_unico ? [] : v.componentes,
+                    // todas marcadas = lista vacía (aplican todas, incluidas las que se agreguen en el futuro)
+                    pruebas_laboratorio: !t?.es_unico || v.pruebas_laboratorio.length === TODAS_LAS_PRUEBAS.length ? [] : v.pruebas_laboratorio,
+                };
+            }}
+            textoBusqueda={(m) => `${m.nombre} ${m.codigo_modelo} ${m.marca_info?.nombre} ${m.tipo_material_info?.nombre} ${m.descripcion}`}
+        />
     );
 };
 
-export default React.memo(ModelosPage);
+export default Modelos;

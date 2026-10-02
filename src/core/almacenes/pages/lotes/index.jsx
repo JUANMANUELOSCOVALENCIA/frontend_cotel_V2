@@ -1,531 +1,238 @@
-import React, { useState, useEffect, useRef } from 'react';
+// src/core/almacenes/pages/lotes/index.jsx
+// Lotes: lo que entrega un proveedor. Se registra el lote con sus modelos y cantidades,
+// luego se cargan los equipos (Excel) o el material a granel, y al final se cierra.
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import toast from 'react-hot-toast';
 import {
-    Card,
-    CardHeader,
-    CardBody,
-    Typography,
-    Button,
-    Input,
-    IconButton,
-    Alert,
-    Spinner,
-    Dialog,
-    DialogHeader,
-    DialogBody,
-    DialogFooter
-} from '@material-tailwind/react';
-import {
-    IoAdd,
-    IoSearch,
-    IoRefresh,
-    IoCloudUpload,
-    IoCube,
-    IoStatsChart,
-    IoFilterOutline,
-    IoCheckmarkCircle,
-    IoTime,
-    IoWarning,
-    IoInformationCircle,
-    IoClose
+    IoAddOutline, IoRefreshOutline, IoArchiveOutline, IoEllipsisVertical, IoEyeOutline, IoCloudUploadOutline,
+    IoCreateOutline, IoLockClosedOutline, IoLockOpenOutline, IoTrashOutline,
 } from 'react-icons/io5';
-import { toast } from 'react-hot-toast';
-import { createPortal } from 'react-dom';
-
-// Hooks y servicios
-import { useLotes, useOpcionesCompletas } from '../../hooks/useAlmacenes';
 import { usePermissions } from '../../../permissions/hooks/usePermissions';
-
-// Componentes
+import { useOpcionesCompletas } from '../../hooks/useAlmacenes';
 import {
-    LotesTable,
-    LoteStatsCard,
-    LoteDetailCard,
-    LoteFilters
-} from './loteComponents';
-import LoteDialogs from './loteDialogs';
+    PageHeader, Card, Button, IconButton, SearchInput, SelectInput, Badge, Dropdown, EmptyState, Spinner,
+    StatCard, ConfirmModal, cx,
+} from '../../../../shared/components/ui';
+import lotesService from '../../services/lotesService';
+import LoteFormModal from './LoteFormModal';
+import LoteDetalleModal from './LoteDetalleModal';
+import ImportarEquiposModal from './ImportarEquiposModal';
+import CerrarLoteDialog from './CerrarLoteDialog';
+import { EstadoLoteBadge, Progreso, fecha, tipoLote } from './loteUi';
 
-// Componente de importación masiva
-import ImportacionMasivaDialog from '../importacion/ImportacionMasivaDialog';
-import EntregasParcialesDialog from './EntregasParcialesDialog';
-
-// Componente Modal mejorado
-const Modal = ({ open, onClose, children, size = "lg" }) => {
-    const modalRef = useRef(null);
-
-    useEffect(() => {
-        if (open) {
-            // Bloquear scroll del body
-            document.body.style.overflow = 'hidden';
-            document.body.style.paddingRight = '0px';
-
-            // Enfocar el modal
-            if (modalRef.current) {
-                modalRef.current.focus();
-            }
-        } else {
-            // Restaurar scroll del body
-            document.body.style.overflow = '';
-            document.body.style.paddingRight = '';
-        }
-
-        return () => {
-            document.body.style.overflow = '';
-            document.body.style.paddingRight = '';
-        };
-    }, [open]);
-
-    useEffect(() => {
-        const handleEscape = (e) => {
-            if (e.key === 'Escape' && open) {
-                onClose();
-            }
-        };
-
-        if (open) {
-            document.addEventListener('keydown', handleEscape);
-            return () => document.removeEventListener('keydown', handleEscape);
-        }
-    }, [open, onClose]);
-
-    if (!open) return null;
-
-    const sizeClasses = {
-        sm: 'max-w-md',
-        md: 'max-w-lg',
-        lg: 'max-w-2xl',
-        xl: 'max-w-4xl',
-        '2xl': 'max-w-6xl'
-    };
-
-    return createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center">
-            {/* Overlay */}
-            <div
-                className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm"
-                onClick={onClose}
-                aria-hidden="true"
-            />
-
-            {/* Modal */}
-            <div
-                ref={modalRef}
-                className={`relative bg-white m-4 rounded-lg shadow-2xl text-blue-gray-500 antialiased font-sans text-base font-light leading-relaxed w-full ${sizeClasses[size]} min-w-[95%] md:min-w-[83.333333%] 2xl:min-w-[75%] max-w-[95%] md:max-w-[83.333333%] 2xl:max-w-[75%] max-h-[90vh] overflow-y-auto`}
-                role="dialog"
-                aria-modal="true"
-                tabIndex={-1}
-                onClick={(e) => e.stopPropagation()}
-            >
-                {children}
-            </div>
-        </div>,
-        document.body
-    );
-};
+const sinAcentos = (s) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const EN_RECEPCION = ['REGISTRADO', 'ACTIVO', 'RECEPCION_PARCIAL'];
 
 const LotesPage = () => {
-    const { hasPermission } = usePermissions();
+    const { hasPermission, isSuperuser } = usePermissions();
+    const puede = useMemo(() => ({
+        crear: hasPermission('lotes', 'crear'),
+        editar: hasPermission('lotes', 'actualizar'),
+        eliminar: hasPermission('lotes', 'eliminar'),
+        importar: hasPermission('materiales', 'crear'),
+        reabrir: isSuperuser,
+    }), [hasPermission, isSuperuser]);
 
-    // ========== HOOKS ==========
-    const {
-        lotes,
-        loading,
-        error,
-        loadLotes,
-        createLote,
-        deleteLote,
-        permissions
-    } = useLotes();
+    const { opciones, refetchOpciones } = useOpcionesCompletas();
+    const [lotes, setLotes] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [busqueda, setBusqueda] = useState('');
+    const [estado, setEstado] = useState('abiertos');
+    const [proveedor, setProveedor] = useState('');
 
-    const {
-        opciones,
-        loading: loadingOpciones
-    } = useOpcionesCompletas();
+    const [form, setForm] = useState({ open: false, lote: null });
+    const [detalle, setDetalle] = useState(null); // id
+    const [version, setVersion] = useState(0); // fuerza recarga del detalle
+    const [importar, setImportar] = useState(null);
+    const [cerrar, setCerrar] = useState(null);
+    const [confirmar, setConfirmar] = useState({ tipo: null, lote: null, loading: false });
 
-    // ========== ESTADO LOCAL ==========
-    const [searchTerm, setSearchTerm] = useState('');
-    const [selectedLote, setSelectedLote] = useState(null);
-    const [showDetail, setShowDetail] = useState(false);
-    const [filtros, setFiltros] = useState({});
-    const [stats, setStats] = useState({
-        total: 0,
-        activos: 0,
-        completados: 0,
-        pendientes: 0
-    });
-
-    // Estados para diálogos
-    const [dialogs, setDialogs] = useState({
-        create: false,
-        edit: false,
-        confirm: false,
-        import: false,
-        entregas: false
-    });
-    const [confirmAction, setConfirmAction] = useState(null);
-
-    // ========== EFECTOS ==========
-    useEffect(() => {
-        loadLotes();
-    }, [loadLotes]);
-
-    useEffect(() => {
-        if (lotes.length > 0) {
-            calculateStats();
-        }
-    }, [lotes]);
-
-    // Suprimir errores de aria-hidden en desarrollo
-    useEffect(() => {
-        const originalError = console.error;
-        console.error = (...args) => {
-            if (typeof args[0] === 'string' &&
-                (args[0].includes('aria-hidden') ||
-                    args[0].includes('not contained inside'))) {
-                return;
-            }
-            originalError(...args);
-        };
-
-        return () => {
-            console.error = originalError;
-        };
+    const cargar = useCallback(async () => {
+        setLoading(true);
+        const r = await lotesService.listar();
+        if (r.success) setLotes(r.data);
+        else toast.error(r.error);
+        setLoading(false);
     }, []);
+    useEffect(() => { cargar(); }, [cargar]);
 
-    // ========== FUNCIONES ==========
-    const calculateStats = () => {
-        const total = lotes.length;
-        const activos = lotes.filter(l => ['ACTIVO', 'RECEPCION_PARCIAL'].includes(l.estado_info?.codigo)).length;
-        const completados = lotes.filter(l => l.estado_info?.codigo === 'RECEPCION_COMPLETA').length;
-        const pendientes = lotes.filter(l => l.cantidad_pendiente > 0).length;
+    const refrescar = () => { cargar(); setVersion((v) => v + 1); };
 
-        setStats({ total, activos, completados, pendientes });
+    const stats = useMemo(() => ({
+        total: lotes.length,
+        recepcion: lotes.filter((l) => EN_RECEPCION.includes(l.estado_info?.codigo)).length,
+        completos: lotes.filter((l) => l.estado_info?.codigo === 'RECEPCION_COMPLETA').length,
+        cerrados: lotes.filter((l) => l.estado_info?.codigo === 'CERRADO').length,
+    }), [lotes]);
+
+    const visibles = useMemo(() => {
+        const q = sinAcentos(busqueda.trim());
+        return lotes.filter((l) => {
+            const cod = l.estado_info?.codigo;
+            if (estado === 'abiertos' && cod === 'CERRADO') return false;
+            if (estado && estado !== 'abiertos' && cod !== estado) return false;
+            if (proveedor && String(l.proveedor) !== proveedor) return false;
+            if (!q) return true;
+            const texto = [l.numero_lote, l.proveedor_info?.nombre_comercial, l.codigo_requerimiento_compra, l.codigo_nota_ingreso,
+                ...(l.detalles || []).map((d) => `${d.modelo_info?.marca} ${d.modelo_info?.nombre}`)].join(' ');
+            return sinAcentos(texto).includes(q);
+        });
+    }, [lotes, busqueda, estado, proveedor]);
+
+    const pendienteUnico = (l) => (l.detalles || []).some((d) => d.modelo_info?.tipo_material?.es_unico && Number(d.cantidad_pendiente) > 0);
+
+    // Acciones que pueden venir de la tabla o del detalle
+    const accion = (tipo, lote) => {
+        if (tipo === 'refrescar') { cargar(); return; }
+        if (tipo === 'ver') setDetalle(lote.id);
+        if (tipo === 'editar') setForm({ open: true, lote });
+        if (tipo === 'importar') setImportar(lote);
+        if (tipo === 'cerrar') setCerrar(lote);
+        if (tipo === 'reabrir' || tipo === 'eliminar') setConfirmar({ tipo, lote, loading: false });
     };
 
-    const handleSearch = () => {
-        const params = {};
-        if (searchTerm) {
-            params.search = searchTerm;
+    const confirmarAccion = async () => {
+        const { tipo, lote } = confirmar;
+        setConfirmar((c) => ({ ...c, loading: true }));
+        const r = tipo === 'reabrir' ? await lotesService.reabrir(lote.id) : await lotesService.eliminar(lote.id);
+        if (!r.success) {
+            setConfirmar((c) => ({ ...c, loading: false }));
+            toast.error(r.error, { duration: 7000 });
+            return;
         }
-        loadLotes({ ...params, ...filtros });
+        toast.success(tipo === 'reabrir' ? `Lote ${lote.numero_lote} reabierto` : `Lote ${lote.numero_lote} eliminado`);
+        setConfirmar({ tipo: null, lote: null, loading: false });
+        if (tipo === 'eliminar' && detalle === lote.id) setDetalle(null);
+        refrescar();
     };
 
-    const handleFiltroChange = (key, value) => {
-        const newFiltros = { ...filtros, [key]: value };
-        setFiltros(newFiltros);
-        loadLotes({ ...newFiltros, search: searchTerm });
-    };
-
-    const handleLimpiarFiltros = () => {
-        setFiltros({});
-        setSearchTerm('');
-        loadLotes();
-    };
-
-    // ========== HANDLERS DE LOTES ==========
-    const handleCreateLote = () => {
-        setSelectedLote(null);
-        setDialogs({ ...dialogs, create: true });
-    };
-
-    const handleViewLote = (lote) => {
-        setSelectedLote(lote);
-        setShowDetail(true);
-    };
-
-    const handleEditLote = (lote) => {
-        setSelectedLote(lote);
-        setDialogs({ ...dialogs, edit: true });
-    };
-
-    const handleDeleteLote = (lote) => {
-        console.log('🗑️ ELIMINAR - Lote seleccionado:', lote);
-        setConfirmAction({ action: 'delete', lote });
-        setDialogs({ ...dialogs, confirm: true });
-        console.log('🗑️ ELIMINAR - Dialog de confirmación abierto');
-    };
-
-    const handleImportLote = (lote) => {
-        setSelectedLote(lote);
-        setDialogs({ ...dialogs, import: true });
-    };
-
-    const handleEntregasLote = (lote) => {
-        console.log('📦 ENTREGAS - Lote seleccionado:', lote);
-        setSelectedLote(lote);
-        setDialogs({ ...dialogs, entregas: true });
-    };
-
-    const handleLoteAction = async (action, lote) => {
-        console.log('🎬 LOTE ACTION - Iniciando:', { action, lote: lote?.id });
-
-        try {
-            if (action === 'delete') {
-                console.log('🗑️ ELIMINANDO - Llamando deleteLote para ID:', lote.id);
-
-                const result = await deleteLote(lote.id);
-
-                console.log('🗑️ ELIMINANDO - Resultado:', result);
-
-                if (result.success) {
-                    toast.success(`Lote ${lote.numero_lote} eliminado correctamente`);
-                } else {
-                    toast.error(result.error);
-                }
-            }
-
-            console.log('✅ LOTE ACTION - Completada, lotes recargados');
-        } catch (error) {
-            console.error('❌ LOTE ACTION - Error:', error);
-            toast.error(`Error al ejecutar ${action}`);
-        }
-    };
-
-    // ========== HANDLERS DE DIÁLOGOS ==========
-    const closeDialog = (dialogName) => {
-        setDialogs({ ...dialogs, [dialogName]: false });
-        if (dialogName === 'confirm') {
-            setConfirmAction(null);
-        }
-        if (['import', 'entregas'].includes(dialogName)) {
-            setSelectedLote(null);
-        }
-        if (dialogName === 'detail') {
-            setShowDetail(false);
-            setSelectedLote(null);
-        }
-    };
-
-    const handleDialogSuccess = async (action) => {
-        closeDialog(action === 'create' ? 'create' : action === 'edit' ? 'edit' : 'confirm');
-        await loadLotes();
-
-        if (action === 'create') {
-            toast.success('¡Lote creado! Ahora puedes importar los materiales.');
-        }
-    };
-
-    const handleImportSuccess = async () => {
-        closeDialog('import');
-        await loadLotes();
-        toast.success('¡Importación completada! Los materiales han sido registrados.');
-    };
-
-    const handleEntregasSuccess = async () => {
-        closeDialog('entregas');
-        await loadLotes();
-        toast.success('Entrega parcial registrada exitosamente');
-    };
-
-    // ========== RENDER PRINCIPAL ==========
-    if (loadingOpciones) {
-        return (
-            <div className="flex justify-center items-center h-64">
-                <Spinner className="h-8 w-8" />
-                <Typography color="gray" className="ml-2">
-                    Cargando configuración...
-                </Typography>
-            </div>
-        );
-    }
+    const hayAcciones = true;
 
     return (
-        <div className="p-6 space-y-6">
-            {/* Header */}
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                <div>
-                    <Typography variant="h4" color="blue-gray">
-                        Gestión de Lotes
-                    </Typography>
-                    <Typography color="gray">
-                        Administra los lotes de materiales y equipos ONUs
-                    </Typography>
-                </div>
+        <div className="space-y-6">
+            <PageHeader
+                title="Lotes"
+                subtitle="Ingresos de equipos y materiales de cada proveedor"
+                actions={
+                    <>
+                        <Button variant="secondary" icon={IoRefreshOutline} onClick={cargar} disabled={loading}>Actualizar</Button>
+                        {puede.crear && <Button icon={IoAddOutline} onClick={() => { refetchOpciones(); setForm({ open: true, lote: null }); }}>Nuevo lote</Button>}
+                    </>
+                }
+            />
 
-                <div className="flex items-center gap-3">
-                    {permissions.canCreate && (
-                        <Button
-                            color="orange"
-                            className="flex items-center gap-2"
-                            onClick={handleCreateLote}
-                        >
-                            <IoAdd className="h-5 w-5" />
-                            Crear Lote
-                        </Button>
-                    )}
-
-                    <IconButton
-                        variant="outlined"
-                        color="blue-gray"
-                        onClick={() => loadLotes()}
-                    >
-                        <IoRefresh className="h-5 w-5" />
-                    </IconButton>
-                </div>
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+                <StatCard label="Lotes" value={stats.total} />
+                <StatCard label="En recepción" value={stats.recepcion} tone="text-orange-600" />
+                <StatCard label="Recepción completa" value={stats.completos} tone="text-green-600" />
+                <StatCard label="Cerrados" value={stats.cerrados} tone="text-gray-500" />
             </div>
 
-            {/* Estadísticas */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <LoteStatsCard
-                    icon={IoCube}
-                    title="Total Lotes"
-                    value={stats.total}
-                    color="blue"
-                />
-                <LoteStatsCard
-                    icon={IoCloudUpload}
-                    title="Lotes Activos"
-                    value={stats.activos}
-                    color="green"
-                />
-                <LoteStatsCard
-                    icon={IoCheckmarkCircle}
-                    title="Completados"
-                    value={stats.completados}
-                    color="teal"
-                />
-                <LoteStatsCard
-                    icon={IoTime}
-                    title="Pendientes"
-                    value={stats.pendientes}
-                    color="amber"
-                />
-            </div>
-
-            {/* Alertas */}
-            {error && (
-                <Alert color="red" className="mb-4">
-                    {error}
-                </Alert>
-            )}
-
-            {/* Barra de búsqueda y filtros */}
-            <Card>
-                <CardBody>
-                    <div className="flex flex-col lg:flex-row gap-4">
-                        <div className="flex-1">
-                            <Input
-                                label="Buscar lotes..."
-                                icon={<IoSearch className="h-5 w-5" />}
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                            />
-                        </div>
-                        <Button
-                            variant="outlined"
-                            className="flex items-center gap-2"
-                            onClick={handleSearch}
-                        >
-                            <IoSearch className="h-4 w-4" />
-                            Buscar
-                        </Button>
-                    </div>
-                </CardBody>
+            <Card className="p-4">
+                <div className="flex flex-col gap-3 lg:flex-row">
+                    <SearchInput className="lg:flex-1" value={busqueda} onChange={setBusqueda} placeholder="Número de lote, proveedor, código Sprint o modelo" />
+                    <SelectInput className="lg:w-56" value={proveedor} onChange={(e) => setProveedor(e.target.value)}>
+                        <option value="">Todos los proveedores</option>
+                        {(opciones.proveedores || []).map((p) => <option key={p.id} value={p.id}>{p.nombre_comercial}</option>)}
+                    </SelectInput>
+                    <SelectInput className="lg:w-56" value={estado} onChange={(e) => setEstado(e.target.value)}>
+                        <option value="abiertos">Sin cerrar</option>
+                        <option value="">Todos los estados</option>
+                        {(opciones.estados_lote || []).map((e) => <option key={e.id} value={e.codigo}>{e.nombre}</option>)}
+                    </SelectInput>
+                </div>
             </Card>
 
-            {/* Filtros */}
-            <LoteFilters
-                filtros={filtros}
-                onFiltroChange={handleFiltroChange}
+            <Card className="overflow-hidden">
+                <div className="border-b border-gray-200 px-4 py-3">
+                    <p className="font-semibold text-gray-800">Lotes <span className="font-normal text-gray-500">({visibles.length})</span></p>
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="w-full min-w-[900px] text-left text-sm">
+                        <thead className="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+                            <tr>
+                                <th className="px-4 py-3 font-semibold">Lote</th>
+                                <th className="px-4 py-3 font-semibold">Contenido</th>
+                                <th className="px-4 py-3 font-semibold">Recepción</th>
+                                <th className="px-4 py-3 font-semibold">Estado</th>
+                                <th className="w-24 px-4 py-3 text-right font-semibold">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {loading && !lotes.length && (
+                                <tr><td colSpan={5} className="py-12"><div className="flex justify-center text-orange-500"><Spinner className="h-6 w-6" /></div></td></tr>
+                            )}
+                            {!loading && !visibles.length && (
+                                <tr><td colSpan={5}><EmptyState icon={IoArchiveOutline} title={lotes.length ? 'Ningún lote coincide con los filtros' : 'Aún no hay lotes'} /></td></tr>
+                            )}
+                            {visibles.map((l) => {
+                                const cerrado = l.estado_info?.codigo === 'CERRADO';
+                                return (
+                                    <tr key={l.id} className={cx('cursor-pointer align-top hover:bg-gray-50', cerrado && 'text-gray-500')} onClick={() => accion('ver', l)}>
+                                        <td className="px-4 py-3">
+                                            <p className="font-semibold text-gray-800">{l.numero_lote}</p>
+                                            <p className="text-xs text-gray-500">{l.proveedor_info?.nombre_comercial} · {fecha(l.fecha_recepcion)}</p>
+                                            <p className="text-xs text-gray-400">{tipoLote(l.tipo_ingreso_info)} · {l.almacen_destino_info?.nombre}</p>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <div className="flex max-w-sm flex-wrap gap-1">
+                                                {(l.detalles || []).map((d) => (
+                                                    <Badge key={d.id} color={d.modelo_info?.tipo_material?.es_unico ? 'purple' : 'blue'}>
+                                                        {d.cantidad} {d.modelo_info?.unidad_medida?.simbolo} · {d.modelo_info?.nombre}
+                                                    </Badge>
+                                                ))}
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-3"><Progreso compacto recibido={l.cantidad_recibida} total={l.cantidad_total} /></td>
+                                        <td className="px-4 py-3"><EstadoLoteBadge estado={l.estado_info} /></td>
+                                        <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                                            <div className="flex justify-end gap-1">
+                                                <IconButton icon={IoEyeOutline} title="Ver detalle" onClick={() => accion('ver', l)} />
+                                                {hayAcciones && (
+                                                    <Dropdown
+                                                        trigger={<IconButton icon={IoEllipsisVertical} title="Más acciones" />}
+                                                        items={[
+                                                            !cerrado && puede.importar && pendienteUnico(l) && { label: 'Cargar equipos (Excel)', icon: IoCloudUploadOutline, onClick: () => accion('importar', l) },
+                                                            !cerrado && puede.editar && { label: 'Editar', icon: IoCreateOutline, onClick: () => accion('editar', l) },
+                                                            !cerrado && puede.editar && { label: 'Cerrar lote', icon: IoLockClosedOutline, onClick: () => accion('cerrar', l) },
+                                                            cerrado && puede.reabrir && { label: 'Reabrir', icon: IoLockOpenOutline, onClick: () => accion('reabrir', l) },
+                                                            puede.eliminar && { divider: true },
+                                                            puede.eliminar && { label: 'Eliminar', icon: IoTrashOutline, danger: true, onClick: () => accion('eliminar', l) },
+                                                        ]}
+                                                    />
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            </Card>
+
+            <LoteFormModal
+                open={form.open}
+                lote={form.lote}
                 opciones={opciones}
-                onLimpiarFiltros={handleLimpiarFiltros}
+                onClose={() => setForm({ open: false, lote: null })}
+                onSaved={(l) => { setForm({ open: false, lote: null }); refrescar(); if (!form.lote) setDetalle(l.id); }}
             />
-
-            {/* Tabla de lotes */}
-            <LotesTable
-                lotes={lotes}
-                loading={loading}
-                onView={handleViewLote}
-                onEdit={handleEditLote}
-                onDelete={handleDeleteLote}
-                onImport={handleImportLote}
-                onEntregas={handleEntregasLote}
-                permissions={permissions}
+            <LoteDetalleModal open={!!detalle} loteId={detalle} version={version} puede={puede} onClose={() => setDetalle(null)} onAccion={accion} />
+            <ImportarEquiposModal open={!!importar} lote={importar} onClose={() => setImportar(null)} onDone={refrescar} />
+            <CerrarLoteDialog open={!!cerrar} lote={cerrar} onClose={() => setCerrar(null)} onDone={() => { setCerrar(null); refrescar(); }} />
+            <ConfirmModal
+                open={!!confirmar.tipo}
+                danger={confirmar.tipo === 'eliminar'}
+                loading={confirmar.loading}
+                title={confirmar.tipo === 'reabrir' ? 'Reabrir lote' : 'Eliminar lote'}
+                confirmText={confirmar.tipo === 'reabrir' ? 'Reabrir' : 'Eliminar'}
+                message={confirmar.tipo === 'reabrir'
+                    ? <>¿Reabrir el lote <strong>{confirmar.lote?.numero_lote}</strong>? Se podrán volver a cargar equipos y entregas.</>
+                    : <>¿Eliminar el lote <strong>{confirmar.lote?.numero_lote}</strong>? Solo es posible si todavía no tiene equipos ni materiales.</>}
+                onClose={() => !confirmar.loading && setConfirmar({ tipo: null, lote: null, loading: false })}
+                onConfirm={confirmarAccion}
             />
-
-            {/* Modal de detalle */}
-            <Modal
-                open={showDetail}
-                onClose={() => closeDialog('detail')}
-                size="xl"
-            >
-                {selectedLote && (
-                    <>
-                        <DialogHeader className="flex items-center justify-between">
-                            <Typography variant="h5" color="blue-gray">
-                                Detalle del Lote
-                            </Typography>
-                            <IconButton
-                                variant="text"
-                                color="blue-gray"
-                                onClick={() => closeDialog('detail')}
-                            >
-                                <IoClose className="h-5 w-5" />
-                            </IconButton>
-                        </DialogHeader>
-                        <DialogBody divider className="max-h-[70vh] overflow-y-auto">
-                            <LoteDetailCard
-                                lote={selectedLote}
-                                onClose={() => closeDialog('detail')}
-                                onImport={handleImportLote}
-                                onSuccess={async () => {
-                                    await loadLotes(); // Recargar lotes
-                                    closeDialog('detail'); // Cerrar modal
-                                }}
-                                permissions={permissions}
-                            />
-                        </DialogBody>
-                    </>
-                )}
-            </Modal>
-
-            {/* Diálogos usando Modal corregido */}
-            <LoteDialogs
-                dialogs={dialogs}
-                selectedLote={selectedLote}
-                confirmAction={confirmAction}
-                opciones={opciones}
-                loading={loading}
-                onCloseDialog={closeDialog}
-                onSuccess={handleDialogSuccess}
-                onLoteAction={handleLoteAction}
-                ModalComponent={Modal}
-            />
-
-            {/* Diálogo de importación masiva */}
-            <Modal
-                open={dialogs.import}
-                onClose={() => closeDialog('import')}
-                size="xl"
-            >
-                {selectedLote && (
-                    <ImportacionMasivaDialog
-                        open={dialogs.import}
-                        onClose={() => closeDialog('import')}
-                        lote={selectedLote}
-                        opciones={opciones}
-                        onSuccess={handleImportSuccess}
-                        useCustomModal={false}
-                    />
-                )}
-            </Modal>
-
-            {/* Diálogo de entregas parciales */}
-            <Modal
-                open={dialogs.entregas}
-                onClose={() => closeDialog('entregas')}
-                size="xl"
-            >
-                {selectedLote && (
-                    <EntregasParcialesDialog
-                        open={dialogs.entregas}
-                        onClose={() => closeDialog('entregas')}
-                        lote={selectedLote}
-                        opciones={opciones}
-                        onSuccess={handleEntregasSuccess}
-                    />
-                )}
-            </Modal>
         </div>
     );
 };

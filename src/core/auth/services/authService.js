@@ -1,5 +1,9 @@
+// src/core/auth/services/authService.js
+// Acceso: login, alta de usuario (migración), cambio de contraseña, logout y perfil.
+// Nota: nunca se escriben tokens ni respuestas completas en la consola.
 import api from '../../../services/api';
 import ENDPOINTS from '../../../services/endpoints';
+import { mensajeError, erroresDeCampos } from '../../../services/apiError';
 import {
     setToken,
     setRefreshToken,
@@ -10,200 +14,98 @@ import {
     getUserData
 } from '../../../utils/storage';
 
+const fallo = (error, porDefecto) => ({
+    success: false,
+    error: mensajeError(error, porDefecto),
+    fieldErrors: erroresDeCampos(error),
+});
+
 class AuthService {
 
     async login(credentials) {
         try {
-            console.log('🔐 Intentando login para usuario:', credentials.codigocotel);
+            const { data } = await api.post(ENDPOINTS.LOGIN, credentials);
 
-            const response = await api.post(ENDPOINTS.LOGIN, credentials);
-            const data = response.data;
-
-            console.log('✅ Respuesta del login:', data);
-
-            // Caso 1: Necesita cambio de contraseña
+            // Debe cambiar la contraseña: solo recibe un token temporal
             if (data.redirect_to_password_change) {
                 setToken(data.access);
                 setUserData(data.user_data);
-                console.log('🔄 Usuario debe cambiar contraseña');
-                return {
-                    success: true,
-                    requiresPasswordChange: true,
-                    userData: data.user_data
-                };
+                return { success: true, requiresPasswordChange: true, userData: data.user_data };
             }
 
-            // Caso 2: Login completo exitoso
             if (data.access && data.refresh) {
                 setToken(data.access);
                 setRefreshToken(data.refresh);
                 setUserData(data.user_data);
                 setPermissions(data.user_data.permisos || []);
                 setLastLogin();
-                console.log('✅ Login completo exitoso');
-                return {
-                    success: true,
-                    requiresPasswordChange: false,
-                    userData: data.user_data
-                };
+                return { success: true, requiresPasswordChange: false, userData: data.user_data };
             }
 
-            throw new Error('Respuesta inválida del servidor');
-
+            return { success: false, error: 'Respuesta inesperada del servidor' };
         } catch (error) {
-            console.error('❌ Error en login:', error);
-
-            if (!error.response) {
-                console.error('🔌 Sin conexión al backend');
-                return {
-                    success: false,
-                    error: 'Error de conexión. Verifica que el backend esté ejecutándose.'
-                };
-            }
-
-            const errorMessage = error.response?.data?.error ||
-                error.response?.data?.message ||
-                'Credenciales inválidas';
-
-            return {
-                success: false,
-                error: errorMessage
-            };
+            return fallo(error, 'Código o contraseña incorrectos');
         }
     }
 
     async migrateUser(codigocotel) {
         try {
-            console.log('🔄 Migrando usuario:', codigocotel);
-
-            const response = await api.post(ENDPOINTS.MIGRAR_USUARIO, { codigocotel });
-
-            console.log('✅ Usuario migrado exitosamente:', response.data);
-
-            return {
-                success: true,
-                data: response.data
-            };
+            const { data } = await api.post(ENDPOINTS.MIGRAR_USUARIO, { codigocotel });
+            return { success: true, data };
         } catch (error) {
-            console.error('❌ Error en migración:', error);
-
-            if (!error.response) {
-                return {
-                    success: false,
-                    error: 'Error de conexión con el servidor'
-                };
-            }
-
-            const errorMessage = error.response?.data?.error ||
-                error.response?.data?.message ||
-                'Error en la migración';
-
-            return {
-                success: false,
-                error: errorMessage
-            };
+            return fallo(error, 'No se pudo activar la cuenta');
         }
     }
 
     async changePassword(passwordData) {
         try {
-            console.log('🔐 Cambiando contraseña...');
-
-            const response = await api.post(ENDPOINTS.CHANGE_PASSWORD, passwordData);
-            const data = response.data;
+            const { data } = await api.post(ENDPOINTS.CHANGE_PASSWORD, passwordData);
 
             if (data.access && data.refresh) {
                 setToken(data.access);
                 setRefreshToken(data.refresh);
-
-                const currentUser = getUserData();
-                if (currentUser) {
-                    const updatedUser = {
-                        ...currentUser,
-                        password_changed: true,
-                        password_reset_required: false
-                    };
-                    setUserData(updatedUser);
-                }
+                const actual = getUserData();
+                if (actual) setUserData({ ...actual, password_changed: true, password_reset_required: false });
             }
-
-            console.log('✅ Contraseña cambiada exitosamente');
-
-            return {
-                success: true,
-                message: data.message || 'Contraseña actualizada exitosamente'
-            };
-
+            return { success: true, message: data.message || 'Contraseña actualizada' };
         } catch (error) {
-            console.error('❌ Error al cambiar contraseña:', error);
-
-            if (!error.response) {
-                return {
-                    success: false,
-                    error: 'Error de conexión con el servidor'
-                };
-            }
-
-            const errorMessage = error.response?.data?.error ||
-                'Error al cambiar la contraseña';
-
-            return {
-                success: false,
-                error: errorMessage
-            };
+            return fallo(error, 'No se pudo cambiar la contraseña');
         }
     }
 
     async logout() {
         try {
             await api.post(ENDPOINTS.LOGOUT);
-            console.log('👋 Logout notificado al backend');
-        } catch (error) {
-            console.warn('⚠️ No se pudo notificar logout al backend:', error);
+        } catch {
+            // si el servidor no responde, igual se cierra la sesión local
         } finally {
             clearAllStorage();
-            console.log('🧹 Storage limpiado');
-            return { success: true };
         }
+        return { success: true };
     }
 
     async getProfile() {
         try {
-            const response = await api.get(ENDPOINTS.PERFIL);
-            return {
-                success: true,
-                data: response.data
-            };
+            const { data } = await api.get(ENDPOINTS.PERFIL);
+            return { success: true, data };
         } catch (error) {
-            console.error('❌ Error al obtener perfil:', error);
-            return {
-                success: false,
-                error: 'Error al obtener perfil'
-            };
+            return fallo(error, 'Error al obtener el perfil');
         }
     }
 
     async checkAuth() {
         try {
-            const userData = getUserData();
-            if (!userData) {
-                return { isAuthenticated: false };
-            }
-
-            // Verificar con el servidor si es necesario
-            const profileResult = await this.getProfile();
-            if (profileResult.success) {
+            if (!getUserData()) return { isAuthenticated: false };
+            const perfil = await this.getProfile();
+            if (perfil.success) {
                 return {
                     isAuthenticated: true,
-                    user: profileResult.data,
-                    requiresPasswordChange: profileResult.data.password_reset_required || !profileResult.data.password_changed
+                    user: perfil.data,
+                    requiresPasswordChange: perfil.data.password_reset_required || !perfil.data.password_changed
                 };
             }
-
             return { isAuthenticated: false };
-
-        } catch (error) {
-            console.error('❌ Error verificando autenticación:', error);
+        } catch {
             return { isAuthenticated: false };
         }
     }

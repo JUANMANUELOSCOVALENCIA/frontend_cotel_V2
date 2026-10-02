@@ -25,6 +25,7 @@ import { toast } from 'react-hot-toast';
 // Hooks
 import { useMateriales } from '../../hooks/useMateriales';
 import { api } from '../../../../services/api';
+import { ENDPOINTS } from '../../../../services/endpoints';
 
 const EquiposDefectuososTab = ({ onSuccess, loading: parentLoading }) => {
     const [equiposDefectuosos, setEquiposDefectuosos] = useState([]);
@@ -55,7 +56,7 @@ const EquiposDefectuososTab = ({ onSuccess, loading: parentLoading }) => {
     const loadEquiposDefectuosos = async () => {
         try {
             setLoading(true);
-            const response = await api.get('/almacenes/materiales/defectuosos/');
+            const response = await api.get(ENDPOINTS.MATERIALES_DEFECTUOSOS);
 
             if (response.data) {
                 setEquiposDefectuosos(response.data.materiales || []);
@@ -96,7 +97,7 @@ const EquiposDefectuososTab = ({ onSuccess, loading: parentLoading }) => {
         try {
             setLoading(true);
 
-            const response = await api.post('/almacenes/sectores/devolucion/', {
+            const response = await api.post(ENDPOINTS.SECTOR_DEVOLUCION, {
                 materiales_ids: selectedEquipos,
                 motivo: 'Equipo defectuoso devuelto al sector solicitante para gestión de reposición'
             });
@@ -304,4 +305,4 @@ const EquiposDefectuososTab = ({ onSuccess, loading: parentLoading }) => {
     );
 };
 
-export default EquiposDefectuososTab;
+export default EquiposDefectuososTab;

@@ -1,509 +1,189 @@
-// src/core/permissions/pages/Permissions/PermissionDialogs.jsx
-import React from 'react';
+// src/core/permissions/pages/permissions/permissionDialogs.jsx
+import React, { useEffect, useState } from 'react';
+import { IoCreateOutline, IoTrashOutline, IoInformationCircleOutline } from 'react-icons/io5';
 import {
-    Dialog,
-    DialogHeader,
-    DialogBody,
-    DialogFooter,
-    Button,
-    Input,
-    Select,
-    Option,
-    Textarea,
-    Alert,
-    Typography,
-    Chip,
-    Card
-} from '@material-tailwind/react';
-import { useForm, Controller } from 'react-hook-form';
-import { IoWarning, IoCheckmarkCircle } from 'react-icons/io5';
-import toast from 'react-hot-toast';
-import { usePermissionsCRUD } from '../../hooks/usePermissions';
+    Modal, Button, Field, TextInput, TextArea, SelectInput, Toggle, Badge, ConfirmModal,
+    ACCIONES, ACCION_COLOR,
+} from '../../../../shared/components/ui';
 
-const PermissionDialogs = ({
-                               dialogs,
-                               selectedPermission,
-                               confirmAction,
-                               resources,
-                               actions,
-                               loading,
-                               onCloseDialog,
-                               onSuccess,
-                               onPermissionAction
-                           }) => {
-    const { createPermission, updatePermission } = usePermissionsCRUD();
+const RECURSO_RE = /^[a-z0-9_-]+$/;
+const fmt = (v) => (v ? new Date(v).toLocaleString('es-BO', { dateStyle: 'medium', timeStyle: 'short' }) : '—');
 
-    // ========== FORMULARIO ==========
+// ---------- Crear / editar ----------
+export const PermisoFormModal = ({ open, mode, permiso, preset, recursos, existentes, onClose, onSubmit }) => {
+    const [form, setForm] = useState({ recurso: '', accion: 'leer', descripcion: '', activo: true });
+    const [errors, setErrors] = useState({});
+    const [saving, setSaving] = useState(false);
 
-    const {
-        register,
-        handleSubmit,
-        formState: { errors },
-        reset,
-        control,
-        setValue,
-        watch
-    } = useForm();
-
-    const newResource = watch('recurso');
-
-    // Efecto para llenar formulario al editar
-    React.useEffect(() => {
-        if (dialogs.edit && selectedPermission) {
-            setValue('recurso', selectedPermission.recurso || '');
-            setValue('accion', selectedPermission.accion || '');
-            setValue('descripcion', selectedPermission.descripcion || '');
-            setValue('activo', selectedPermission.activo);
-        }
-    }, [dialogs.edit, selectedPermission, setValue]);
-
-    // ========== HANDLERS ==========
-
-    const handleCreatePermission = async (data) => {
-        const result = await createPermission(data);
-        if (result.success) {
-            toast.success('Permiso creado correctamente');
-            reset();
-            onSuccess('create');
+    useEffect(() => {
+        if (!open) return;
+        setErrors({});
+        if (mode === 'edit' && permiso) {
+            setForm({ recurso: permiso.recurso, accion: permiso.accion, descripcion: permiso.descripcion || '', activo: !!permiso.activo });
         } else {
-            toast.error(result.error);
+            setForm({ recurso: preset?.recurso || '', accion: preset?.accion || 'leer', descripcion: '', activo: true });
         }
+    }, [open, mode, permiso, preset]);
+
+    const enUso = mode === 'edit' && permiso?.esta_en_uso;
+
+    const handleSubmit = async (e) => {
+        e?.preventDefault();
+        const recurso = form.recurso.trim().toLowerCase();
+        const errs = {};
+        if (!recurso) errs.recurso = 'El recurso es obligatorio';
+        else if (recurso.length < 2) errs.recurso = 'Mínimo 2 caracteres';
+        else if (!RECURSO_RE.test(recurso)) errs.recurso = 'Solo minúsculas, números, guion (-) y guion bajo (_)';
+        const duplicado = existentes.some(
+            (p) => p.recurso === recurso && p.accion === form.accion && (mode !== 'edit' || p.id !== permiso?.id)
+        );
+        if (duplicado) errs.accion = `Ya existe el permiso ${recurso}:${form.accion}`;
+        setErrors(errs);
+        if (Object.keys(errs).length) return;
+
+        setSaving(true);
+        await onSubmit({
+            recurso,
+            accion: form.accion,
+            descripcion: form.descripcion.trim() || `${form.accion} ${recurso}`,
+            ...(mode === 'edit' && { activo: form.activo }),
+        });
+        setSaving(false);
     };
-
-    const handleEditPermission = async (data) => {
-        const result = await updatePermission(selectedPermission.id, data);
-        if (result.success) {
-            toast.success('Permiso actualizado correctamente');
-            reset();
-            onSuccess('edit');
-        } else {
-            toast.error(result.error);
-        }
-    };
-
-    const handleConfirmAction = async () => {
-        if (confirmAction) {
-            await onPermissionAction(confirmAction.action, confirmAction.permission);
-            onSuccess('confirm');
-        }
-    };
-
-    // ========== CREAR PERMISO DIALOG ==========
-
-    const CreatePermissionDialog = () => (
-        <Dialog open={dialogs.create} handler={() => onCloseDialog('create')} size="md">
-            <DialogHeader>Crear Permiso</DialogHeader>
-            <form onSubmit={handleSubmit(handleCreatePermission)}>
-                <DialogBody divider className="space-y-4">
-                    <Alert color="blue">
-                        <Typography variant="small">
-                            Los permisos controlan el acceso a recursos específicos del sistema.
-                            Define claramente el recurso y la acción que este permiso controlará.
-                        </Typography>
-                    </Alert>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <Input
-                                label="Recurso *"
-                                {...register('recurso', {
-                                    required: 'El recurso es obligatorio',
-                                    minLength: { value: 2, message: 'Mínimo 2 caracteres' },
-                                    pattern: {
-                                        value: /^[a-z0-9\-_]+$/,
-                                        message: 'Solo letras minúsculas, números, guiones y guiones bajos'
-                                    }
-                                })}
-                                error={!!errors.recurso}
-                                placeholder="ej: usuarios, productos, reportes"
-                            />
-                            <Typography variant="small" color="gray" className="mt-1">
-                                Nombre del recurso que se va a proteger
-                            </Typography>
-                        </div>
-
-                        <Controller
-                            name="accion"
-                            control={control}
-                            rules={{ required: 'La acción es obligatoria' }}
-                            render={({ field }) => (
-                                <div>
-                                    <Select
-                                        label="Acción *"
-                                        value={field.value}
-                                        onChange={(value) => field.onChange(value)}
-                                        error={!!errors.accion}
-                                    >
-                                        {actions.map((action) => (
-                                            <Option key={action} value={action}>
-                                                {action}
-                                            </Option>
-                                        ))}
-                                    </Select>
-                                    <Typography variant="small" color="gray" className="mt-1">
-                                        Acción específica sobre el recurso
-                                    </Typography>
-                                </div>
-                            )}
-                        />
-                    </div>
-
-                    <Textarea
-                        label="Descripción"
-                        {...register('descripcion')}
-                        rows={3}
-                        placeholder="Describe qué permite hacer este permiso..."
-                    />
-
-                    <Controller
-                        name="activo"
-                        control={control}
-                        defaultValue={true}
-                        render={({ field }) => (
-                            <div className="flex items-center">
-                                <input
-                                    type="checkbox"
-                                    id="permiso-activo-create"
-                                    checked={field.value}
-                                    onChange={field.onChange}
-                                    className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
-                                />
-                                <label htmlFor="permiso-activo-create" className="ml-2 text-sm text-gray-700">
-                                    Permiso activo
-                                </label>
-                            </div>
-                        )}
-                    />
-
-                    {/* Requisitos de validación */}
-                    <div className="p-4 bg-blue-gray-50 rounded-lg">
-                        <Typography variant="small" color="blue-gray" className="font-medium mb-2">
-                            Requisitos del permiso:
-                        </Typography>
-                        <ul className="text-xs text-blue-gray-600 space-y-1">
-                            <li className="flex items-center">
-                                <span className={`mr-2 ${newResource?.length >= 2 ? 'text-green-500' : 'text-gray-400'}`}>
-                                    {newResource?.length >= 2 ? '✓' : '○'}
-                                </span>
-                                Mínimo 2 caracteres para el recurso
-                            </li>
-                            <li className="flex items-center">
-                                <span className={`mr-2 ${/^[a-z0-9\-_]*$/.test(newResource || '') ? 'text-green-500' : 'text-gray-400'}`}>
-                                    {/^[a-z0-9\-_]*$/.test(newResource || '') ? '✓' : '○'}
-                                </span>
-                                Solo letras minúsculas, números y guiones
-                            </li>
-                        </ul>
-                    </div>
-
-                    {Object.keys(errors).length > 0 && (
-                        <Alert color="red">
-                            {Object.values(errors).map((error, index) => (
-                                <div key={index}>{error.message}</div>
-                            ))}
-                        </Alert>
-                    )}
-                </DialogBody>
-                <DialogFooter className="space-x-2">
-                    <Button
-                        variant="text"
-                        color="gray"
-                        onClick={() => {
-                            reset();
-                            onCloseDialog('create');
-                        }}
-                    >
-                        Cancelar
-                    </Button>
-                    <Button type="submit" color="orange" loading={loading}>
-                        Crear Permiso
-                    </Button>
-                </DialogFooter>
-            </form>
-        </Dialog>
-    );
-
-    // ========== EDITAR PERMISO DIALOG ==========
-
-    const EditPermissionDialog = () => (
-        <Dialog open={dialogs.edit} handler={() => onCloseDialog('edit')} size="md">
-            <DialogHeader>Editar Permiso</DialogHeader>
-            <form onSubmit={handleSubmit(handleEditPermission)}>
-                <DialogBody divider className="space-y-4">
-                    {selectedPermission?.esta_en_uso && (
-                        <Alert color="orange">
-                            <Typography variant="small">
-                                Este permiso está actualmente asignado a uno o más roles.
-                                Los cambios afectarán a todos los usuarios con esos roles.
-                            </Typography>
-                        </Alert>
-                    )}
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <Input
-                            label="Recurso *"
-                            {...register('recurso', {
-                                required: 'El recurso es obligatorio',
-                                minLength: { value: 2, message: 'Mínimo 2 caracteres' },
-                                pattern: {
-                                    value: /^[a-z0-9\-_]+$/,
-                                    message: 'Solo letras minúsculas, números, guiones y guiones bajos'
-                                }
-                            })}
-                            error={!!errors.recurso}
-                            disabled={selectedPermission?.esta_en_uso}
-                        />
-
-                        <Controller
-                            name="accion"
-                            control={control}
-                            rules={{ required: 'La acción es obligatoria' }}
-                            render={({ field }) => (
-                                <Select
-                                    label="Acción *"
-                                    value={field.value}
-                                    onChange={(value) => field.onChange(value)}
-                                    error={!!errors.accion}
-                                    disabled={selectedPermission?.esta_en_uso}
-                                >
-                                    {actions.map((action) => (
-                                        <Option key={action} value={action}>
-                                            {action}
-                                        </Option>
-                                    ))}
-                                </Select>
-                            )}
-                        />
-                    </div>
-
-                    <Textarea
-                        label="Descripción"
-                        {...register('descripcion')}
-                        rows={3}
-                    />
-
-                    <Controller
-                        name="activo"
-                        control={control}
-                        render={({ field }) => (
-                            <div className="flex items-center">
-                                <input
-                                    type="checkbox"
-                                    id="permiso-activo-edit"
-                                    checked={field.value}
-                                    onChange={field.onChange}
-                                    className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
-                                />
-                                <label htmlFor="permiso-activo-edit" className="ml-2 text-sm text-gray-700">
-                                    Permiso activo
-                                </label>
-                            </div>
-                        )}
-                    />
-
-                    {Object.keys(errors).length > 0 && (
-                        <Alert color="red">
-                            {Object.values(errors).map((error, index) => (
-                                <div key={index}>{error.message}</div>
-                            ))}
-                        </Alert>
-                    )}
-                </DialogBody>
-                <DialogFooter className="space-x-2">
-                    <Button
-                        variant="text"
-                        color="gray"
-                        onClick={() => {
-                            reset();
-                            onCloseDialog('edit');
-                        }}
-                    >
-                        Cancelar
-                    </Button>
-                    <Button type="submit" color="orange" loading={loading}>
-                        Actualizar Permiso
-                    </Button>
-                </DialogFooter>
-            </form>
-        </Dialog>
-    );
-
-    // ========== VER PERMISO DIALOG ==========
-
-    const ViewPermissionDialog = () => (
-        <Dialog open={dialogs.view} handler={() => onCloseDialog('view')} size="md">
-            <DialogHeader>Detalles del Permiso</DialogHeader>
-            <DialogBody divider className="space-y-6">
-                {selectedPermission ? (
-                    <>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <Typography variant="h6" color="blue-gray">
-                                    {selectedPermission.recurso}:{selectedPermission.accion}
-                                </Typography>
-                                <Typography color="gray" className="mt-1">
-                                    {selectedPermission.descripcion || 'Sin descripción'}
-                                </Typography>
-                            </div>
-
-                            <div className="flex flex-col gap-2">
-                                <div className="flex items-center gap-2">
-                                    <Chip
-                                        variant="ghost"
-                                        size="sm"
-                                        value={selectedPermission.activo ? 'Activo' : 'Inactivo'}
-                                        color={selectedPermission.activo ? 'green' : 'red'}
-                                    />
-                                    <Chip
-                                        variant="ghost"
-                                        size="sm"
-                                        value={selectedPermission.accion}
-                                        color={getActionColor(selectedPermission.accion)}
-                                        className="capitalize"
-                                    />
-                                </div>
-
-                                <Typography variant="small" color="gray">
-                                    Estado: {selectedPermission.esta_en_uso ? 'En uso' : 'No asignado'}
-                                </Typography>
-
-                                <Typography variant="small" color="gray">
-                                    ID: {selectedPermission.id}
-                                </Typography>
-
-                                <Typography variant="small" color="gray">
-                                    Creado: {new Date(selectedPermission.fecha_creacion).toLocaleDateString('es-ES')}
-                                </Typography>
-
-                                {selectedPermission.fecha_modificacion && (
-                                    <Typography variant="small" color="gray">
-                                        Modificado: {new Date(selectedPermission.fecha_modificacion).toLocaleDateString('es-ES')}
-                                    </Typography>
-                                )}
-                            </div>
-                        </div>
-
-                        {selectedPermission.creado_por_nombre && (
-                            <div>
-                                <Typography variant="h6" color="blue-gray" className="mb-2">
-                                    Información de Auditoría
-                                </Typography>
-                                <Typography variant="small" color="gray">
-                                    Creado por: {selectedPermission.creado_por_nombre}
-                                </Typography>
-                            </div>
-                        )}
-
-                        {selectedPermission.esta_en_uso && (
-                            <Alert color="blue">
-                                <Typography variant="small">
-                                    <strong>Este permiso está en uso:</strong><br />
-                                    Está asignado a uno o más roles activos del sistema.
-                                    Para eliminarlo, primero debe ser removido de todos los roles.
-                                </Typography>
-                            </Alert>
-                        )}
-                    </>
-                ) : (
-                    <div className="text-center py-4">
-                        <Typography color="gray">Cargando información del permiso...</Typography>
-                    </div>
-                )}
-            </DialogBody>
-            <DialogFooter>
-                <Button
-                    variant="text"
-                    color="gray"
-                    onClick={() => onCloseDialog('view')}
-                >
-                    Cerrar
-                </Button>
-            </DialogFooter>
-        </Dialog>
-    );
-
-    // ========== CONFIRMAR ELIMINACIÓN DIALOG ==========
-
-    const ConfirmDeleteDialog = () => (
-        <Dialog open={dialogs.confirm} handler={() => onCloseDialog('confirm')} size="sm">
-            <DialogHeader className="flex items-center gap-2">
-                <IoWarning className="h-6 w-6 text-orange-500" />
-                Confirmar Eliminación
-            </DialogHeader>
-            <DialogBody>
-                {confirmAction ? (
-                    <div>
-                        <Typography>
-                            ¿Estás seguro de que deseas eliminar el permiso{' '}
-                            <strong>
-                                {confirmAction.permission?.recurso}:{confirmAction.permission?.accion}
-                            </strong>?
-                        </Typography>
-
-                        <Alert color="red" className="mt-4">
-                            <Typography variant="small">
-                                <strong>Advertencia:</strong> Esta acción no se puede deshacer.
-                                El permiso se eliminará permanentemente del sistema.
-                            </Typography>
-                        </Alert>
-
-                        {confirmAction.permission?.esta_en_uso && (
-                            <Alert color="orange" className="mt-2">
-                                <Typography variant="small">
-                                    Este permiso está actualmente en uso y no puede ser eliminado.
-                                    Primero debe ser removido de todos los roles que lo usan.
-                                </Typography>
-                            </Alert>
-                        )}
-                    </div>
-                ) : (
-                    <Typography>
-                        Cargando información del permiso...
-                    </Typography>
-                )}
-            </DialogBody>
-            <DialogFooter className="space-x-2">
-                <Button
-                    variant="text"
-                    color="gray"
-                    onClick={() => onCloseDialog('confirm')}
-                >
-                    Cancelar
-                </Button>
-                <Button
-                    color="red"
-                    loading={loading}
-                    disabled={confirmAction?.permission?.esta_en_uso}
-                    onClick={handleConfirmAction}
-                >
-                    Eliminar
-                </Button>
-            </DialogFooter>
-        </Dialog>
-    );
-
-    // ========== FUNCIONES AUXILIARES ==========
-
-    const getActionColor = (action) => {
-        const colors = {
-            'crear': 'green',
-            'leer': 'blue',
-            'actualizar': 'orange',
-            'eliminar': 'red',
-        };
-        return colors[action] || 'gray';
-    };
-
-    // ========== RENDER PRINCIPAL ==========
 
     return (
-        <>
-            <CreatePermissionDialog />
-            <EditPermissionDialog />
-            <ViewPermissionDialog />
-            <ConfirmDeleteDialog />
-        </>
+        <Modal
+            open={open}
+            onClose={onClose}
+            busy={saving}
+            title={mode === 'edit' ? 'Editar permiso' : 'Nuevo permiso'}
+            footer={
+                <>
+                    <Button variant="ghost" onClick={onClose} disabled={saving}>Cancelar</Button>
+                    <Button onClick={handleSubmit} loading={saving}>{mode === 'edit' ? 'Guardar cambios' : 'Crear permiso'}</Button>
+                </>
+            }
+        >
+            <form onSubmit={handleSubmit} className="space-y-4">
+                {enUso && (
+                    <div className="flex gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+                        <IoInformationCircleOutline className="mt-0.5 h-5 w-5 shrink-0" />
+                        Este permiso está asignado a roles: el recurso y la acción no se pueden cambiar.
+                    </div>
+                )}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <Field
+                        label="Recurso"
+                        required
+                        error={errors.recurso}
+                        hint="Debe coincidir con el nombre usado en el sistema (ej: almacenes, lotes)."
+                    >
+                        <TextInput
+                            list="recursos-existentes"
+                            value={form.recurso}
+                            onChange={(e) => setForm({ ...form, recurso: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
+                            placeholder="ej: almacenes"
+                            disabled={enUso}
+                            error={errors.recurso}
+                            autoFocus={!preset}
+                            maxLength={50}
+                        />
+                        <datalist id="recursos-existentes">
+                            {recursos.map((r) => <option key={r} value={r} />)}
+                        </datalist>
+                    </Field>
+                    <Field label="Acción" required error={errors.accion}>
+                        <SelectInput value={form.accion} onChange={(e) => setForm({ ...form, accion: e.target.value })} disabled={enUso}>
+                            {ACCIONES.map((a) => <option key={a} value={a}>{a}</option>)}
+                        </SelectInput>
+                    </Field>
+                </div>
+                <Field label="Descripción" hint="Si la dejas vacía se genera automáticamente.">
+                    <TextArea
+                        value={form.descripcion}
+                        onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
+                        placeholder="Ej: Permite ver el listado de almacenes"
+                        autoFocus={!!preset}
+                    />
+                </Field>
+                {mode === 'edit' && (
+                    <Toggle checked={form.activo} onChange={(v) => setForm({ ...form, activo: v })} label="Permiso activo" />
+                )}
+                <button type="submit" className="hidden" />
+            </form>
+        </Modal>
     );
 };
 
-export default PermissionDialogs;
+// ---------- Detalle ----------
+const Dato = ({ label, children }) => (
+    <div>
+        <dt className="text-xs text-gray-500">{label}</dt>
+        <dd className="mt-0.5 text-sm text-gray-800">{children}</dd>
+    </div>
+);
+
+export const PermisoDetalleModal = ({ permiso, canEdit, canDelete, onClose, onEdit, onDelete }) => {
+    const [confirmar, setConfirmar] = useState(false);
+    const [borrando, setBorrando] = useState(false);
+    if (!permiso) return null;
+
+    return (
+        <>
+            <Modal
+                open={!!permiso}
+                onClose={onClose}
+                size="sm"
+                title={<span className="font-mono">{permiso.recurso}:{permiso.accion}</span>}
+                footer={
+                    <>
+                        {canDelete && (
+                            <Button
+                                variant="ghost"
+                                icon={IoTrashOutline}
+                                className="mr-auto text-red-600 hover:bg-red-50"
+                                disabled={permiso.esta_en_uso}
+                                title={permiso.esta_en_uso ? 'Quítalo de los roles antes de eliminarlo' : undefined}
+                                onClick={() => setConfirmar(true)}
+                            >
+                                Eliminar
+                            </Button>
+                        )}
+                        <Button variant="secondary" onClick={onClose}>Cerrar</Button>
+                        {canEdit && <Button icon={IoCreateOutline} onClick={() => onEdit(permiso)}>Editar</Button>}
+                    </>
+                }
+            >
+                <dl className="grid grid-cols-2 gap-4">
+                    <Dato label="Recurso"><span className="font-mono">{permiso.recurso}</span></Dato>
+                    <Dato label="Acción"><Badge color={ACCION_COLOR[permiso.accion]}>{permiso.accion}</Badge></Dato>
+                    <div className="col-span-2">
+                        <Dato label="Descripción">{permiso.descripcion || <span className="italic text-gray-400">Sin descripción</span>}</Dato>
+                    </div>
+                    <Dato label="Estado"><Badge color={permiso.activo ? 'green' : 'gray'}>{permiso.activo ? 'Activo' : 'Inactivo'}</Badge></Dato>
+                    <Dato label="Uso"><Badge color={permiso.esta_en_uso ? 'orange' : 'gray'}>{permiso.esta_en_uso ? 'Asignado a roles' : 'Sin asignar'}</Badge></Dato>
+                    <Dato label="Creado por">{permiso.creado_por_nombre || 'Sistema'}</Dato>
+                    <Dato label="Creado">{fmt(permiso.fecha_creacion)}</Dato>
+                    <div className="col-span-2">
+                        <Dato label="Última modificación">{fmt(permiso.fecha_modificacion)}</Dato>
+                    </div>
+                </dl>
+            </Modal>
+            <ConfirmModal
+                open={confirmar}
+                danger
+                loading={borrando}
+                title="Eliminar permiso"
+                confirmText="Eliminar"
+                message={<>¿Eliminar el permiso <strong className="font-mono">{permiso.recurso}:{permiso.accion}</strong>?</>}
+                onClose={() => !borrando && setConfirmar(false)}
+                onConfirm={async () => {
+                    setBorrando(true);
+                    await onDelete(permiso);
+                    setBorrando(false);
+                    setConfirmar(false);
+                }}
+            />
+        </>
+    );
+};

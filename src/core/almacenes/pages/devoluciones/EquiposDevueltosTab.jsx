@@ -31,6 +31,7 @@ import { useForm, Controller } from 'react-hook-form';
 
 // Hooks
 import { api } from '../../../../services/api';
+import { ENDPOINTS } from '../../../../services/endpoints';
 
 const EquiposDevueltosTab = ({ onSuccess, loading: parentLoading }) => {
     const [equiposDevueltos, setEquiposDevueltos] = useState([]);
@@ -64,7 +65,7 @@ const EquiposDevueltosTab = ({ onSuccess, loading: parentLoading }) => {
     const loadEquiposDevueltos = async () => {
         try {
             setLoading(true);
-            const response = await api.get('/almacenes/sectores/reingreso/');
+            const response = await api.get(ENDPOINTS.SECTOR_REINGRESO);
 
             if (response.data) {
                 setEquiposDevueltos(response.data.materiales || []);
@@ -104,7 +105,7 @@ const EquiposDevueltosTab = ({ onSuccess, loading: parentLoading }) => {
                 }]
             };
 
-            const response = await api.post('/almacenes/sectores/reingreso/', reingresoData);
+            const response = await api.post(ENDPOINTS.SECTOR_REINGRESO, reingresoData);
 
             if (response.data.success) {
                 toast.success('Reposición registrada exitosamente');
@@ -401,4 +402,4 @@ const EquiposDevueltosTab = ({ onSuccess, loading: parentLoading }) => {
     );
 };
 
-export default EquiposDevueltosTab;
+export default EquiposDevueltosTab;

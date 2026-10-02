@@ -20,7 +20,6 @@ import {
 import { toast } from 'react-hot-toast';
 
 // Hooks
-import { useDevolucion } from '../../hooks/useDevolucion';
 import { usePermissions } from '../../../permissions/hooks/usePermissions';
 
 // Componentes
@@ -36,7 +35,10 @@ const DevolucionesPage = () => {
         reingresados: 0,
     });
 
-    const { loading, error, clearError } = useDevolucion();
+    // (antes venía de useDevolucion.js, que llamaba a rutas inexistentes de la API)
+    const loading = false;
+    const [error, setError] = useState(null);
+    const clearError = () => setError(null);
 
     // Configuración de tabs customizados
     const tabs = [
@@ -71,7 +73,7 @@ const DevolucionesPage = () => {
         toast.success('Operación completada exitosamente');
     };
 
-    if (!hasPermission('devoluciones', 'leer')) {
+    if (!hasPermission('materiales', 'leer')) {
         return (
             <div className="p-6">
                 <Alert color="red">
@@ -151,4 +153,4 @@ const DevolucionesPage = () => {
     );
 };
 
-export default DevolucionesPage;
+export default DevolucionesPage;

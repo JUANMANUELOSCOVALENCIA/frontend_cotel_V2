@@ -637,6 +637,11 @@ class PermissionService {
         if (error.response?.data) {
             const data = error.response.data;
 
+            // 401/403: el backend explica el motivo en "detail" (sin permiso, cambio de contraseña, etc.)
+            if (typeof data.detail === 'string') {
+                return data.detail;
+            }
+
             // Si hay errores de validación
             if (data.errors) {
                 return this.formatValidationErrors(data.errors);

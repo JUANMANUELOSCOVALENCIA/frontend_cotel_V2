@@ -171,6 +171,14 @@ api.interceptors.response.use(
             }
         }
 
+        // 403: el backend explica el motivo en "detail" (sin permiso, debe cambiar contraseña...).
+        // Se copia a "error"/"message" para que todas las pantallas muestren ese texto.
+        const data = error.response.data;
+        if (error.response.status === 403 && data && typeof data.detail === 'string') {
+            if (!data.error) data.error = data.detail;
+            if (!data.message) data.message = data.detail;
+        }
+
         // Otros errores HTTP
         logHttpError(error);
         return Promise.reject(error);
@@ -214,4 +222,4 @@ const handleLogout = () => {
     }
 };
 
-export default api;
+export default api;

@@ -3,6 +3,7 @@ import { ThemeProvider } from '@material-tailwind/react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthContext } from './core/auth/context/AuthContext';
+import theme from './theme';
 
 // Componentes principales
 import Login from './core/auth/components/Login';
@@ -22,10 +23,11 @@ import AuditLogs from './core/permissions/pages/AuditLogs.jsx';
 import AlmacenesPage from "./core/almacenes/pages/almacenes/index.jsx";
 import MarcasPage from "./core/almacenes/pages/marcas/index.jsx";
 import LotesPage from "./core/almacenes/pages/lotes/index.jsx";
-import ONUsList from "./core/almacenes/pages/almacenes/ONUsList.jsx";
+import EquiposONU from "./core/almacenes/pages/equipos/index.jsx";
 import ModelosPage from "./core/almacenes/pages/modelos/index.jsx";
+import ComponentesPage from './core/almacenes/pages/componentes/index.jsx';
 import ProveedoresPage from "./core/almacenes/pages/provedores/index.jsx";
-import LaboratorioPage from "./core/almacenes/pages/laboratorio/LaboratorioPage.jsx";
+import Laboratorio from "./core/almacenes/pages/laboratorio/index.jsx";
 import DevolucionesPage from "./core/almacenes/pages/devoluciones/index.jsx";
 import MaterialesNoUnicosPage from "./core/almacenes/pages/materiales/index.jsx";
 import NuevaSolicitudPage from "./core/solicitudes/NuevaSolicitudPage.jsx";
@@ -34,15 +36,12 @@ function App() {
 
     // Mostrar loader mientras se inicializa
     if (loading) {
-        console.log('🔄 App: Mostrando loader, loading =', loading);
         return <Loader />;
     }
 
-    console.log('🏠 App: Renderizando, isAuthenticated =', isAuthenticated);
-    console.log('🏠 App: Usuario =', user);
 
     return (
-        <ThemeProvider>
+        <ThemeProvider value={theme}>
             <Routes>
                 {/* Rutas públicas */}
                 <Route
@@ -62,13 +61,8 @@ function App() {
                 <Route
                     path="/change-password"
                     element={
-                        !isAuthenticated ? (
-                            <Navigate to="/login" replace />
-                        ) : user?.password_changed && !user?.password_reset_required ? (
-                            <Navigate to="/dashboard" replace />
-                        ) : (
-                            <ChangePassword />
-                        )
+                        // obligatorio en el primer ingreso o voluntario desde el menú de usuario
+                        !isAuthenticated ? <Navigate to="/login" replace /> : <ChangePassword />
                     }
                 />
 
@@ -97,10 +91,11 @@ function App() {
                     <Route path="almacenes/almacen" element={<AlmacenesPage />} />
                     <Route path="almacenes/marcas" element={<MarcasPage />} />
                     <Route path="almacenes/lotes" element={<LotesPage />} />
-                    <Route path="almacenes/onus" element={<ONUsList />} />
+                    <Route path="almacenes/onus" element={<EquiposONU />} />
                     <Route path="almacenes/modelos" element={<ModelosPage />} />
+                    <Route path="almacenes/componentes" element={<ComponentesPage />} />
                     <Route path="almacenes/proveedores" element={<ProveedoresPage />} />
-                    <Route path="laboratorio/laboratorio" element={<LaboratorioPage />} />
+                    <Route path="laboratorio/laboratorio" element={<Laboratorio />} />
                     <Route path="devoluciones/devoluciones" element={<DevolucionesPage />} />
                     <Route path="materiales/materiales" element={<MaterialesNoUnicosPage />} />
                     <Route path="solicitudes/nueva" element={<NuevaSolicitudPage />} />

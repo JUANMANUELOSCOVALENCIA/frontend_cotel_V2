@@ -1,5 +1,9 @@
 // ======================================================
-// src/services/endpoints.js - CORREGIDO SIN ERRORES
+// src/services/endpoints.js
+// ÚNICA lista de direcciones de la API. Las pantallas y servicios usan
+// ENDPOINTS.X en lugar de escribir la ruta a mano.
+// El servidor (http://…/api) se configura SOLO en el archivo .env (VITE_API_URL).
+// Cada ruta de aquí debe existir en el backend (urls.py / routers de Django).
 // ======================================================
 
 // ========== HELPER FUNCTIONS ==========
@@ -72,29 +76,16 @@ export const ENDPOINTS = {
     // === ALMACENES GESTIÓN ===
     ALMACENES: '/almacenes/almacenes/',
     ALMACEN_DETAIL: (id) => `/almacenes/almacenes/${id}/`,
-    ALMACEN_MATERIALES: (id) => `/almacenes/almacenes/${id}/materiales/`,
-    ALMACEN_ESTADISTICAS: (id) => `/almacenes/almacenes/${id}/estadisticas/`,
-    ALMACEN_MOVIMIENTOS: (id) => `/almacenes/almacenes/${id}/movimientos/`,
-    ALMACEN_PRINCIPAL: '/almacenes/almacenes/principal/',
-    RESUMEN_ALMACENES: '/almacenes/almacenes/resumen_general/',
 
     // === PROVEEDORES ===
     PROVEEDORES: '/almacenes/proveedores/',
     PROVEEDOR_DETAIL: (id) => `/almacenes/proveedores/${id}/`,
-    PROVEEDOR_LOTES: (id) => `/almacenes/proveedores/${id}/lotes/`,
-    PROVEEDOR_ESTADISTICAS: (id) => `/almacenes/proveedores/${id}/estadisticas/`,
-    PROVEEDORES_ACTIVOS: '/almacenes/proveedores/activos/',
-    TOP_PROVEEDORES: '/almacenes/proveedores/top_proveedores/',
 
     // === MODELOS BÁSICOS ===
     MARCAS: '/almacenes/marcas/',
     MARCA_DETAIL: (id) => `/almacenes/marcas/${id}/`,
     MARCA_TOGGLE_ACTIVO: (id) => `/almacenes/marcas/${id}/toggle_activo/`,
     MARCA_MODELOS_ACTIVOS: (id) => `/almacenes/marcas/${id}/modelos_activos/`,
-
-    TIPOS_EQUIPO: '/almacenes/tipos-equipo/',
-    TIPO_EQUIPO_DETAIL: (id) => `/almacenes/tipos-equipo/${id}/`,
-    TIPO_EQUIPO_TOGGLE_ACTIVO: (id) => `/almacenes/tipos-equipo/${id}/toggle_activo/`,
 
     MODELOS: '/almacenes/modelos/',
     MODELO_DETAIL: (id) => `/almacenes/modelos/${id}/`,
@@ -142,40 +133,43 @@ export const ENDPOINTS = {
     LOTE_AGREGAR_ENTREGA: (id) => `/almacenes/lotes/${id}/agregar_entrega_parcial/`,
     LOTE_CERRAR: (id) => `/almacenes/lotes/${id}/cerrar_lote/`,
     LOTE_REABRIR: (id) => `/almacenes/lotes/${id}/reabrir_lote/`,
+    LOTE_VALIDAR_CIERRE: (id) => `/almacenes/lotes/${id}/validar_cierre/`,
     LOTE_ENVIAR_LABORATORIO: (id) => `/almacenes/lotes/${id}/enviar_laboratorio_masivo/`,
     LOTES_ESTADISTICAS: '/almacenes/lotes/estadisticas/',
 
     LOTE_DETALLES: '/almacenes/lote-detalles/',
     LOTE_ENTREGAS_PARCIALES: (id) => `/almacenes/lotes/${id}/entregas_parciales/`,
     ENTREGA_PARCIAL_CREATE: (loteId) => `/almacenes/lotes/${loteId}/agregar_entrega_parcial/`,
-    LOTE_ELIMINAR_ENTREGA: (loteId, entregaId) => `/almacenes/lotes/${loteId}/entregas_parciales/${entregaId}/`,
 
     LOTE_PROXIMO_NUMERO: '/almacenes/lotes/proximo_numero/',
-
+    LOTE_COMPLETAR_RECEPCION: (id) => `/almacenes/lotes/${id}/completar_recepcion/`,
+    LOTE_ENTREGAS_DISPONIBLES: (id) => `/almacenes/lotes/${id}/entregas_parciales_disponibles/`,
+    LOTE_ELIMINAR_ENTREGA: (id) => `/almacenes/lotes/${id}/eliminar/`, // ?entrega_id=
 
     // === MATERIALES ===
     MATERIALES: '/almacenes/materiales/',
     MATERIAL_DETAIL: (id) => `/almacenes/materiales/${id}/`,
-    MATERIAL_HISTORIAL: (id) => `/almacenes/materiales/${id}/historial/`,
     MATERIAL_CAMBIAR_ESTADO: (id) => `/almacenes/materiales/${id}/cambiar_estado/`,
-    MATERIAL_ENVIAR_LABORATORIO: (id) => `/almacenes/materiales/${id}/enviar_laboratorio/`,
-    MATERIAL_RETORNAR_LABORATORIO: (id) => `/almacenes/materiales/${id}/retornar_laboratorio/`,
     MATERIAL_BUSQUEDA_AVANZADA: '/almacenes/materiales/busqueda_avanzada/',
-    MATERIAL_VALIDAR_UNICIDAD: '/almacenes/materiales/validar_unicidad/',
-    MATERIALES_DISPONIBLES_ASIGNACION: '/almacenes/materiales/disponibles_para_asignacion/',
-    MATERIAL_OPERACION_MASIVA: '/almacenes/materiales/operacion_masiva/',
     MATERIALES_ESTADISTICAS: '/almacenes/materiales/estadisticas/',
+    MATERIALES_STOCK_GRANEL: '/almacenes/materiales/stock_granel/',
+    MATERIALES_DEFECTUOSOS: '/almacenes/materiales/defectuosos/',
+    MATERIALES_DEVUELTOS_SECTOR: '/almacenes/materiales/devueltos_sector/',
+    MATERIAL_REINGRESO: '/almacenes/materiales/reingreso/',
+
+    // === SECTORES (devolución y reingreso) ===
+    SECTORES_SOLICITANTES: '/almacenes/sectores-solicitantes/',
+    SECTOR_DEVOLUCION: '/almacenes/sectores/devolucion/',
+    SECTOR_REINGRESO: '/almacenes/sectores/reingreso/',
 
     // === IMPORTACIÓN ===
     IMPORTACION_MASIVA: '/almacenes/importacion/masiva/',
 
     // === LABORATORIO ===
-    LABORATORIO_DASHBOARD: '/almacenes/laboratorio/',
-    LABORATORIO_OPERACION_INDIVIDUAL: '/almacenes/laboratorio/',
-    LABORATORIO_OPERACION_MASIVA: '/almacenes/laboratorio/masivo/',
+    LABORATORIO: '/almacenes/laboratorio/',                 // GET resumen · POST enviar equipos
+    LABORATORIO_MASIVO: '/almacenes/laboratorio/masivo/',   // envío por lote / entrega / todos
     LABORATORIO_CONSULTAS: '/almacenes/laboratorio/consultas/',
     LABORATORIO_INSPECCION: '/almacenes/laboratorio/inspeccion/',
-    LABORATORIO_INSPECCION_EXPORT: '/almacenes/laboratorio/inspeccion/export/',
 
     // === TRASPASOS ===
     TRASPASOS: '/almacenes/traspasos/',
@@ -197,35 +191,6 @@ export const ENDPOINTS = {
     // === OPCIONES COMPLETAS (PARA FORMULARIOS) ===
     OPCIONES_COMPLETAS: '/almacenes/opciones-completas/',
     INICIALIZAR_DATOS: '/almacenes/inicializar-datos/',
-};
-
-// ========== GRUPOS ORGANIZADOS ==========
-export const ALMACENES_ENDPOINTS = {
-    // Gestión básica
-    ALMACENES: ENDPOINTS.ALMACENES,
-    ALMACEN_DETAIL: ENDPOINTS.ALMACEN_DETAIL,
-    ALMACEN_ESTADISTICAS: ENDPOINTS.ALMACEN_ESTADISTICAS,
-
-    // Proveedores
-    PROVEEDORES: ENDPOINTS.PROVEEDORES,
-    PROVEEDOR_DETAIL: ENDPOINTS.PROVEEDOR_DETAIL,
-
-    // Modelos básicos
-    MARCAS: ENDPOINTS.MARCAS,
-    TIPOS_EQUIPO: ENDPOINTS.TIPOS_EQUIPO,
-    MODELOS: ENDPOINTS.MODELOS,
-    TIPOS_MATERIAL: ENDPOINTS.TIPOS_MATERIAL,
-
-    // Lotes y materiales
-    LOTES: ENDPOINTS.LOTES,
-    MATERIALES: ENDPOINTS.MATERIALES,
-    IMPORTACION_MASIVA: ENDPOINTS.IMPORTACION_MASIVA,
-
-    // Laboratorio
-    LABORATORIO: ENDPOINTS.LABORATORIO,
-
-    // Opciones
-    OPCIONES_COMPLETAS: ENDPOINTS.OPCIONES_COMPLETAS
 };
 
 export default ENDPOINTS;

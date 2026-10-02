@@ -1,179 +1,83 @@
-import React, { useState } from 'react';
-import { useForm } from 'react-hook-form';
+// src/core/auth/pages/Migration.jsx
+// Activar cuenta: crea el usuario a partir del registro de empleados (código COTEL).
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import {
-    Card,
-    CardBody,
-    CardHeader,
-    Typography,
-    Input,
-    Button,
-    Alert,
-} from '@material-tailwind/react';
-import { IoPersonAdd } from 'react-icons/io5';
+import { IoCheckmarkCircle } from 'react-icons/io5';
+import { Button, Field, TextInput } from '../../../shared/components/ui';
 import authService from '../services/authService';
+import { AuthLayout, AuthError } from '../components/AuthLayout';
 
 const Migration = () => {
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
     const navigate = useNavigate();
+    const [codigo, setCodigo] = useState('');
+    const [errorCampo, setErrorCampo] = useState('');
+    const [error, setError] = useState('');
+    const [listo, setListo] = useState(null); // código activado
+    const [loading, setLoading] = useState(false);
 
-    const {
-        register,
-        handleSubmit,
-        formState: { errors },
-        reset,
-    } = useForm({
-        defaultValues: {
-            codigocotel: '',
-        },
-    });
+    // Tras activar, ir al login
+    useEffect(() => {
+        if (!listo) return undefined;
+        const t = setTimeout(() => navigate('/login'), 6000);
+        return () => clearTimeout(t);
+    }, [listo, navigate]);
 
-    const onSubmit = async (data) => {
-        setLoading(true);
+    const enviar = async (e) => {
+        e.preventDefault();
         setError('');
-        setSuccess('');
-
-        try {
-            const result = await authService.migrateUser(parseInt(data.codigocotel));
-
-            if (result.success) {
-                setSuccess(
-                    `Usuario migrado exitosamente. 
-          Usuario: ${data.codigocotel} 
-          Contraseña: ${data.codigocotel} 
-          Ahora puedes iniciar sesión.`
-                );
-                reset();
-
-                // Redirigir al login después de 3 segundos
-                setTimeout(() => {
-                    navigate('/login');
-                }, 3000);
-            } else {
-                setError(result.error);
-            }
-        } catch (err) {
-            console.error('Migration error:', err);
-            setError('Error inesperado durante la migración');
-        } finally {
-            setLoading(false);
-        }
+        if (!codigo.trim()) { setErrorCampo('Ingresa tu código COTEL'); return; }
+        setLoading(true);
+        const r = await authService.migrateUser(parseInt(codigo.trim(), 10));
+        setLoading(false);
+        if (r.success) setListo(codigo.trim());
+        else setError(r.error);
     };
 
+    if (listo) {
+        return (
+            <AuthLayout title="Cuenta activada">
+                <div className="space-y-4">
+                    <div className="flex items-start gap-3 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+                        <IoCheckmarkCircle className="mt-0.5 h-5 w-5 shrink-0" />
+                        <div>
+                            <p>Tu usuario <strong>{listo}</strong> ya está listo.</p>
+                            <p className="mt-1">Para el primer ingreso, la contraseña es tu código COTEL. Luego te pediremos cambiarla.</p>
+                        </div>
+                    </div>
+                    <Button className="h-11 w-full" onClick={() => navigate('/login')}>Ir a iniciar sesión</Button>
+                </div>
+            </AuthLayout>
+        );
+    }
+
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-            <div className="w-full max-w-md">
-                <Card className="shadow-lg border border-gray-200 bg-white">
-                    <CardHeader
-                        floated={false}
-                        shadow={false}
-                        className="m-0 grid place-items-center bg-orange-500 py-8 px-4 text-center border-b border-orange-600"
-                    >
-                        <div className="mb-4 h-20 w-20 text-white">
-                            <IoPersonAdd className="w-full h-full" />
-                        </div>
-                        <Typography variant="h4" color="white" className="font-bold">
-                            Migración de Usuario
-                        </Typography>
-                        <Typography color="white" className="mt-1 text-orange-100">
-                            Migra tu usuario desde el sistema de empleados
-                        </Typography>
-                    </CardHeader>
-
-                    <CardBody className="p-6">
-                        {error && (
-                            <Alert
-                                color="red"
-                                className="mb-4 bg-red-50 border border-red-200 text-red-700"
-                            >
-                                {error}
-                            </Alert>
-                        )}
-
-                        {success && (
-                            <Alert
-                                color="green"
-                                className="mb-4 bg-green-50 border border-green-200 text-green-700"
-                            >
-                                {success}
-                            </Alert>
-                        )}
-
-                        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                            <div>
-                                <Typography
-                                    variant="small"
-                                    color="blue-gray"
-                                    className="mb-2 font-medium text-gray-700"
-                                >
-                                    Código COTEL
-                                </Typography>
-                                <Input
-                                    type="number"
-                                    size="lg"
-                                    placeholder="Ingresa tu código COTEL de empleado"
-                                    className="!border-gray-300 focus:!border-orange-500 bg-white placeholder:text-gray-500 placeholder:opacity-100"
-                                    labelProps={{
-                                        className: "before:content-none after:content-none",
-                                    }}
-                                    {...register('codigocotel', {
-                                        required: 'El código COTEL es obligatorio',
-                                        min: {
-                                            value: 1,
-                                            message: 'Código COTEL inválido',
-                                        },
-                                        max: {
-                                            value: 999999,
-                                            message: 'Código COTEL demasiado largo',
-                                        },
-                                    })}
-                                    error={!!errors.codigocotel}
-                                />
-                                {errors.codigocotel && (
-                                    <Typography variant="small" color="red" className="mt-1 text-red-600">
-                                        {errors.codigocotel.message}
-                                    </Typography>
-                                )}
-                            </div>
-
-                            <Button
-                                type="submit"
-                                className="mt-6 bg-orange-500 hover:bg-orange-600 text-white font-medium shadow-md border border-orange-600 transition-all duration-200"
-                                fullWidth
-                                loading={loading}
-                                disabled={loading}
-                            >
-                                {loading ? 'Migrando usuario...' : 'Migrar Usuario'}
-                            </Button>
-                        </form>
-
-                        <div className="mt-6 text-center">
-                            <Typography variant="small" color="blue-gray" className="text-gray-600">
-                                ¿Ya tienes una cuenta migrada?{' '}
-                                <Link
-                                    to="/login"
-                                    className="text-orange-500 hover:text-orange-600 font-medium transition-colors duration-200"
-                                >
-                                    Iniciar sesión
-                                </Link>
-                            </Typography>
-                        </div>
-
-                        <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                            <Typography variant="small" color="blue-gray" className="font-medium mb-2 text-gray-700">
-                                ¿Qué es la migración?
-                            </Typography>
-                            <Typography variant="small" color="gray" className="text-xs text-gray-600">
-                                La migración crea tu usuario en el nuevo sistema usando tu código COTEL de empleado.
-                                Tu contraseña inicial será tu mismo código COTEL.
-                            </Typography>
-                        </div>
-                    </CardBody>
-                </Card>
-            </div>
-        </div>
+        <AuthLayout
+            title="Activar mi cuenta"
+            subtitle="Crea tu usuario con tu código COTEL de empleado."
+            footer={<>¿Ya tienes usuario? <Link to="/login" className="font-medium text-orange-600 hover:text-orange-700">Iniciar sesión</Link></>}
+        >
+            <form onSubmit={enviar} className="space-y-4" noValidate>
+                <AuthError>{error}</AuthError>
+                <Field label="Código COTEL" error={errorCampo}>
+                    <TextInput
+                        inputMode="numeric"
+                        autoFocus
+                        value={codigo}
+                        onChange={(e) => { setCodigo(e.target.value.replace(/\D/g, '')); setErrorCampo(''); setError(''); }}
+                        placeholder="Ej: 1234"
+                        error={errorCampo}
+                        className="h-11"
+                        disabled={loading}
+                    />
+                </Field>
+                <Button type="submit" className="h-11 w-full" loading={loading}>
+                    {loading ? 'Activando…' : 'Activar cuenta'}
+                </Button>
+                <p className="rounded-lg bg-gray-100 px-3 py-2 text-xs text-gray-600">
+                    Solo para empleados activos de COTEL. Tu contraseña inicial será tu mismo código COTEL.
+                </p>
+            </form>
+        </AuthLayout>
     );
 };
 

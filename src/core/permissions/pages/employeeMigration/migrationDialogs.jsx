@@ -1,253 +1,121 @@
-// src/core/permissions/pages/EmployeeMigration/MigrationDialogs.jsx
-import React from 'react';
-import {
-    Dialog,
-    DialogHeader,
-    DialogBody,
-    DialogFooter,
-    Button,
-    Select,
-    Option,
-    Alert,
-    Typography,
-    Chip,
-    Progress
-} from '@material-tailwind/react';
-import { useForm, Controller } from 'react-hook-form';
-import { IoPersonAdd, IoWarning } from 'react-icons/io5';
-import toast from 'react-hot-toast';
+// src/core/permissions/pages/employeeMigration/migrationDialogs.jsx
+import React, { useEffect, useState } from 'react';
+import { IoCheckmarkCircleOutline, IoCloseCircleOutline, IoInformationCircleOutline } from 'react-icons/io5';
+import { Modal, Button, Field, SelectInput } from '../../../../shared/components/ui';
 
-const MigrationDialogs = ({
-                              dialogs,
-                              selectedEmployee,
-                              selectedEmployees,
-                              roles,
-                              loading,
-                              onCloseDialog,
-                              onSuccess,
-                              onMigrateSingle,
-                              onMigrateBulk
-                          }) => {
+const Aviso = () => (
+    <div className="flex gap-2 rounded-lg bg-blue-50 p-3 text-sm text-blue-800">
+        <IoInformationCircleOutline className="mt-0.5 h-5 w-5 shrink-0" />
+        <span>El usuario ingresará con su <strong>código COTEL</strong> como usuario y contraseña inicial, y deberá cambiarla la primera vez.</span>
+    </div>
+);
 
-    // ========== FORMULARIO ==========
+/**
+ * Migra uno o varios empleados.
+ * empleados: lista de empleados a migrar
+ * onMigrate(empleado, rolId) -> { success, error }
+ */
+export const MigrarModal = ({ open, empleados, roles, onClose, onMigrate, onDone }) => {
+    const [rol, setRol] = useState('');
+    const [error, setError] = useState('');
+    const [running, setRunning] = useState(false);
+    const [progreso, setProgreso] = useState(0);
+    const [resultados, setResultados] = useState(null);
 
-    const {
-        handleSubmit,
-        formState: { errors },
-        reset,
-        control,
-    } = useForm();
+    useEffect(() => {
+        if (!open) return;
+        setRol('');
+        setError('');
+        setRunning(false);
+        setProgreso(0);
+        setResultados(null);
+    }, [open]);
 
-    // ========== HANDLERS ==========
+    const activos = roles.filter((r) => r.activo);
+    const uno = empleados.length === 1;
 
-    const handleSingleMigration = async (data) => {
-        const result = await onMigrateSingle(data);
-        if (result.success) {
-            toast.success(`Empleado ${selectedEmployee.nombre_completo} migrado correctamente`);
-            reset();
-            onSuccess('migrateSingle');
-        } else {
-            toast.error(result.error);
+    const migrar = async () => {
+        if (!rol) { setError('Selecciona el rol que tendrán'); return; }
+        setRunning(true);
+        const res = [];
+        for (let i = 0; i < empleados.length; i += 1) {
+            const e = empleados[i];
+            const r = await onMigrate(e, parseInt(rol, 10));
+            res.push({ empleado: e, ok: r.success, error: r.error });
+            setProgreso(i + 1);
         }
+        setRunning(false);
+        setResultados(res);
+        onDone?.(res);
     };
 
-    const handleBulkMigrationSubmit = async (data) => {
-        const result = await onMigrateBulk(data.rol_id);
-        // El toast y cleanup se maneja en el componente padre
-    };
-
-    // ========== MIGRAR EMPLEADO INDIVIDUAL DIALOG ==========
-
-    const MigrateSingleDialog = () => (
-        <Dialog
-            open={dialogs.migrateSingle}
-            handler={() => onCloseDialog('migrateSingle')}
-            size="md"
-        >
-            <DialogHeader>Migrar Empleado</DialogHeader>
-            <form onSubmit={handleSubmit(handleSingleMigration)}>
-                <DialogBody divider className="space-y-4">
-                    {selectedEmployee && (
-                        <Alert color="blue">
-                            <Typography variant="small">
-                                <strong>Empleado a migrar:</strong><br />
-                                {selectedEmployee.nombre_completo}<br />
-                                Código COTEL: {selectedEmployee.codigocotel}
-                            </Typography>
-                        </Alert>
-                    )}
-
-                    <Alert color="orange">
-                        <Typography variant="small">
-                            <strong>Información importante:</strong><br />
-                            • La contraseña inicial será el código COTEL del empleado<br />
-                            • El empleado deberá cambiar su contraseña en el primer login<br />
-                            • Se creará un usuario con los datos del empleado
-                        </Typography>
-                    </Alert>
-
-                    <Controller
-                        name="rol_id"
-                        control={control}
-                        rules={{ required: 'El rol es obligatorio' }}
-                        render={({ field }) => (
-                            <Select
-                                label="Rol a asignar *"
-                                value={field.value}
-                                onChange={(value) => field.onChange(value)}
-                                error={!!errors.rol_id}
-                            >
-                                {roles.map((role) => (
-                                    <Option key={role.id} value={role.id.toString()}>
-                                        <div className="flex items-center justify-between w-full">
-                                            <span>{role.nombre}</span>
-                                            <Chip
-                                                size="sm"
-                                                variant="ghost"
-                                                value={`${role.cantidad_permisos} permisos`}
-                                            />
-                                        </div>
-                                    </Option>
-                                ))}
-                            </Select>
-                        )}
-                    />
-
-                    {errors.rol_id && (
-                        <Alert color="red">
-                            {errors.rol_id.message}
-                        </Alert>
-                    )}
-                </DialogBody>
-                <DialogFooter className="space-x-2">
-                    <Button
-                        variant="text"
-                        color="gray"
-                        onClick={() => {
-                            reset();
-                            onCloseDialog('migrateSingle');
-                        }}
-                    >
-                        Cancelar
-                    </Button>
-                    <Button
-                        type="submit"
-                        color="orange"
-                        loading={loading}
-                        className="flex items-center gap-2"
-                    >
-                        <IoPersonAdd className="h-4 w-4" />
-                        Migrar Empleado
-                    </Button>
-                </DialogFooter>
-            </form>
-        </Dialog>
-    );
-
-    // ========== MIGRACIÓN MASIVA DIALOG ==========
-
-    const MigrateBulkDialog = () => (
-        <Dialog
-            open={dialogs.migrateBulk}
-            handler={() => onCloseDialog('migrateBulk')}
-            size="md"
-        >
-            <DialogHeader>Migración Masiva</DialogHeader>
-            <form onSubmit={handleSubmit(handleBulkMigrationSubmit)}>
-                <DialogBody divider className="space-y-4">
-                    <Alert color="blue">
-                        <Typography variant="small">
-                            <strong>Empleados seleccionados:</strong><br />
-                            Se migrarán {selectedEmployees.length} empleados al sistema.
-                        </Typography>
-                    </Alert>
-
-                    <Alert color="orange">
-                        <Typography variant="small">
-                            <strong>Proceso de migración masiva:</strong><br />
-                            • Todos los empleados tendrán la misma contraseña inicial (su código COTEL)<br />
-                            • Todos deberán cambiar su contraseña en el primer login<br />
-                            • Se asignará el mismo rol a todos los empleados<br />
-                            • El proceso puede tardar varios minutos
-                        </Typography>
-                    </Alert>
-
-                    <Controller
-                        name="rol_id"
-                        control={control}
-                        rules={{ required: 'El rol es obligatorio' }}
-                        render={({ field }) => (
-                            <Select
-                                label="Rol a asignar a todos *"
-                                value={field.value}
-                                onChange={(value) => field.onChange(value)}
-                                error={!!errors.rol_id}
-                            >
-                                {roles.map((role) => (
-                                    <Option key={role.id} value={role.id.toString()}>
-                                        <div className="flex items-center justify-between w-full">
-                                            <span>{role.nombre}</span>
-                                            <Chip
-                                                size="sm"
-                                                variant="ghost"
-                                                value={`${role.cantidad_permisos} permisos`}
-                                            />
-                                        </div>
-                                    </Option>
-                                ))}
-                            </Select>
-                        )}
-                    />
-
-                    {errors.rol_id && (
-                        <Alert color="red">
-                            {errors.rol_id.message}
-                        </Alert>
-                    )}
-
-                    {loading && (
-                        <div className="space-y-2">
-                            <Typography variant="small" color="blue-gray">
-                                Migrando empleados... Por favor espera.
-                            </Typography>
-                            <Progress size="sm" color="orange" />
-                        </div>
-                    )}
-                </DialogBody>
-                <DialogFooter className="space-x-2">
-                    <Button
-                        variant="text"
-                        color="gray"
-                        onClick={() => {
-                            reset();
-                            onCloseDialog('migrateBulk');
-                        }}
-                        disabled={loading}
-                    >
-                        Cancelar
-                    </Button>
-                    <Button
-                        type="submit"
-                        color="orange"
-                        loading={loading}
-                        className="flex items-center gap-2"
-                    >
-                        <IoPersonAdd className="h-4 w-4" />
-                        Migrar {selectedEmployees.length} Empleados
-                    </Button>
-                </DialogFooter>
-            </form>
-        </Dialog>
-    );
-
-    // ========== RENDER PRINCIPAL ==========
+    const ok = resultados?.filter((r) => r.ok).length || 0;
+    const fallos = resultados?.filter((r) => !r.ok) || [];
 
     return (
-        <>
-            <MigrateSingleDialog />
-            <MigrateBulkDialog />
-        </>
+        <Modal
+            open={open}
+            onClose={onClose}
+            busy={running}
+            title={uno ? 'Migrar empleado' : `Migrar ${empleados.length} empleados`}
+            subtitle={uno ? `${empleados[0]?.nombre_completo} · código ${empleados[0]?.codigocotel}` : 'Se crearán como usuarios del sistema con el mismo rol'}
+            footer={
+                resultados ? (
+                    <Button onClick={onClose}>Listo</Button>
+                ) : (
+                    <>
+                        <Button variant="ghost" onClick={onClose} disabled={running}>Cancelar</Button>
+                        <Button onClick={migrar} loading={running}>
+                            {running ? `Migrando ${progreso}/${empleados.length}…` : uno ? 'Migrar' : `Migrar ${empleados.length}`}
+                        </Button>
+                    </>
+                )
+            }
+        >
+            {!resultados ? (
+                <div className="space-y-4">
+                    <Field label="Rol que tendrá" required error={error}>
+                        <SelectInput value={rol} onChange={(e) => { setRol(e.target.value); setError(''); }} disabled={running}>
+                            <option value="">Seleccionar rol…</option>
+                            {activos.map((r) => <option key={r.id} value={r.id}>{r.nombre}</option>)}
+                        </SelectInput>
+                    </Field>
+                    {!uno && (
+                        <ul className="max-h-40 divide-y divide-gray-100 overflow-y-auto rounded-lg border border-gray-200 text-sm">
+                            {empleados.map((e) => (
+                                <li key={e.persona} className="flex justify-between px-3 py-1.5">
+                                    <span className="text-gray-800">{e.nombre_completo}</span>
+                                    <span className="font-mono text-xs text-gray-500">{e.codigocotel}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                    {running && (
+                        <div className="h-2 overflow-hidden rounded-full bg-gray-100">
+                            <div className="h-full bg-orange-500 transition-all" style={{ width: `${(progreso / empleados.length) * 100}%` }} />
+                        </div>
+                    )}
+                    <Aviso />
+                </div>
+            ) : (
+                <div className="space-y-3 text-sm">
+                    {ok > 0 && (
+                        <div className="flex items-center gap-2 font-medium text-green-700">
+                            <IoCheckmarkCircleOutline className="h-5 w-5" /> {ok} empleado(s) migrado(s) correctamente
+                        </div>
+                    )}
+                    {fallos.length > 0 && (
+                        <div className="rounded-lg bg-red-50 p-3 text-red-700">
+                            <div className="mb-1 flex items-center gap-2 font-medium">
+                                <IoCloseCircleOutline className="h-5 w-5" /> {fallos.length} no se pudieron migrar
+                            </div>
+                            <ul className="ml-7 list-disc space-y-0.5">
+                                {fallos.map((f) => <li key={f.empleado.persona}>{f.empleado.nombre_completo}: {f.error}</li>)}
+                            </ul>
+                        </div>
+                    )}
+                </div>
+            )}
+        </Modal>
     );
 };
-
-export default MigrationDialogs;
