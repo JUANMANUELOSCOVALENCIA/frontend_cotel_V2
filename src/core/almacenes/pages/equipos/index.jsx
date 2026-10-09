@@ -1,12 +1,14 @@
 // src/core/almacenes/pages/equipos/index.jsx
 // Equipos ONU: inventario de equipos con serie (GPON, MAC, D-SN).
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { IoRefreshOutline, IoWifiOutline, IoEyeOutline } from 'react-icons/io5';
 import { usePermissions } from '../../../permissions/hooks/usePermissions';
 import { useOpcionesCompletas } from '../../hooks/useAlmacenes';
 import { PageHeader, Card, Button, IconButton, SearchInput, SelectInput, EmptyState, Spinner, Pager, cx } from '../../../../shared/components/ui';
 import inventarioService from '../../services/inventarioService';
+import lotesService from '../../services/lotesService';
 import MaterialDetalleModal from './MaterialDetalleModal';
 import { EstadoMaterialBadge, COLOR_ESTADO_MATERIAL } from './inventarioUi';
 import { fecha } from '../lotes/loteUi';
@@ -29,7 +31,10 @@ const EquiposONU = () => {
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(false);
     const [page, setPage] = useState(1);
-    const [f, setF] = useState({ search: '', estado_onu: '', almacen_actual: '', modelo: '' });
+    const [params] = useSearchParams();
+    const [f, setF] = useState({ search: '', estado_onu: '', almacen_actual: '', modelo: '', lote: params.get('lote') || '' });
+    const [lotes, setLotes] = useState([]);
+    useEffect(() => { lotesService.listar({ page_size: 100, ordering: '-created_at' }).then((r) => r.success && setLotes(r.data)); }, []);
     const [detalle, setDetalle] = useState(null);
 
     const estados = opciones.estados_material_onu || [];
@@ -37,7 +42,7 @@ const EquiposONU = () => {
 
     const cargar = useCallback(async () => {
         setLoading(true);
-        const base = { tipo_material: 'ONU', search: f.search, almacen_actual: f.almacen_actual, modelo: f.modelo };
+        const base = { tipo_material: 'ONU', search: f.search, almacen_actual: f.almacen_actual, modelo: f.modelo, lote: f.lote };
         const [r, s] = await Promise.all([
             inventarioService.listar({ ...base, estado_onu: f.estado_onu, page, page_size: PAGE_SIZE }),
             inventarioService.estadisticas(base),
@@ -70,6 +75,10 @@ const EquiposONU = () => {
                     <SelectInput className="lg:w-52" value={f.almacen_actual} onChange={setFiltro('almacen_actual')}>
                         <option value="">Todos los almacenes</option>
                         {(opciones.almacenes || []).map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+                    </SelectInput>
+                    <SelectInput className="lg:w-52" value={f.lote} onChange={setFiltro('lote')}>
+                        <option value="">Todos los lotes</option>
+                        {lotes.map((l) => <option key={l.id} value={l.id}>{l.numero_lote}{l.proveedor_info?.nombre_comercial ? ` · ${l.proveedor_info.nombre_comercial}` : ''}</option>)}
                     </SelectInput>
                     <SelectInput className="lg:w-52" value={f.modelo} onChange={setFiltro('modelo')}>
                         <option value="">Todos los modelos</option>
@@ -118,7 +127,7 @@ const EquiposONU = () => {
                                 <tr><td colSpan={6} className="py-12"><div className="flex justify-center text-orange-500"><Spinner className="h-6 w-6" /></div></td></tr>
                             )}
                             {!loading && !items.length && (
-                                <tr><td colSpan={6}><EmptyState icon={IoWifiOutline} title={count === 0 && !f.search && !f.estado_onu ? 'Aún no hay equipos' : 'Ningún equipo coincide con los filtros'} /></td></tr>
+                                <tr><td colSpan={6}><EmptyState icon={IoWifiOutline} title={count === 0 && !f.search && !f.estado_onu && !f.lote && !f.almacen_actual && !f.modelo ? 'Aún no hay equipos' : 'Ningún equipo coincide con los filtros'} /></td></tr>
                             )}
                             {items.map((m) => (
                                 <tr key={m.id} className="cursor-pointer hover:bg-gray-50" onClick={() => setDetalle(m.id)}>
@@ -127,7 +136,10 @@ const EquiposONU = () => {
                                         <p className="font-mono text-xs text-gray-500">{m.mac_address}{m.serial_manufacturer ? ` · ${m.serial_manufacturer}` : ''}</p>
                                     </td>
                                     <td className="px-4 py-3 text-gray-700">{m.modelo_info?.marca} {m.modelo_info?.nombre}</td>
-                                    <td className="px-4 py-3 text-gray-700">{m.almacen_info?.nombre}</td>
+                                    <td className="px-4 py-3 text-gray-700">
+                                        {m.almacen_info?.nombre}
+                                        {m.en_transito && <p className="text-xs font-medium text-amber-700">En tránsito → {m.en_transito.destino}</p>}
+                                    </td>
                                     <td className="px-4 py-3">
                                         <p className="text-gray-700">{m.lote_info?.numero_lote}</p>
                                         <p className="text-xs text-gray-500">{fecha(m.created_at)}</p>

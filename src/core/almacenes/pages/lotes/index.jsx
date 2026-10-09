@@ -11,7 +11,7 @@ import { usePermissions } from '../../../permissions/hooks/usePermissions';
 import { useOpcionesCompletas } from '../../hooks/useAlmacenes';
 import {
     PageHeader, Card, Button, IconButton, SearchInput, SelectInput, Badge, Dropdown, EmptyState, Spinner,
-    StatCard, ConfirmModal, cx,
+    StatCard, ConfirmModal, Pager, usePaginado, cx,
 } from '../../../../shared/components/ui';
 import lotesService from '../../services/lotesService';
 import LoteFormModal from './LoteFormModal';
@@ -78,6 +78,7 @@ const LotesPage = () => {
             return sinAcentos(texto).includes(q);
         });
     }, [lotes, busqueda, estado, proveedor]);
+    const pag = usePaginado(visibles, 20, visibles.length);
 
     const pendienteUnico = (l) => (l.detalles || []).some((d) => d.modelo_info?.tipo_material?.es_unico && Number(d.cantidad_pendiente) > 0);
 
@@ -165,7 +166,7 @@ const LotesPage = () => {
                             {!loading && !visibles.length && (
                                 <tr><td colSpan={5}><EmptyState icon={IoArchiveOutline} title={lotes.length ? 'Ningún lote coincide con los filtros' : 'Aún no hay lotes'} /></td></tr>
                             )}
-                            {visibles.map((l) => {
+                            {pag.visibles.map((l) => {
                                 const cerrado = l.estado_info?.codigo === 'CERRADO';
                                 return (
                                     <tr key={l.id} className={cx('cursor-pointer align-top hover:bg-gray-50', cerrado && 'text-gray-500')} onClick={() => accion('ver', l)}>
@@ -209,6 +210,7 @@ const LotesPage = () => {
                         </tbody>
                     </table>
                 </div>
+                <Pager page={pag.page} pageSize={pag.pageSize} count={pag.count} onChange={pag.setPage} />
             </Card>
 
             <LoteFormModal

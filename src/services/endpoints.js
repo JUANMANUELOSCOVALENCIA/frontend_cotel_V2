@@ -157,10 +157,15 @@ export const ENDPOINTS = {
     MATERIALES_DEVUELTOS_SECTOR: '/almacenes/materiales/devueltos_sector/',
     MATERIAL_REINGRESO: '/almacenes/materiales/reingreso/',
 
-    // === SECTORES (devolución y reingreso) ===
+    // === SECTORES / ÁREAS ===
     SECTORES_SOLICITANTES: '/almacenes/sectores-solicitantes/',
-    SECTOR_DEVOLUCION: '/almacenes/sectores/devolucion/',
-    SECTOR_REINGRESO: '/almacenes/sectores/reingreso/',
+
+    // === GARANTÍAS CON PROVEEDOR ===
+    GARANTIAS: '/almacenes/garantias/',
+    GARANTIA_DETAIL: (id) => `/almacenes/garantias/${id}/`,
+    GARANTIA_RESOLVER: (id) => `/almacenes/garantias/${id}/resolver/`,
+    GARANTIAS_POR_ENVIAR: '/almacenes/garantias/por_enviar/',
+    GARANTIAS_RESUMEN: '/almacenes/garantias/resumen/',
 
     // === IMPORTACIÓN ===
     IMPORTACION_MASIVA: '/almacenes/importacion/masiva/',
@@ -174,11 +179,32 @@ export const ENDPOINTS = {
     // === TRASPASOS ===
     TRASPASOS: '/almacenes/traspasos/',
     TRASPASO_DETAIL: (id) => `/almacenes/traspasos/${id}/`,
-    TRASPASO_ENVIAR: (id) => `/almacenes/traspasos/${id}/enviar/`,
     TRASPASO_RECIBIR: (id) => `/almacenes/traspasos/${id}/recibir/`,
     TRASPASO_CANCELAR: (id) => `/almacenes/traspasos/${id}/cancelar/`,
-    TRASPASO_MATERIALES: (id) => `/almacenes/traspasos/${id}/materiales_detalle/`,
-    TRASPASOS_ESTADISTICAS: '/almacenes/traspasos/estadisticas/',
+    TRASPASOS_DISPONIBLES: '/almacenes/traspasos/disponibles/',
+    TRASPASOS_RESUMEN: '/almacenes/traspasos/resumen/',
+
+    // === OPERACIONES (solicitudes, OT, cobertura) ===
+    ZONAS: '/operaciones/zonas/',
+    ZONA_DETAIL: (id) => `/operaciones/zonas/${id}/`,
+    ZONA_VERIFICAR: '/operaciones/zonas/verificar/',
+    PLANES: '/operaciones/planes/',
+    PLAN_DETAIL: (id) => `/operaciones/planes/${id}/`,
+    ADICIONALES: '/operaciones/adicionales/',
+    ADICIONAL_DETAIL: (id) => `/operaciones/adicionales/${id}/`,
+    SOLICITUDES: '/operaciones/solicitudes/',
+    SOLICITUD_DETAIL: (id) => `/operaciones/solicitudes/${id}/`,
+    SOLICITUD_ANULAR: (id) => `/operaciones/solicitudes/${id}/anular/`,
+    SOLICITUDES_REVISAR_COBERTURA: '/operaciones/solicitudes/revisar_cobertura/',
+    SOLICITUDES_CLIENTE: '/operaciones/solicitudes/cliente/',
+    SOLICITUDES_RESUMEN: '/operaciones/solicitudes/resumen/',
+    ORDENES: '/operaciones/ordenes/',
+    ORDEN_DETAIL: (id) => `/operaciones/ordenes/${id}/`,
+    ORDEN_ANULAR: (id) => `/operaciones/ordenes/${id}/anular/`,
+    ORDENES_RESUMEN: '/operaciones/ordenes/resumen/',
+    CLIENTES_OP: '/operaciones/clientes/',
+    CLIENTE_OP_DETAIL: (id) => `/operaciones/clientes/${id}/`,
+    CLIENTES_OP_RESUMEN: '/operaciones/clientes/resumen/',
 
     // === REPORTES ===
     ESTADISTICAS_GENERALES: '/almacenes/estadisticas/',

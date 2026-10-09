@@ -40,7 +40,32 @@ const ACCIONES = {
     CUSTOM: { label: 'Personalizada', color: 'gray' },
 };
 
-const EMPTY_FILTERS = { codigocotel: '', accion: '', fecha_desde: '', fecha_hasta: '' };
+const EMPTY_FILTERS = { codigocotel: '', app_label: '', accion: '', fecha_desde: '', fecha_hasta: '' };
+
+const MODULOS = { usuarios: 'Usuarios', almacenes: 'Almacenes', operaciones: 'Operaciones', contratos: 'Contratos' };
+
+// Nombre legible de lo que se tocó (app_label.model_name del backend)
+const OBJETOS = {
+    usuario: 'Usuario', roles: 'Rol', permission: 'Permiso',
+    material: 'Equipo / material', lote: 'Lote', lotedetalle: 'Detalle de lote', inspeccionlaboratorio: 'Inspección',
+    almacen: 'Almacén', proveedor: 'Proveedor', marca: 'Marca', modelo: 'Modelo', componente: 'Componente',
+    modelocomponente: 'Contenido de caja', traspasoalmacen: 'Traspaso', devolucionproveedor: 'Devolución a proveedor',
+    sectorsolicitante: 'Sector', tipoingreso: 'Tipo de ingreso', tipomaterial: 'Tipo de material', unidadmedida: 'Unidad de medida',
+    estadomaterialonu: 'Estado de equipo', estadomaterialgeneral: 'Estado de material', estadolote: 'Estado de lote',
+    enviogarantia: 'Envío a garantía', solicitud: 'Solicitud', ordentrabajo: 'Orden de trabajo', zonacobertura: 'Zona de cobertura',
+    plancomercial: 'Plan', cliente: 'Cliente',
+};
+const moduloLabel = (l) => `${MODULOS[l.app_label] || l.app_label} · ${OBJETOS[l.model_name] || l.model_name}`;
+
+// Valor legible para la tabla de detalles
+const legible = (v) => {
+    if (v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0)) return '—';
+    if (Array.isArray(v)) return v.map(legible).join(', ');
+    if (typeof v === 'object') return Object.entries(v).map(([k, x]) => `${k.replace(/_/g, ' ')}: ${legible(x)}`).join(' · ');
+    if (v === true) return 'Sí';
+    if (v === false) return 'No';
+    return String(v);
+};
 
 const accionLabel = (log) =>
     log.accion === 'CUSTOM' && log.accion_personalizada
@@ -144,6 +169,7 @@ const AuditLogs = () => {
         doc.setTextColor(107, 114, 128);
         const filtroTxt = [
             filters.codigocotel && `Código COTEL: ${filters.codigocotel}`,
+            filters.app_label && `Módulo: ${MODULOS[filters.app_label] || filters.app_label}`,
             filters.accion && `Acción: ${ACCIONES[filters.accion]?.label || filters.accion}`,
             filters.fecha_desde && `Desde: ${filters.fecha_desde}`,
             filters.fecha_hasta && `Hasta: ${filters.fecha_hasta}`,
@@ -163,7 +189,7 @@ const AuditLogs = () => {
                 l.usuario_codigo ?? '',
                 l.usuario_nombre || '',
                 accionLabel(l),
-                `${l.app_label}.${l.model_name}`,
+                moduloLabel(l),
                 l.objeto_representacion || '',
                 l.ip_address || '',
             ]),
@@ -211,7 +237,7 @@ const AuditLogs = () => {
             </div>
 
             <Card className="p-4">
-                <form onSubmit={applyFilters} className="grid grid-cols-1 items-end gap-3 md:grid-cols-2 lg:grid-cols-5">
+                <form onSubmit={applyFilters} className="grid grid-cols-1 items-end gap-3 md:grid-cols-3 lg:grid-cols-6">
                     <Field label="Código COTEL">
                         <TextInput
                             inputMode="numeric"
@@ -219,6 +245,12 @@ const AuditLogs = () => {
                             value={form.codigocotel}
                             onChange={(e) => setForm({ ...form, codigocotel: e.target.value.trim() })}
                         />
+                    </Field>
+                    <Field label="Módulo">
+                        <SelectInput value={form.app_label} onChange={(e) => setForm({ ...form, app_label: e.target.value })}>
+                            <option value="">Todos</option>
+                            {Object.entries(MODULOS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                        </SelectInput>
                     </Field>
                     <Field label="Acción">
                         <SelectInput value={form.accion} onChange={(e) => setForm({ ...form, accion: e.target.value })}>
@@ -277,7 +309,7 @@ const AuditLogs = () => {
                                                 <p className="whitespace-nowrap text-xs text-gray-500">Cód. COTEL {log.usuario_codigo}</p>
                                             </td>
                                             <td className="px-4 py-3"><Badge color={ACCIONES[log.accion]?.color || 'gray'}>{accionLabel(log)}</Badge></td>
-                                            <td className="px-4 py-3 text-xs text-gray-600">{log.app_label}.{log.model_name}</td>
+                                            <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-600">{moduloLabel(log)}</td>
                                             <td className="max-w-[260px] truncate px-4 py-3 text-gray-700" title={log.objeto_representacion}>{log.objeto_representacion}</td>
                                             <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-gray-600">{log.ip_address || '—'}</td>
                                             <td className="px-4 py-3 text-gray-400">
@@ -293,10 +325,23 @@ const AuditLogs = () => {
                                                             {hasDetails ? (
                                                                 <dl className="grid grid-cols-[auto,1fr] gap-x-4 gap-y-1 rounded-lg border border-gray-200 bg-white p-3 text-xs">
                                                                     {Object.entries(log.detalles).map(([k, v]) => (
-                                                                        <React.Fragment key={k}>
-                                                                            <dt className="text-gray-500">{k.replace(/_/g, ' ')}</dt>
-                                                                            <dd className="break-all text-gray-800">{typeof v === 'object' ? JSON.stringify(v) : String(v)}</dd>
-                                                                        </React.Fragment>
+                                                                        k === 'cambios' && v && typeof v === 'object' ? (
+                                                                            Object.entries(v).map(([campo, c]) => (
+                                                                                <React.Fragment key={`c-${campo}`}>
+                                                                                    <dt className="text-gray-500">{campo.replace(/_/g, ' ')}</dt>
+                                                                                    <dd className="break-words text-gray-800">
+                                                                                        <span className="text-red-700 line-through">{legible(c?.antes)}</span>
+                                                                                        <span className="mx-1 text-gray-400">→</span>
+                                                                                        <span className="text-green-700">{legible(c?.despues)}</span>
+                                                                                    </dd>
+                                                                                </React.Fragment>
+                                                                            ))
+                                                                        ) : (
+                                                                            <React.Fragment key={k}>
+                                                                                <dt className="text-gray-500">{k.replace(/_/g, ' ')}</dt>
+                                                                                <dd className="break-words text-gray-800">{legible(v)}</dd>
+                                                                            </React.Fragment>
+                                                                        )
                                                                     ))}
                                                                 </dl>
                                                             ) : (

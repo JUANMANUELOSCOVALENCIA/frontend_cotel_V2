@@ -24,13 +24,18 @@ import AlmacenesPage from "./core/almacenes/pages/almacenes/index.jsx";
 import MarcasPage from "./core/almacenes/pages/marcas/index.jsx";
 import LotesPage from "./core/almacenes/pages/lotes/index.jsx";
 import EquiposONU from "./core/almacenes/pages/equipos/index.jsx";
+import Traspasos from "./core/almacenes/pages/traspasos/index.jsx";
 import ModelosPage from "./core/almacenes/pages/modelos/index.jsx";
 import ComponentesPage from './core/almacenes/pages/componentes/index.jsx';
 import ProveedoresPage from "./core/almacenes/pages/provedores/index.jsx";
 import Laboratorio from "./core/almacenes/pages/laboratorio/index.jsx";
 import DevolucionesPage from "./core/almacenes/pages/devoluciones/index.jsx";
 import MaterialesNoUnicosPage from "./core/almacenes/pages/materiales/index.jsx";
-import NuevaSolicitudPage from "./core/solicitudes/NuevaSolicitudPage.jsx";
+import SolicitudesPage from './core/operaciones/pages/solicitudes/index.jsx';
+import OrdenesPage from './core/operaciones/pages/ordenes/index.jsx';
+import CoberturaPage from './core/operaciones/pages/cobertura/index.jsx';
+import PlanesPage from './core/operaciones/pages/planes/index.jsx';
+import ClientesPage from './core/operaciones/pages/clientes/index.jsx';
 function App() {
     const { isAuthenticated, loading, user } = useContext(AuthContext);
 
@@ -92,13 +97,20 @@ function App() {
                     <Route path="almacenes/marcas" element={<MarcasPage />} />
                     <Route path="almacenes/lotes" element={<LotesPage />} />
                     <Route path="almacenes/onus" element={<EquiposONU />} />
+                    <Route path="almacenes/traspasos" element={<Traspasos />} />
                     <Route path="almacenes/modelos" element={<ModelosPage />} />
                     <Route path="almacenes/componentes" element={<ComponentesPage />} />
                     <Route path="almacenes/proveedores" element={<ProveedoresPage />} />
                     <Route path="laboratorio/laboratorio" element={<Laboratorio />} />
                     <Route path="devoluciones/devoluciones" element={<DevolucionesPage />} />
                     <Route path="materiales/materiales" element={<MaterialesNoUnicosPage />} />
-                    <Route path="solicitudes/nueva" element={<NuevaSolicitudPage />} />
+                    <Route path="operaciones/solicitudes" element={<SolicitudesPage />} />
+                    <Route path="operaciones/ordenes" element={<OrdenesPage />} />
+                    <Route path="operaciones/cobertura" element={<CoberturaPage />} />
+                    <Route path="operaciones/planes" element={<PlanesPage />} />
+                    <Route path="operaciones/clientes" element={<ClientesPage />} />
+                    <Route path="operaciones/deudores" element={<Navigate to="/operaciones/clientes" replace />} />
+                    <Route path="solicitudes/nueva" element={<Navigate to="/operaciones/solicitudes" replace />} />
                 </Route>
 
                 {/* Catch all */}

@@ -1,156 +1,88 @@
 // src/core/almacenes/pages/devoluciones/index.jsx
-import React, { useState, useEffect } from 'react';
-import {
-    Card,
-    CardHeader,
-    CardBody,
-    Typography,
-    Alert,
-    Spinner,
-    Breadcrumbs,
-    Button,
-} from '@material-tailwind/react';
-import {
-    IoWarning,
-    IoReturnUpBack,
-    IoStatsChart,
-    IoHome,
-    IoRefresh,
-} from 'react-icons/io5';
-import { toast } from 'react-hot-toast';
-
-// Hooks
+// Garantías con el proveedor:
+//   Defectuoso → Enviar a garantía → respuesta del proveedor (cambio / reparado / sin reposición)
+import React, { useCallback, useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
+import { IoRefreshOutline } from 'react-icons/io5';
 import { usePermissions } from '../../../permissions/hooks/usePermissions';
+import { PageHeader, Button, StatCard, cx } from '../../../../shared/components/ui';
+import garantiasService from '../../services/garantiasService';
+import PorEnviarTab from './PorEnviarTab';
+import EnviosTab from './EnviosTab';
+import EnvioModal from './EnvioModal';
 
-// Componentes
-import EquiposDefectuososTab from './EquiposDefectuososTab';
-import EquiposDevueltosTab from './EquiposDevueltosTab';
-
-const DevolucionesPage = () => {
+const Garantias = () => {
     const { hasPermission } = usePermissions();
-    const [activeTab, setActiveTab] = useState('defectuosos');
-    const [stats, setStats] = useState({
-        defectuosos: 0,
-        devueltos: 0,
-        reingresados: 0,
-    });
+    const puedeEditar = hasPermission('materiales', 'actualizar');
+    const [tab, setTab] = useState('por_enviar');
+    const [resumen, setResumen] = useState(null);
+    const [version, setVersion] = useState(0);
+    const [abierto, setAbierto] = useState(null); // id del envío en el modal
 
-    // (antes venía de useDevolucion.js, que llamaba a rutas inexistentes de la API)
-    const loading = false;
-    const [error, setError] = useState(null);
-    const clearError = () => setError(null);
+    const cargarResumen = useCallback(async () => {
+        const r = await garantiasService.resumen();
+        if (r.success) setResumen(r.data);
+        else toast.error(r.error);
+    }, []);
+    useEffect(() => { cargarResumen(); }, [cargarResumen]);
 
-    // Configuración de tabs customizados
+    const alCambiar = useCallback(() => { cargarResumen(); setVersion((v) => v + 1); }, [cargarResumen]);
+
     const tabs = [
-        {
-            value: 'defectuosos',
-            label: 'Equipos Defectuosos',
-            icon: IoWarning,
-            color: 'red',
-        },
-        {
-            value: 'devueltos',
-            label: 'Devueltos a Sector',
-            icon: IoReturnUpBack,
-            color: 'amber',
-        },
+        { id: 'por_enviar', label: 'Por enviar', n: resumen?.por_enviar },
+        { id: 'abiertos', label: 'En garantía', n: resumen?.envios_abiertos },
+        { id: 'cerrados', label: 'Historial' },
     ];
 
-    useEffect(() => {
-        loadStats();
-    }, []);
-
-    const loadStats = async () => {
-        setStats({
-            defectuosos: 0,
-            devueltos: 0,
-            reingresados: 0,
-        });
-    };
-
-    const handleTabSuccess = () => {
-        loadStats();
-        toast.success('Operación completada exitosamente');
-    };
-
-    if (!hasPermission('materiales', 'leer')) {
-        return (
-            <div className="p-6">
-                <Alert color="red">
-                    <Typography>No tienes permisos para acceder a esta sección</Typography>
-                </Alert>
-            </div>
-        );
-    }
-
     return (
-        <div className="p-6 space-y-6">
-            {/* Header */}
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                <div>
-                    <Typography variant="h4" color="blue-gray">
-                        Gestión de Devoluciones
-                    </Typography>
-                    <Typography color="gray">
-                        Administra equipos defectuosos y sus reposiciones
-                    </Typography>
-                </div>
+        <div className="space-y-6">
+            <PageHeader
+                title="Garantías"
+                subtitle="Equipos que laboratorio rechazó: envío al proveedor y su reposición"
+                actions={<Button variant="secondary" icon={IoRefreshOutline} onClick={alCambiar}>Actualizar</Button>}
+            />
+
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+                <StatCard label="Defectuosos por enviar" value={resumen?.por_enviar} tone={resumen?.por_enviar ? 'text-red-600' : 'text-gray-800'} />
+                <StatCard label="Equipos en garantía" value={resumen?.en_garantia} tone="text-amber-600" />
+                <StatCard label="Envíos abiertos" value={resumen?.envios_abiertos} />
+                <StatCard label={`Más de ${resumen?.dias_alerta ?? 30} días sin respuesta`} value={resumen?.demorados} tone={resumen?.demorados ? 'text-red-600' : 'text-gray-800'} />
             </div>
 
-            {/* Error Alert */}
-            {error && (
-                <Alert color="red" dismissible onClose={clearError}>
-                    <Typography variant="small">Error: {error}</Typography>
-                </Alert>
+            <div className="border-b border-gray-200">
+                <nav className="-mb-px flex gap-6">
+                    {tabs.map((t) => (
+                        <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => setTab(t.id)}
+                            className={cx(
+                                'flex items-center gap-2 border-b-2 px-1 pb-3 text-sm font-medium',
+                                tab === t.id ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+                            )}
+                        >
+                            {t.label}
+                            {t.n > 0 && <span className={cx('rounded-full px-2 text-xs', tab === t.id ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-600')}>{t.n}</span>}
+                        </button>
+                    ))}
+                </nav>
+            </div>
+
+            {tab === 'por_enviar' && (
+                <PorEnviarTab key={version} puedeEditar={puedeEditar} onEnviado={(envio) => { alCambiar(); setTab('abiertos'); setAbierto(envio.id); }} />
             )}
+            {tab === 'abiertos' && <EnviosTab key={`a${version}`} cerrado={false} diasAlerta={resumen?.dias_alerta ?? 30} onAbrir={setAbierto} />}
+            {tab === 'cerrados' && <EnviosTab key={`c${version}`} cerrado diasAlerta={resumen?.dias_alerta ?? 30} onAbrir={setAbierto} />}
 
-            {/* Tabs customizados - SIN z-index conflicts */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm relative">
-                {/* Header de Tabs customizado */}
-                <div className="border-b border-gray-200 bg-gray-50 rounded-t-2xl">
-                    <div className="flex flex-wrap gap-1 p-2">
-                        {tabs.map(({ value, label, icon: Icon, color }) => (
-                            <button
-                                key={value}
-                                onClick={() => setActiveTab(value)}
-                                className={`
-                                    flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition-all duration-200 relative
-                                    ${activeTab === value
-                                    ? 'bg-white shadow-sm text-orange-600 border border-orange-200'
-                                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
-                                }
-                                `}
-                            >
-                                <Icon className={`h-4 w-4 ${
-                                    activeTab === value
-                                        ? color === 'red' ? 'text-red-500' : 'text-amber-500'
-                                        : 'text-gray-500'
-                                }`} />
-                                <span className="hidden sm:inline">{label}</span>
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Contenido de Tabs */}
-                <div className="p-6">
-                    {activeTab === 'defectuosos' && (
-                        <EquiposDefectuososTab
-                            onSuccess={handleTabSuccess}
-                            loading={loading}
-                        />
-                    )}
-
-                    {activeTab === 'devueltos' && (
-                        <EquiposDevueltosTab
-                            onSuccess={handleTabSuccess}
-                            loading={loading}
-                        />
-                    )}
-                </div>
-            </div>
+            <EnvioModal
+                envioId={abierto}
+                open={!!abierto}
+                puedeEditar={puedeEditar}
+                onClose={() => setAbierto(null)}
+                onCambio={alCambiar}
+            />
         </div>
     );
 };
 
-export default DevolucionesPage;
+export default Garantias;

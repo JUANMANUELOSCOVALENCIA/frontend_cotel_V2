@@ -16,10 +16,16 @@ import {
     IoCubeOutline,
     IoArchiveOutline,
     IoWifiOutline,
+    IoSwapHorizontalOutline,
     IoReturnDownBackOutline,
     IoClipboardOutline,
     IoFlaskOutline,
     IoDocumentTextOutline,
+    IoBriefcaseOutline,
+    IoConstructOutline,
+    IoMapOutline,
+    IoPricetagsOutline,
+    IoPeopleCircleOutline,
 } from 'react-icons/io5';
 
 // Cada pantalla se muestra si el rol puede LEER su recurso (el backend valida igual)
@@ -63,7 +69,8 @@ export const navItems = [
             { section: 'Operación' },
             { label: 'Lotes', href: '/almacenes/lotes', icon: IoArchiveOutline, permissions: leer('lotes') },
             { label: 'Equipos ONU', href: '/almacenes/onus', icon: IoWifiOutline, permissions: leer('materiales') },
-            { label: 'Devoluciones', href: '/devoluciones/devoluciones', icon: IoReturnDownBackOutline, permissions: leer('materiales') },
+            { label: 'Traspasos', href: '/almacenes/traspasos', icon: IoSwapHorizontalOutline, permissions: leer('traspasos') },
+            { label: 'Garantías', href: '/devoluciones/devoluciones', icon: IoReturnDownBackOutline, permissions: leer('materiales') },
             { label: 'Materiales', href: '/materiales/materiales', icon: IoClipboardOutline, permissions: leer('materiales') },
         ],
     },
@@ -74,10 +81,17 @@ export const navItems = [
         permissions: [{ recurso: 'laboratorio', accion: 'leer' }],
     },
     {
-        label: 'Solicitudes',
-        href: '/solicitudes/nueva',
-        icon: IoDocumentTextOutline,
-        permissions: [{ recurso: 'usuarios', accion: 'leer' }],
+        label: 'Operaciones',
+        icon: IoBriefcaseOutline,
+        permissions: leer('solicitudes', 'ordenes', 'clientes', 'cobertura', 'planes'),
+        children: [
+            { label: 'Solicitudes', href: '/operaciones/solicitudes', icon: IoDocumentTextOutline, permissions: leer('solicitudes') },
+            { label: 'Órdenes de trabajo', href: '/operaciones/ordenes', icon: IoConstructOutline, permissions: leer('ordenes') },
+            { label: 'Clientes', href: '/operaciones/clientes', icon: IoPeopleCircleOutline, permissions: leer('clientes', 'solicitudes') },
+            { section: 'Configuración' },
+            { label: 'Cobertura', href: '/operaciones/cobertura', icon: IoMapOutline, permissions: leer('cobertura') },
+            { label: 'Planes', href: '/operaciones/planes', icon: IoPricetagsOutline, permissions: leer('planes') },
+        ],
     },
 ];
 

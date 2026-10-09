@@ -67,10 +67,16 @@ const MaterialDetalleModal = ({ materialId, open, onClose, estados = [], puedeEd
                         <EstadoMaterialBadge estado={m.estado_display} />
                         {m.es_nuevo ? <Badge color="blue">Nuevo</Badge> : <Badge color="gray">Reingresado</Badge>}
                         {m.estado_display?.codigo === 'EN_LABORATORIO' && <span className="ml-auto text-xs text-gray-500">En inspección: el resultado se registra en Laboratorio</span>}
-                        {puedeEditar && !corregir && m.estado_display?.codigo !== 'EN_LABORATORIO' && (
+                        {puedeEditar && !corregir && !m.en_transito && m.estado_display?.codigo !== 'EN_LABORATORIO' && (
                             <Button variant="secondary" className="ml-auto" icon={IoSwapHorizontalOutline} onClick={() => setCorregir({ estado: '', motivo: '' })}>Corregir estado</Button>
                         )}
                     </div>
+
+                    {m.en_transito && (
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800">
+                            En tránsito hacia <strong>{m.en_transito.destino}</strong> (traspaso {m.en_transito.numero}). No se puede mover ni cambiar de estado hasta que se reciba.
+                        </div>
+                    )}
 
                     {corregir && (
                         <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50/60 p-4">

@@ -10,7 +10,7 @@ import {
 import { usePermissions } from '../../../permissions/hooks/usePermissions';
 import {
     PageHeader, Card, Button, IconButton, SearchInput, SelectInput, Badge, Dropdown,
-    EmptyState, Spinner, ConfirmModal, Modal, cx,
+    EmptyState, Spinner, ConfirmModal, Modal, Pager, usePaginado, cx,
 } from '../../../../shared/components/ui';
 import CampoForm, { validarCampos } from './CampoForm';
 
@@ -72,6 +72,7 @@ const CatalogoPage = ({
             filtros.every((f) => !valoresFiltro[f.key] || f.aplicar(it, valoresFiltro[f.key]))
         );
     }, [items, busqueda, estado, valoresFiltro, filtros, textoBusqueda]);
+    const pag = usePaginado(visibles, 20, visibles.length);
 
     const contadores = useMemo(() => ({
         activos: items.filter((i) => i.activo).length,
@@ -185,7 +186,7 @@ const CatalogoPage = ({
                                     <EmptyState icon={icono} title={items.length ? 'Nada coincide con la búsqueda o los filtros' : `Aún no hay ${titulo.toLowerCase()}`} />
                                 </td></tr>
                             )}
-                            {visibles.map((item) => (
+                            {pag.visibles.map((item) => (
                                 <tr key={item.id} className={cx('align-top hover:bg-gray-50', !item.activo && 'opacity-60')}>
                                     {columnas.map((c) => <td key={c.label} className={cx('px-4 py-3', c.className)}>{c.render(item)}</td>)}
                                     <td className="px-4 py-3"><Badge color={item.activo ? 'green' : 'gray'}>{item.activo ? `Activ${genero}` : `Inactiv${genero}`}</Badge></td>
@@ -211,6 +212,7 @@ const CatalogoPage = ({
                         </tbody>
                     </table>
                 </div>
+                <Pager page={pag.page} pageSize={pag.pageSize} count={pag.count} onChange={pag.setPage} />
             </Card>
 
             <Modal

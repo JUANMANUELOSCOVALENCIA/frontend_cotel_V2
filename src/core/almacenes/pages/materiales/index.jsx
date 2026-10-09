@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import { IoRefreshOutline, IoLayersOutline, IoChevronDown, IoChevronForward } from 'react-icons/io5';
 import { usePermissions } from '../../../permissions/hooks/usePermissions';
 import { useOpcionesCompletas } from '../../hooks/useAlmacenes';
-import { PageHeader, Card, Button, SearchInput, SelectInput, EmptyState, Spinner, Badge, StatCard, cx } from '../../../../shared/components/ui';
+import { PageHeader, Card, Button, SearchInput, SelectInput, EmptyState, Spinner, Badge, StatCard, Pager, usePaginado, cx } from '../../../../shared/components/ui';
 import inventarioService from '../../services/inventarioService';
 import MaterialDetalleModal from '../equipos/MaterialDetalleModal';
 import { EstadoMaterialBadge, cantidad } from '../equipos/inventarioUi';
@@ -41,6 +41,8 @@ const Materiales = () => {
             else toast.error(r.error);
         }
     };
+
+    const pag = usePaginado(filas, 20, JSON.stringify(f));
 
     const resumen = useMemo(() => ({
         modelos: new Set(filas.map((x) => x.modelo.id)).size,
@@ -92,7 +94,7 @@ const Materiales = () => {
                             {!loading && !filas.length && (
                                 <tr><td colSpan={6}><EmptyState icon={IoLayersOutline} title="No hay material a granel con estos filtros" /></td></tr>
                             )}
-                            {filas.map((x) => {
+                            {pag.visibles.map((x) => {
                                 const clave = `${x.modelo.id}-${x.almacen.id}`;
                                 const abiertaEsta = abierta === clave;
                                 const otros = Object.entries(x.por_estado).filter(([e]) => e !== 'Disponible');
@@ -141,6 +143,7 @@ const Materiales = () => {
                         </tbody>
                     </table>
                 </div>
+                <Pager page={pag.page} pageSize={pag.pageSize} count={pag.count} onChange={pag.setPage} />
             </Card>
 
             <MaterialDetalleModal

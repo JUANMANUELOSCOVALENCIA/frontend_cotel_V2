@@ -338,6 +338,18 @@ export const Pager = ({ page, pageSize, count, onChange }) => {
     );
 };
 
+// Paginación en el navegador para listas ya cargadas.
+// resetKey: cuando cambia (p. ej. el texto de búsqueda) se vuelve a la página 1.
+export const usePaginado = (items, pageSize = 20, resetKey) => {
+    const [page, setPage] = useState(1);
+    const pages = Math.max(1, Math.ceil(items.length / pageSize));
+    useEffect(() => { setPage(1); }, [resetKey]);
+    useEffect(() => { if (page > pages) setPage(pages); }, [page, pages]);
+    const visibles = useMemo(() => items.slice((page - 1) * pageSize, page * pageSize), [items, page, pageSize]);
+    return { page, setPage, visibles, count: items.length, pageSize };
+};
+
+
 // Colores por acción de permiso (mismo criterio en todas las pantallas)
 export const ACCION_COLOR = { crear: 'green', leer: 'blue', actualizar: 'amber', eliminar: 'red' };
 export const ACCIONES = ['crear', 'leer', 'actualizar', 'eliminar'];

@@ -2,7 +2,7 @@
 // Equipos NUEVOS que aún no pasaron por laboratorio, agrupados por lote y entrega.
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { IoSendOutline, IoCubeOutline } from 'react-icons/io5';
+import { IoSendOutline, IoCubeOutline, IoChevronDown, IoChevronForward } from 'react-icons/io5';
 import { Card, Button, SearchInput, EmptyState, Spinner, ConfirmModal, cx } from '../../../../shared/components/ui';
 import laboratorioService from '../../services/laboratorioService';
 import { fecha } from '../lotes/loteUi';
@@ -16,6 +16,8 @@ const PorEnviarTab = ({ puedeEditar, onCambio }) => {
     const [sel, setSel] = useState(new Set());
     const [enviando, setEnviando] = useState(null); // clave de lo que se envía
     const [confirmar, setConfirmar] = useState(null); // { titulo, mensaje, accion }
+    const [abiertos, setAbiertos] = useState(new Set()); // lotes desplegados
+    const [completos, setCompletos] = useState(new Set()); // entregas mostradas completas
 
     const cargar = useCallback(async () => {
         setLoading(true);
@@ -38,6 +40,11 @@ const PorEnviarTab = ({ puedeEditar, onCambio }) => {
         });
         return [...mapa.values()];
     }, [items]);
+
+    // Con pocos equipos o con búsqueda se muestran desplegados; con muchos, plegados (se abren con un clic)
+    const plegarPorDefecto = items.length > 30 && !search;
+    const estaAbierto = (g) => (plegarPorDefecto ? abiertos.has(g.lote.id) : !abiertos.has(g.lote.id));
+    const alternarLote = (id) => setAbiertos((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
     const ejecutar = async (clave, fn) => {
         setEnviando(clave);
@@ -97,10 +104,16 @@ const PorEnviarTab = ({ puedeEditar, onCambio }) => {
             {grupos.map((g) => (
                 <Card key={g.lote.id} className="overflow-hidden">
                     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-4 py-3">
-                        <div>
-                            <p className="font-semibold text-gray-800">Lote {g.lote.numero_lote}</p>
-                            <p className="text-xs text-gray-500">{g.lote.proveedor} · {g.total} equipo(s)</p>
-                        </div>
+                        <button type="button" className="flex items-center gap-2 text-left" onClick={() => alternarLote(g.lote.id)}>
+                            {estaAbierto(g) ? <IoChevronDown className="h-4 w-4 text-gray-400" /> : <IoChevronForward className="h-4 w-4 text-gray-400" />}
+                            <span>
+                                <span className="block font-semibold text-gray-800">Lote {g.lote.numero_lote}</span>
+                                <span className="text-xs text-gray-500">
+                                    {g.lote.proveedor} · {g.total} equipo(s) · {g.entregas.size} entrega(s)
+                                    {[...g.entregas.values()].flat().some((m) => sel.has(m.id)) && ` · ${[...g.entregas.values()].flat().filter((m) => sel.has(m.id)).length} seleccionado(s)`}
+                                </span>
+                            </span>
+                        </button>
                         {puedeEditar && !search && (
                             <Button
                                 variant="secondary"
@@ -113,7 +126,7 @@ const PorEnviarTab = ({ puedeEditar, onCambio }) => {
                             </Button>
                         )}
                     </div>
-                    {[...g.entregas.entries()].map(([n, equipos]) => {
+                    {estaAbierto(g) && [...g.entregas.entries()].map(([n, equipos]) => {
                         const ids = equipos.map((m) => m.id);
                         const todos = ids.every((id) => sel.has(id));
                         return (
@@ -135,7 +148,7 @@ const PorEnviarTab = ({ puedeEditar, onCambio }) => {
                                     )}
                                 </div>
                                 <ul className="grid grid-cols-1 gap-x-6 px-4 pb-3 sm:grid-cols-2 xl:grid-cols-3">
-                                    {equipos.map((m) => (
+                                    {(completos.has(`${g.lote.id}-${n}`) ? equipos : equipos.slice(0, 30)).map((m) => (
                                         <li key={m.id}>
                                             <label className={cx('flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm', puedeEditar && 'cursor-pointer hover:bg-gray-50')}>
                                                 {puedeEditar && <input type="checkbox" className="h-4 w-4 accent-orange-500" checked={sel.has(m.id)} onChange={() => alternar([m.id])} />}
@@ -145,6 +158,12 @@ const PorEnviarTab = ({ puedeEditar, onCambio }) => {
                                         </li>
                                     ))}
                                 </ul>
+                                {equipos.length > 30 && !completos.has(`${g.lote.id}-${n}`) && (
+                                    <button type="button" className="mb-3 ml-6 text-sm text-orange-600 hover:underline"
+                                        onClick={() => setCompletos((x) => new Set(x).add(`${g.lote.id}-${n}`))}>
+                                        Ver los {equipos.length - 30} restantes
+                                    </button>
+                                )}
                             </div>
                         );
                     })}

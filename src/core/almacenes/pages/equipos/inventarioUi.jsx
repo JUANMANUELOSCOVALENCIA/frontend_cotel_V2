@@ -10,10 +10,11 @@ export const COLOR_ESTADO_MATERIAL = {
     RESERVADO: 'amber',
     DEFECTUOSO: 'red',
     DEVUELTO_SECTOR_SOLICITANTE: 'gray',
-    DEVUELTO_PROVEEDOR: 'gray',
+    DEVUELTO_PROVEEDOR: 'amber',
     REINGRESADO: 'orange',
     REEMPLAZADO: 'gray',
     CONSUMIDO: 'gray',
+    BAJA: 'gray',
 };
 
 export const EstadoMaterialBadge = ({ estado }) => (
