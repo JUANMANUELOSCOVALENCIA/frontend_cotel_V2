@@ -26,6 +26,8 @@ import {
     IoMapOutline,
     IoPricetagsOutline,
     IoPeopleCircleOutline,
+    IoCalendarOutline,
+    IoCarOutline,
 } from 'react-icons/io5';
 
 // Cada pantalla se muestra si el rol puede LEER su recurso (el backend valida igual)
@@ -83,13 +85,15 @@ export const navItems = [
     {
         label: 'Operaciones',
         icon: IoBriefcaseOutline,
-        permissions: leer('solicitudes', 'ordenes', 'clientes', 'cobertura', 'planes'),
+        permissions: leer('solicitudes', 'ordenes', 'clientes', 'cobertura', 'planes', 'cuadrillas'),
         children: [
             { label: 'Solicitudes', href: '/operaciones/solicitudes', icon: IoDocumentTextOutline, permissions: leer('solicitudes') },
             { label: 'Órdenes de trabajo', href: '/operaciones/ordenes', icon: IoConstructOutline, permissions: leer('ordenes') },
+            { label: 'Programación', href: '/operaciones/programacion', icon: IoCalendarOutline, permissions: leer('ordenes') },
             { label: 'Clientes', href: '/operaciones/clientes', icon: IoPeopleCircleOutline, permissions: leer('clientes', 'solicitudes') },
             { section: 'Configuración' },
             { label: 'Cobertura', href: '/operaciones/cobertura', icon: IoMapOutline, permissions: leer('cobertura') },
+            { label: 'Cuadrillas', href: '/operaciones/cuadrillas', icon: IoCarOutline, permissions: leer('cuadrillas') },
             { label: 'Planes', href: '/operaciones/planes', icon: IoPricetagsOutline, permissions: leer('planes') },
         ],
     },

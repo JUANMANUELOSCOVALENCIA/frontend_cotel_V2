@@ -34,3 +34,47 @@ export const ZonaChip = ({ zona }) => (zona ? (
 const aFecha = (iso) => (/^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(`${iso}T00:00:00`) : new Date(iso));
 export const fechaCorta = (iso) => (iso ? aFecha(iso).toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—');
 export const fechaHora = (iso) => (iso ? new Date(iso).toLocaleString('es-BO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—');
+
+// Fechas para la programación: 'YYYY-MM-DD' en hora local (Bolivia), no UTC
+export const isoLocal = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+export const hoyISO = () => isoLocal(new Date());
+export const sumarDias = (iso, n) => { const d = aFecha(iso); d.setDate(d.getDate() + n); return isoLocal(d); };
+export const fechaLarga = (iso) => {
+    if (!iso) return '—';
+    const t = aFecha(iso).toLocaleDateString('es-BO', { weekday: 'long', day: 'numeric', month: 'long' });
+    return t.charAt(0).toUpperCase() + t.slice(1);
+};
+
+// "Juan Pérez (jefe), Luis Mamani"
+export const integrantesTexto = (lista) => (lista || []).map((i) => `${i.usuario.nombre}${i.es_jefe ? ' (jefe)' : ''}`).join(', ');
+
+// Servicios que requiere una OT o que soporta una ONU: { tv, telefonia } (internet siempre)
+export const ServiciosChips = ({ s }) => (
+    <span className="inline-flex flex-wrap gap-1">
+        <Badge color="blue">Internet</Badge>
+        {s?.tv && <Badge color="purple">TV</Badge>}
+        {s?.telefonia && <Badge color="amber">Telefonía</Badge>}
+    </span>
+);
+export const serviciosOnuTexto = (s) => ['Internet', s?.tv && 'TV', s?.telefonia && 'Telefonía'].filter(Boolean).join(' + ');
+export const onuSirve = (onu, sv) => (!sv?.tv || onu.tv) && (!sv?.telefonia || onu.telefonia);
+
+// Plazo ATT (RAR 589/2025): instalación/traslado 7 días, reparación 24 h. Solo informa; no cambia estados.
+const duracion = (seg) => {
+    const s = Math.abs(seg);
+    if (s >= 86400) return `${Math.floor(s / 86400)} día(s)`;
+    if (s >= 3600) return `${Math.floor(s / 3600)} h`;
+    return `${Math.max(1, Math.floor(s / 60))} min`;
+};
+const PLAZO = {
+    EN_PLAZO: { color: 'green', texto: (p) => `Plazo ATT: quedan ${duracion(p.segundos)}` },
+    POR_VENCER: { color: 'amber', texto: (p) => `Por vencer: quedan ${duracion(p.segundos)}` },
+    VENCIDA: { color: 'red', texto: (p) => `Plazo ATT vencido hace ${duracion(p.segundos)}` },
+    CUMPLIDO: { color: 'green', texto: () => 'Atendida en plazo ATT' },
+    INCUMPLIDO: { color: 'red', texto: () => 'Atendida fuera de plazo ATT' },
+};
+export const PlazoChip = ({ plazo }) => {
+    const c = plazo && PLAZO[plazo.estado];
+    if (!c) return null;
+    return <span title={`Límite ATT: ${fechaHora(plazo.limite)}`}><Badge color={c.color}>{c.texto(plazo)}</Badge></span>;
+};

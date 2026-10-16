@@ -1,6 +1,6 @@
 // src/core/operaciones/components/pdf.js
 // PDF de operaciones: reportes de listados (solicitudes / OT) y formatos
-// individuales (orden de trabajo para el técnico, comprobante de solicitud).
+// individuales (orden de trabajo para el técnico, comprobante de solicitud, hoja del día de una cuadrilla).
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -176,7 +176,7 @@ export const imprimirOT = (o, usuario) => {
     const ancho = doc.internal.pageSize.getWidth();
     let y = encabezado(doc, `Orden de trabajo ${o.numero}`, [
         `Solicitud ${o.solicitud.numero}   |   Registrada: ${fechaHora(o.created_at)}   |   Estado: ${o.estado.nombre}${o.prioridad === 'ALTA' ? '   |   URGENTE' : ''}`,
-        `Programada para: ${o.fecha_programada ? fecha(o.fecha_programada) : 'sin programar'}   |   Impreso: ${ahora()} por ${usuario}`,
+        `Programada para: ${o.fecha_programada ? fecha(o.fecha_programada) : 'sin programar'}${o.cuadrilla ? ` con ${o.cuadrilla.nombre}` : ''}   |   Impreso: ${ahora()} por ${usuario}`,
     ]);
 
     y = seccion(doc, y, 'Trabajo');
@@ -186,6 +186,15 @@ export const imprimirOT = (o, usuario) => {
         ['Servicios a instalar', (o.solicitud.servicios || []).join(' + ') || '—', true],
         o.ubicacion.observaciones && ['Detalle del trámite', o.ubicacion.observaciones, true],
     ]);
+
+    if (o.cuadrilla) {
+        y = seccion(doc, y, 'Cuadrilla');
+        y = pares(doc, y, [
+            ['Cuadrilla', o.cuadrilla.nombre],
+            ['Vehículo', o.cuadrilla.vehiculo ? `${o.cuadrilla.vehiculo.placa} · ${o.cuadrilla.vehiculo.descripcion}` : '—'],
+            ['Técnicos', o.cuadrilla.integrantes.map((i) => `${i.usuario.nombre}${i.es_jefe ? ' (jefe)' : ''}`).join(', ') || '—', true],
+        ]);
+    }
 
     y = seccion(doc, y, 'Cliente');
     y = pares(doc, y, [
@@ -284,4 +293,120 @@ export const imprimirSolicitud = (s, usuario) => {
 
     piePaginas(doc, `COTEL R.L. · Solicitud ${s.numero}`);
     doc.save(`${s.numero}.pdf`);
+};
+
+/**
+ * Hoja del día de una cuadrilla: sus OT en orden de visita con dirección y referencias.
+ * c: una cuadrilla de /ordenes/programacion/ ({ nombre, vehiculo, integrantes, ordenes }).
+ */
+export const imprimirHojaDia = (c, dia, usuario) => {
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+    const ordenes = c.ordenes.filter((o) => o.estado.codigo !== 'NO_EJECUTADA');
+    let y = encabezado(doc, `Hoja del día · ${c.nombre}`, [
+        `Fecha: ${fecha(dia)}   |   Vehículo: ${c.vehiculo ? `${c.vehiculo.placa} · ${c.vehiculo.descripcion}` : 'sin vehículo'}   |   OT: ${ordenes.length}`,
+        `Técnicos: ${c.integrantes.map((i) => `${i.usuario.nombre}${i.es_jefe ? ' (jefe)' : ''}`).join(', ') || '—'}`,
+        `Impreso: ${ahora()} por ${usuario}`,
+    ]);
+    autoTable(doc, {
+        ...estiloTabla,
+        startY: y,
+        head: [['#', 'OT', 'Trabajo', 'Cliente', 'Dirección y referencias', 'Firma cliente']],
+        body: ordenes.map((o, i) => [
+            String(i + 1),
+            `${o.numero}${o.prioridad === 'ALTA' ? '\nURGENTE' : ''}${o.onu ? `\nONU ${o.onu}` : ''}`,
+            [o.tipo.nombre, o.solicitud.plan && `${o.solicitud.plan} · ${(o.solicitud.servicios || []).join(' + ')}`].filter(Boolean).join('\n'),
+            `${o.cliente.nombre}\nCI ${o.cliente.ci}\nTel. ${o.cliente.telefono || '—'}`,
+            [`${o.solicitud.direccion}${o.solicitud.zona_referencia ? `, ${o.solicitud.zona_referencia}` : ''}`,
+                o.solicitud.referencia && `Ref.: ${o.solicitud.referencia}`,
+                o.solicitud.lat && `${o.solicitud.lat.toFixed(6)}, ${o.solicitud.lng.toFixed(6)}`].filter(Boolean).join('\n'),
+            '',
+        ]),
+        styles: { ...estiloTabla.styles, fontSize: 8.5, minCellHeight: 34, valign: 'top' },
+        headStyles: { ...estiloTabla.headStyles, minCellHeight: 0 },
+        columnStyles: { 0: { cellWidth: 22, halign: 'center' }, 1: { cellWidth: 105 }, 2: { cellWidth: 125 }, 3: { cellWidth: 130 }, 5: { cellWidth: 90 } },
+    });
+    y = doc.lastAutoTable.finalY + 40;
+    if (y > doc.internal.pageSize.getHeight() - 60) { doc.addPage(); y = 90; }
+    doc.setDrawColor(...GRIS);
+    doc.line(MARGEN, y, MARGEN + 220, y);
+    doc.setFontSize(8.5);
+    doc.setTextColor(...GRIS);
+    doc.text('Jefe de cuadrilla: nombre y firma', MARGEN, y + 12);
+    piePaginas(doc, `COTEL R.L. · Hoja del día ${c.nombre} · ${fecha(dia)}`);
+    doc.save(`hoja_${c.nombre.replace(/\s+/g, '_')}_${dia}.pdf`);
+};
+
+/**
+ * Vale de salida de una cuadrilla (y, si ya se rindió, el resultado de la rendición).
+ * d: despacho de /despachos/{id}/ (cuadrilla con vehículo e integrantes, equipos, materiales, recuperados).
+ */
+export const imprimirValeDespacho = (d, usuario) => {
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+    const ancho = doc.internal.pageSize.getWidth();
+    const servicios = (o) => ['Internet', o.tv && 'TV', o.telefonia && 'Telefonía'].filter(Boolean).join(' + ');
+    const n = (x) => Number(x || 0).toLocaleString('es-BO', { maximumFractionDigits: 2 });
+    let y = encabezado(doc, `Vale de salida ${d.numero}`, [
+        `Fecha de trabajo: ${fecha(d.fecha)}   |   Almacén: ${d.almacen.nombre}   |   Entregó: ${d.entregado_por} (${fechaHora(d.created_at)})`,
+        `Estado: ${d.estado.nombre}   |   Impreso: ${ahora()} por ${usuario}`,
+    ]);
+    y = seccion(doc, y, 'Cuadrilla');
+    y = pares(doc, y, [
+        ['Cuadrilla', d.cuadrilla.nombre],
+        ['Vehículo', d.cuadrilla.vehiculo ? `${d.cuadrilla.vehiculo.placa} · ${d.cuadrilla.vehiculo.descripcion}` : '—'],
+        ['Técnicos', d.cuadrilla.integrantes.map((i) => `${i.usuario.nombre}${i.es_jefe ? ' (jefe)' : ''} · cód. ${i.usuario.codigocotel}`).join('\n') || '—', true],
+    ]);
+
+    y = seccion(doc, y, `ONU entregadas (${d.equipos.length})`);
+    autoTable(doc, {
+        ...estiloTabla,
+        startY: y,
+        head: [['#', 'GPON SN', 'MAC', 'Modelo', 'Servicios', ...(d.estado.codigo === 'RENDIDO' ? ['Resultado'] : [])]],
+        body: d.equipos.length ? d.equipos.map((e, i) => [
+            String(i + 1), e.onu.gpon_serial || e.onu.codigo, e.onu.mac || '—', e.onu.modelo, servicios(e.onu),
+            ...(d.estado.codigo === 'RENDIDO' ? [`${e.resultado.nombre}${e.orden ? ` en ${e.orden.numero}` : ''}`] : []),
+        ]) : [['', 'Sin ONU', '', '', '']],
+        columnStyles: { 0: { cellWidth: 22, halign: 'center' } },
+    });
+    y = doc.lastAutoTable.finalY + 14;
+
+    y = seccion(doc, y, 'Material por cantidad');
+    const rendido = d.estado.codigo === 'RENDIDO';
+    autoTable(doc, {
+        ...estiloTabla,
+        startY: y,
+        head: [['Material', 'Lote', 'Entregado', ...(rendido ? ['Usado', 'Devuelto', 'Faltante'] : [])]],
+        body: d.materiales.length ? d.materiales.map((m) => [
+            m.nombre, m.lote || '—', `${n(m.cantidad)} ${m.unidad}`,
+            ...(rendido ? [n(m.usada), n(m.devuelta), n(m.faltante)] : []),
+        ]) : [['Sin material', '', '']],
+    });
+    y = doc.lastAutoTable.finalY + 14;
+
+    if (d.recuperados?.length) {
+        y = seccion(doc, y, 'Equipos recuperados de clientes');
+        autoTable(doc, {
+            ...estiloTabla,
+            startY: y,
+            head: [['Serie', 'OT', 'Inventario', 'Observación']],
+            body: d.recuperados.map((x) => [x.serial, x.orden.numero, x.en_inventario ? 'Reingresado' : 'No registrado', x.observacion || '']),
+        });
+        y = doc.lastAutoTable.finalY + 14;
+    }
+    if (d.observaciones || d.observaciones_rendicion) {
+        y = recuadro(doc, y, 'Observaciones', [d.observaciones, d.observaciones_rendicion].filter(Boolean).join('\n'));
+    }
+
+    // Firmas
+    y += 50;
+    if (y > doc.internal.pageSize.getHeight() - 80) { doc.addPage(); y = 90; }
+    const mitad = (ancho - MARGEN * 2) / 2;
+    [['Entregó (almacén)', MARGEN], ['Recibió (jefe de cuadrilla)', MARGEN + mitad + 20]].forEach(([t, x]) => {
+        doc.setDrawColor(...GRIS);
+        doc.line(x, y, x + mitad - 40, y);
+        doc.setFontSize(8.5);
+        doc.setTextColor(...GRIS);
+        doc.text(`${t}: nombre, firma y fecha`, x, y + 12);
+    });
+    piePaginas(doc, `COTEL R.L. · Vale de salida ${d.numero} · ${d.cuadrilla.nombre}`);
+    doc.save(`vale_${d.numero}.pdf`);
 };

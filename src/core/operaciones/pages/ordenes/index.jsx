@@ -1,13 +1,14 @@
 // src/core/operaciones/pages/ordenes/index.jsx
 // Órdenes de trabajo generadas desde las solicitudes.
 import React, { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { IoRefreshOutline, IoConstructOutline, IoDownloadOutline } from 'react-icons/io5';
 import { useUser } from '../../../auth/hooks/useAuth';
 import { usePermissions } from '../../../permissions/hooks/usePermissions';
 import { PageHeader, Card, Button, StatCard, SearchInput, SelectInput, EmptyState, Spinner, Pager, cx } from '../../../../shared/components/ui';
-import { ordenesService, zonasService } from '../../services/operacionesService';
-import { TIPOS, EstadoOT, Prioridad, ZonaChip, fechaCorta, serviciosTexto } from '../../components/opUi';
+import { cuadrillasService, ordenesService, zonasService } from '../../services/operacionesService';
+import { TIPOS, EstadoOT, Prioridad, PlazoChip, ZonaChip, fechaCorta, serviciosTexto } from '../../components/opUi';
 import OrdenModal from './OrdenModal';
 import { traerTodo, reporteListado, fecha } from '../../components/pdf';
 
@@ -26,14 +27,20 @@ const Ordenes = () => {
     const [items, setItems] = useState([]);
     const [count, setCount] = useState(0);
     const [page, setPage] = useState(1);
-    const [f, setF] = useState({ search: '', tipo: '', zona: '' });
+    const [params] = useSearchParams();
+    // plazo: '' | 'vencidas' | 'por_vencer' (plazo ATT; se puede abrir desde el aviso de Programación)
+    const [f, setF] = useState({ search: '', tipo: '', zona: '', cuadrilla: '', plazo: params.get('plazo') || '' });
     const [zonas, setZonas] = useState([]);
+    const [cuadrillas, setCuadrillas] = useState([]);
     const [loading, setLoading] = useState(true);
     const [abierta, setAbierta] = useState(null);
     const [exportando, setExportando] = useState(false);
     const { fullName } = useUser();
 
-    useEffect(() => { zonasService.listar().then((r) => r.success && setZonas(r.data)); }, []);
+    useEffect(() => {
+        zonasService.listar().then((r) => r.success && setZonas(r.data));
+        cuadrillasService.listar().then((r) => r.success && setCuadrillas(r.data));
+    }, []);
 
     const cargar = useCallback(async () => {
         setLoading(true);
@@ -60,6 +67,8 @@ const Ordenes = () => {
             `Órdenes ${t.label.toLowerCase()}`,
             f.tipo && `Tipo: ${TIPOS.find((x) => x.codigo === f.tipo)?.corto}`,
             f.zona && `Zona: ${zonas.find((z) => String(z.id) === String(f.zona))?.nombre}`,
+            f.cuadrilla && `Cuadrilla: ${cuadrillas.find((c) => String(c.id) === String(f.cuadrilla))?.nombre}`,
+            f.plazo && `Plazo ATT: ${f.plazo === 'vencidas' ? 'vencidas' : 'por vencer'}`,
             f.search && `Búsqueda: "${f.search}"`,
         ].filter(Boolean).join('  ·  ');
         reporteListado({
@@ -76,12 +85,15 @@ const Ordenes = () => {
                 { titulo: 'Cliente', valor: (o) => `${o.cliente.nombre}\n${o.cliente.telefono || ''}` },
                 { titulo: 'Dirección / zona', valor: (o) => `${o.solicitud.direccion}\n${o.zona?.nombre || 'Sin zona'}` },
                 { titulo: 'Días', valor: (o) => String(o.dias) },
-                { titulo: 'Estado', valor: (o) => o.estado.nombre },
+                { titulo: 'Plazo ATT', valor: (o) => ({ EN_PLAZO: 'En plazo', POR_VENCER: 'Por vencer', VENCIDA: 'Vencida', CUMPLIDO: 'Cumplido', INCUMPLIDO: 'Fuera de plazo' }[o.plazo?.estado] || '—') },
+                { titulo: 'Estado', valor: (o) => [o.estado.nombre, o.fecha_programada && `${fecha(o.fecha_programada)}${o.cuadrilla ? ` · ${o.cuadrilla.nombre}` : ''}`].filter(Boolean).join('\n') },
             ],
             resumenes: [
                 { titulo: 'Por estado', clave: (o) => o.estado.nombre },
                 { titulo: 'Por tipo de trabajo', clave: (o) => o.tipo.nombre },
+                { titulo: 'Por plazo ATT', clave: (o) => ({ EN_PLAZO: 'En plazo', POR_VENCER: 'Por vencer', VENCIDA: 'Vencida', CUMPLIDO: 'Cumplido', INCUMPLIDO: 'Fuera de plazo' }[o.plazo?.estado] || 'Sin plazo') },
                 { titulo: 'Por zona', clave: (o) => o.zona?.nombre || 'Sin zona' },
+                { titulo: 'Por cuadrilla', clave: (o) => o.cuadrilla?.nombre || 'Sin cuadrilla' },
             ],
         });
     };
@@ -101,10 +113,11 @@ const Ordenes = () => {
             />
 
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-                <StatCard label="Pendientes de programar" value={resumen?.PENDIENTE} tone={resumen?.PENDIENTE ? 'text-amber-600' : 'text-gray-800'} />
+                {/* No ejecutadas vuelven a programarse; no se verifican */}
+                <StatCard label="Por programar" value={resumen ? (resumen.PENDIENTE || 0) + (resumen.NO_EJECUTADA || 0) : null} tone={resumen?.PENDIENTE || resumen?.NO_EJECUTADA ? 'text-amber-600' : 'text-gray-800'} />
                 <StatCard label="Urgentes abiertas" value={resumen?.urgentes} tone={resumen?.urgentes ? 'text-red-600' : 'text-gray-800'} />
-                <StatCard label="En campo" value={resumen ? (resumen.PROGRAMADA || 0) + (resumen.EN_CAMPO || 0) : null} />
-                <StatCard label="Por verificar" value={resumen ? (resumen.EJECUTADA || 0) + (resumen.NO_EJECUTADA || 0) : null} />
+                <StatCard label="Programadas / en campo" value={resumen ? (resumen.PROGRAMADA || 0) + (resumen.EN_CAMPO || 0) : null} />
+                <StatCard label="Por verificar" value={resumen?.EJECUTADA} />
             </div>
 
             <div className="border-b border-gray-200">
@@ -129,11 +142,20 @@ const Ordenes = () => {
                     <option value="">Todas las zonas</option>
                     {zonas.map((z) => <option key={z.id} value={z.id}>{z.nombre}</option>)}
                 </SelectInput>
+                <SelectInput className="lg:w-52" value={f.cuadrilla} onChange={setFiltro('cuadrilla')}>
+                    <option value="">Todas las cuadrillas</option>
+                    {cuadrillas.map((c) => <option key={c.id} value={c.id}>{c.nombre}{c.activo ? '' : ' (inactiva)'}</option>)}
+                </SelectInput>
+                <SelectInput className="lg:w-44" value={f.plazo} onChange={setFiltro('plazo')}>
+                    <option value="">Todo plazo ATT</option>
+                    <option value="vencidas">Vencidas</option>
+                    <option value="por_vencer">Por vencer</option>
+                </SelectInput>
             </Card>
 
             <Card className="overflow-hidden">
                 <div className="overflow-x-auto">
-                    <table className="w-full min-w-[900px] text-left text-sm">
+                    <table className="w-full min-w-[1000px] text-left text-sm">
                         <thead className="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                             <tr>
                                 <th className="px-4 py-3 font-semibold">OT</th>
@@ -141,12 +163,13 @@ const Ordenes = () => {
                                 <th className="px-4 py-3 font-semibold">Cliente</th>
                                 <th className="px-4 py-3 font-semibold">Ubicación</th>
                                 <th className="px-4 py-3 font-semibold">Antigüedad</th>
+                                <th className="px-4 py-3 font-semibold">Programación</th>
                                 <th className="px-4 py-3 font-semibold">Estado</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {loading && !items.length && <tr><td colSpan={6} className="py-12"><div className="flex justify-center text-orange-500"><Spinner className="h-6 w-6" /></div></td></tr>}
-                            {!loading && !items.length && <tr><td colSpan={6}><EmptyState icon={IoConstructOutline} title="No hay órdenes aquí" /></td></tr>}
+                            {loading && !items.length && <tr><td colSpan={7} className="py-12"><div className="flex justify-center text-orange-500"><Spinner className="h-6 w-6" /></div></td></tr>}
+                            {!loading && !items.length && <tr><td colSpan={7}><EmptyState icon={IoConstructOutline} title="No hay órdenes aquí" /></td></tr>}
                             {items.map((o) => {
                                 const abierta = ABIERTAS.includes(o.estado.codigo);
                                 return (
@@ -169,7 +192,13 @@ const Ordenes = () => {
                                         </td>
                                         <td className="px-4 py-3">
                                             <p className="text-gray-700">{fechaCorta(o.created_at)}</p>
-                                            <p className={cx('text-xs', abierta && o.dias >= 3 ? 'font-semibold text-red-600' : 'text-gray-500')}>{o.dias} día(s)</p>
+                                            <p className="text-xs text-gray-500">{o.dias} día(s)</p>
+                                            <p className="mt-1"><PlazoChip plazo={o.plazo} /></p>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            {o.fecha_programada
+                                                ? (<><p className="text-gray-700">{fechaCorta(o.fecha_programada)}</p><p className="text-xs text-gray-500">{o.cuadrilla?.nombre}</p></>)
+                                                : <span className="text-xs text-gray-400">Sin programar</span>}
                                         </td>
                                         <td className="px-4 py-3"><EstadoOT estado={o.estado} /></td>
                                     </tr>

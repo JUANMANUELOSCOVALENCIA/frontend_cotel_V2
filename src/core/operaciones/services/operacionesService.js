@@ -1,5 +1,5 @@
 // src/core/operaciones/services/operacionesService.js
-// Zonas de cobertura, solicitudes de clientes y órdenes de trabajo.
+// Zonas de cobertura, solicitudes de clientes, órdenes de trabajo, cuadrillas y vehículos.
 import { api } from '../../../services/api';
 import { ENDPOINTS, buildQuery } from '../../../services/endpoints';
 import { ejecutar } from '../../../services/apiError';
@@ -30,6 +30,39 @@ export const ordenesService = {
     listar: (params = {}) => ejecutar(() => api.get(`${ENDPOINTS.ORDENES}${buildQuery(params)}`), 'Error al cargar las órdenes'),
     obtener: (id) => ejecutar(() => api.get(ENDPOINTS.ORDEN_DETAIL(id)), 'Error al cargar la orden'),
     anular: (id, motivo) => ejecutar(() => api.post(ENDPOINTS.ORDEN_ANULAR(id), { motivo }), 'No se pudo anular'),
+    // Programación: { fecha: 'YYYY-MM-DD', almacen } → { fecha, cuadrillas: [{ ..., carga, integrantes, ordenes }] }
+    programacion: (params = {}) => ejecutar(() => api.get(`${ENDPOINTS.ORDENES_PROGRAMACION}${buildQuery(params)}`), 'Error al cargar la programación'),
+    // datos: { cuadrilla, fecha, motivo } (motivo obligatorio si ya estaba programada)
+    programar: (id, datos) => ejecutar(() => api.post(ENDPOINTS.ORDEN_PROGRAMAR(id), datos), 'No se pudo programar'),
+    programarVarias: (datos) => ejecutar(() => api.post(ENDPOINTS.ORDENES_PROGRAMAR_VARIAS, datos), 'No se pudo programar'),
+    desasignar: (id, motivo) => ejecutar(() => api.post(ENDPOINTS.ORDEN_DESASIGNAR(id), { motivo }), 'No se pudo desasignar'),
+    noEjecutada: (id, motivo) => ejecutar(() => api.post(ENDPOINTS.ORDEN_NO_EJECUTADA(id), { motivo }), 'No se pudo registrar'),
+    ordenarVisitas: (datos) => ejecutar(() => api.post(ENDPOINTS.ORDENES_ORDENAR_VISITAS, datos), 'No se pudo guardar el orden'),
+};
+
+export const vehiculosService = {
+    listar: (params = {}) => ejecutar(() => api.get(`${ENDPOINTS.VEHICULOS}${buildQuery(params)}`), 'Error al cargar los vehículos'),
+    // datos: { placa, descripcion, observaciones, activo, equipamiento: [{ nombre, cantidad, nota }] }
+    crear: (datos) => ejecutar(() => api.post(ENDPOINTS.VEHICULOS, datos), 'No se pudo registrar el vehículo'),
+    actualizar: (id, datos) => ejecutar(() => api.patch(ENDPOINTS.VEHICULO_DETAIL(id), datos), 'No se pudo guardar el vehículo'),
+    eliminar: (id) => ejecutar(() => api.delete(ENDPOINTS.VEHICULO_DETAIL(id)), 'No se pudo eliminar el vehículo'),
+};
+
+export const cuadrillasService = {
+    listar: (params = {}) => ejecutar(() => api.get(`${ENDPOINTS.CUADRILLAS}${buildQuery(params)}`), 'Error al cargar las cuadrillas'),
+    // datos: { nombre, almacen, vehiculo, zonas: [ids], capacidad_diaria, observaciones }
+    crear: (datos) => ejecutar(() => api.post(ENDPOINTS.CUADRILLAS, datos), 'No se pudo crear la cuadrilla'),
+    actualizar: (id, datos) => ejecutar(() => api.patch(ENDPOINTS.CUADRILLA_DETAIL(id), datos), 'No se pudo guardar la cuadrilla'),
+    eliminar: (id) => ejecutar(() => api.delete(ENDPOINTS.CUADRILLA_DETAIL(id)), 'No se pudo eliminar la cuadrilla'),
+    almacenes: () => ejecutar(() => api.get(ENDPOINTS.CUADRILLAS_ALMACENES), 'Error al cargar los almacenes'),
+    tecnicos: () => ejecutar(() => api.get(ENDPOINTS.CUADRILLAS_TECNICOS), 'Error al cargar los técnicos'),
+    agregarTecnico: (id, usuario, esJefe) => ejecutar(() => api.post(ENDPOINTS.CUADRILLA_ACCION(id, 'agregar_tecnico'), { usuario, es_jefe: esJefe }), 'No se pudo agregar el técnico'),
+    retirarTecnico: (id, usuario) => ejecutar(() => api.post(ENDPOINTS.CUADRILLA_ACCION(id, 'retirar_tecnico'), { usuario }), 'No se pudo retirar el técnico'),
+    marcarJefe: (id, usuario) => ejecutar(() => api.post(ENDPOINTS.CUADRILLA_ACCION(id, 'marcar_jefe'), { usuario }), 'No se pudo cambiar el jefe'),
+    desactivar: (id) => ejecutar(() => api.post(ENDPOINTS.CUADRILLA_ACCION(id, 'desactivar')), 'No se pudo desactivar'),
+    activar: (id) => ejecutar(() => api.post(ENDPOINTS.CUADRILLA_ACCION(id, 'activar')), 'No se pudo activar'),
+    // ONU y material que la cuadrilla tiene a su cargo (despachos sin rendir)
+    enPoder: (id) => ejecutar(() => api.get(ENDPOINTS.CUADRILLA_ACCION(id, 'en_poder')), 'Error al cargar lo que tiene la cuadrilla'),
 };
 
 export const clientesService = {
@@ -62,4 +95,32 @@ export const adicionalesApi = {
     actualizar: (id, datos) => ejecutar(() => api.patch(ENDPOINTS.ADICIONAL_DETAIL(id), datos), 'No se pudo guardar'),
     eliminar: (id) => ejecutar(() => api.delete(ENDPOINTS.ADICIONAL_DETAIL(id)), 'No se pudo eliminar'),
     cambiarEstado: (item) => ejecutar(() => api.patch(ENDPOINTS.ADICIONAL_DETAIL(item.id), { activo: !item.activo }), 'No se pudo cambiar el estado'),
+};
+
+export const despachosService = {
+    obtener: (id) => ejecutar(() => api.get(ENDPOINTS.DESPACHO_DETAIL(id)), 'Error al cargar el despacho'),
+    // { almacen, ordenes: [{ ..., servicios: { tv, telefonia }, lleva_onu, onu_obligatoria }], onus_disponibles,
+    //   material: [{ modelo_id, nombre, unidad, sugerido }], granel: [registros], despacho, pendiente_previo }
+    requerimiento: (cuadrilla, fecha) => ejecutar(() => api.get(`${ENDPOINTS.DESPACHOS_REQUERIMIENTO}${buildQuery({ cuadrilla, fecha })}`), 'Error al cargar lo que necesita el día'),
+    // ONU escaneada (GPON SN, MAC o código interno) disponible en el almacén de la cuadrilla
+    buscar: (cuadrilla, serie) => ejecutar(() => api.get(`${ENDPOINTS.DESPACHOS_BUSCAR}${buildQuery({ cuadrilla, serie })}`), 'No se encontró la ONU'),
+    // Buscador de ONU disponibles en el almacén de la cuadrilla (FIFO, paginado): { cuadrilla, search, modelo, tv, telefonia, page, page_size }
+    disponibles: (params) => ejecutar(() => api.get(`${ENDPOINTS.DESPACHOS_DISPONIBLES}${buildQuery(params)}`), 'Error al buscar ONU'),
+    // ONU (FIFO, modelo más sencillo compatible) que cubren las instalaciones del día que faltan: { onus, sin_stock }
+    sugerir: (cuadrilla, fecha, ya) => ejecutar(() => api.get(`${ENDPOINTS.DESPACHOS_SUGERIR}${buildQuery({ cuadrilla, fecha, ya: ya.join(',') })}`), 'No se pudo sugerir'),
+    // datos: { cuadrilla, fecha, onus: [ids], materiales: [{ material, cantidad }], observaciones }
+    despachar: (datos) => ejecutar(() => api.post(ENDPOINTS.DESPACHOS, datos), 'No se pudo registrar el despacho'),
+    // datos: { equipos: [{ id, resultado, orden }], materiales: [{ id, devuelta, consumos: [{ orden, cantidad }] }],
+    //          recuperados: [{ orden, serial, observacion }], observaciones }
+    rendir: (id, datos) => ejecutar(() => api.post(ENDPOINTS.DESPACHO_RENDIR(id), datos), 'No se pudo registrar la rendición'),
+    anular: (id, motivo) => ejecutar(() => api.post(ENDPOINTS.DESPACHO_ANULAR(id), { motivo }), 'No se pudo anular el despacho'),
+};
+
+export const kitsService = {
+    listar: () => ejecutar(() => api.get(ENDPOINTS.KITS), 'Error al cargar los kits'),
+    materiales: () => ejecutar(() => api.get(ENDPOINTS.KITS_MATERIALES), 'Error al cargar los materiales'),
+    // datos: { tipo, condicion, modelo, cantidad }
+    crear: (datos) => ejecutar(() => api.post(ENDPOINTS.KITS, datos), 'No se pudo agregar'),
+    actualizar: (id, datos) => ejecutar(() => api.patch(ENDPOINTS.KIT_DETAIL(id), datos), 'No se pudo guardar'),
+    eliminar: (id) => ejecutar(() => api.delete(ENDPOINTS.KIT_DETAIL(id)), 'No se pudo quitar'),
 };

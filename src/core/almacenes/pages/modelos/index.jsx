@@ -42,6 +42,11 @@ const Modelos = () => {
                 <div className="space-y-1">
                     <Badge color={m.tipo_material_info?.es_unico ? 'purple' : 'blue'}>{m.tipo_material_info?.nombre}</Badge>
                     <p className="text-xs text-gray-500">Unidad: {m.unidad_medida_info?.simbolo || m.unidad_medida_info?.nombre}</p>
+                    {m.tipo_material_info?.es_unico && (
+                        <p className="text-xs text-gray-500" title="Según los puertos que se prueban en laboratorio (CATV y telefonía)">
+                            Servicios: Internet{m.soporta_tv ? ' + TV' : ''}{m.soporta_telefonia ? ' + Telefonía' : ''}
+                        </p>
+                    )}
                     {m.requiere_inspeccion_inicial && (
                         <div>
                             <Badge color="amber">Va a laboratorio</Badge>
@@ -116,9 +121,9 @@ const Modelos = () => {
                     />
                 </div>
                 {campo({ name: 'descripcion', label: 'Descripción', type: 'textarea', rows: 2 })}
-                {tipo?.es_unico && valores.requiere_inspeccion_inicial && (
+                {tipo?.es_unico && (
                     <div className="sm:col-span-2">
-                        <Field label="Pruebas de laboratorio" required error={errores.pruebas_laboratorio} hint="Marca solo lo que tiene este equipo (por ejemplo, sin CATV ni telefonía si no trae esos puertos).">
+                        <Field label="Puertos y pruebas de laboratorio" required error={errores.pruebas_laboratorio} hint="Marca solo lo que tiene este equipo. Sin CATV no sirve para TV cable y sin telefonía no sirve para líneas: el despacho lo usa para elegir la ONU de cada instalación.">
                             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                                 {PRUEBAS_LAB.map((p) => {
                                     const marcada = valores.pruebas_laboratorio.includes(p.campo);
@@ -180,7 +185,7 @@ const Modelos = () => {
                 marca: !v.marca ? 'Elige la marca' : undefined,
                 tipo_material: !v.tipo_material ? 'Elige el tipo' : undefined,
                 unidad_medida: !v.unidad_medida ? 'Elige la unidad' : undefined,
-                pruebas_laboratorio: tipoPorId[v.tipo_material]?.es_unico && v.requiere_inspeccion_inicial && !v.pruebas_laboratorio.length ? 'Marca al menos una prueba' : undefined,
+                pruebas_laboratorio: tipoPorId[v.tipo_material]?.es_unico && !v.pruebas_laboratorio.length ? 'Marca al menos una prueba' : undefined,
             })}
             preparar={(v) => {
                 const t = tipoPorId[v.tipo_material];

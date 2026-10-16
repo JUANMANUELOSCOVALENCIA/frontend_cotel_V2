@@ -1,5 +1,6 @@
 // src/core/operaciones/pages/ordenes/OrdenModal.jsx
 // Detalle de una orden de trabajo con su historial de estados.
+// Programar / reprogramar / desasignar / no ejecutada; EN CAMPO y EJECUTADA llegan desde la app del técnico.
 import React, { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Modal, Button, Spinner, Field, TextArea } from '../../../../shared/components/ui';
@@ -8,9 +9,20 @@ import { ordenesService } from '../../services/operacionesService';
 import { useUser } from '../../../auth/hooks/useAuth';
 import { imprimirOT } from '../../components/pdf';
 import UbicacionMapa from '../../components/UbicacionMapa';
-import { EstadoOT, Prioridad, ZonaChip, fechaHora, fechaCorta, serviciosTexto } from '../../components/opUi';
+import { EstadoOT, PlazoChip, Prioridad, ZonaChip, fechaHora, fechaCorta, serviciosTexto } from '../../components/opUi';
+import ProgramarModal from '../../components/ProgramarModal';
 
 const ANULABLES = ['PENDIENTE', 'PROGRAMADA', 'NO_EJECUTADA'];
+const PROGRAMABLES = ['PENDIENTE', 'PROGRAMADA', 'NO_EJECUTADA'];
+const DESASIGNABLES = ['PROGRAMADA', 'NO_EJECUTADA'];
+const NO_EJECUTABLES = ['PROGRAMADA', 'EN_CAMPO'];
+
+// Acciones que piden motivo
+const MODOS = {
+    anular: { titulo: 'Motivo de la anulación', boton: 'Anular OT', variant: 'danger', placeholder: 'Ej: el cliente desistió' },
+    desasignar: { titulo: 'Motivo para desasignar', boton: 'Desasignar', variant: 'primary', placeholder: 'Ej: falta material para este trabajo', hint: 'La OT vuelve a pendientes, sin cuadrilla ni fecha.' },
+    no_ejecutada: { titulo: 'Motivo por el que no se ejecutó', boton: 'Registrar', variant: 'primary', placeholder: 'Ej: cliente ausente', hint: 'La OT aparece en Programación para reprogramarla.' },
+};
 
 const Dato = ({ label, children, className }) => (
     <div className={className}>
@@ -21,7 +33,8 @@ const Dato = ({ label, children, className }) => (
 
 const OrdenModal = ({ id, open, zonas, puedeEditar, onClose, onCambio }) => {
     const [o, setO] = useState(null);
-    const [anulando, setAnulando] = useState(false);
+    const [modo, setModo] = useState(null); // 'anular' | 'desasignar' | 'no_ejecutada'
+    const [programando, setProgramando] = useState(false);
     const [motivo, setMotivo] = useState('');
     const [error, setError] = useState('');
     const [guardando, setGuardando] = useState(false);
@@ -32,19 +45,24 @@ const OrdenModal = ({ id, open, zonas, puedeEditar, onClose, onCambio }) => {
         if (r.success) setO(r.data); else { toast.error(r.error); onClose(); }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id]);
-    useEffect(() => { if (open && id) { setO(null); setAnulando(false); setMotivo(''); setError(''); cargar(); } }, [open, id, cargar]);
+    useEffect(() => { if (open && id) { setO(null); setModo(null); setMotivo(''); setError(''); cargar(); } }, [open, id, cargar]);
 
-    const anular = async () => {
+    const confirmar = async () => {
         if (motivo.trim().length < 5) { setError('Indica el motivo (mínimo 5 caracteres).'); return; }
         setGuardando(true);
-        const r = await ordenesService.anular(o.id, motivo.trim());
+        const accion = { anular: ordenesService.anular, desasignar: ordenesService.desasignar, no_ejecutada: ordenesService.noEjecutada }[modo];
+        const r = await accion(o.id, motivo.trim());
         setGuardando(false);
         if (!r.success) { setError(r.error); return; }
         toast.success(r.data.message);
-        setO(r.data); setAnulando(false); onCambio?.();
+        setO(r.data); setModo(null); setMotivo(''); onCambio?.();
     };
+    const empezar = (m) => { setModo(m); setMotivo(''); setError(''); };
 
-    const sePuedeAnular = o && puedeEditar && ANULABLES.includes(o.estado.codigo);
+    const estado = o?.estado.codigo;
+    const sePuedeAnular = o && puedeEditar && ANULABLES.includes(estado);
+    const sePuedeProgramar = o && puedeEditar && PROGRAMABLES.includes(estado);
+    const m = modo && MODOS[modo];
 
     return (
         <Modal
@@ -54,16 +72,19 @@ const OrdenModal = ({ id, open, zonas, puedeEditar, onClose, onCambio }) => {
             size="xl"
             title={o ? `Orden de trabajo ${o.numero}` : 'Orden de trabajo'}
             subtitle={o && `${o.tipo.nombre} · solicitud ${o.solicitud.numero}`}
-            footer={anulando ? (
+            footer={m ? (
                 <>
-                    <Button variant="ghost" onClick={() => setAnulando(false)} disabled={guardando}>Volver</Button>
-                    <Button variant="danger" onClick={anular} loading={guardando}>Anular OT</Button>
+                    <Button variant="ghost" onClick={() => setModo(null)} disabled={guardando}>Volver</Button>
+                    <Button variant={m.variant} onClick={confirmar} loading={guardando}>{m.boton}</Button>
                 </>
             ) : (
                 <>
-                    {sePuedeAnular && <Button variant="ghost" className="mr-auto text-red-600" onClick={() => { setAnulando(true); setError(''); }}>Anular</Button>}
+                    {sePuedeAnular && <Button variant="ghost" className="mr-auto text-red-600" onClick={() => empezar('anular')}>Anular</Button>}
+                    {puedeEditar && NO_EJECUTABLES.includes(estado) && <Button variant="ghost" onClick={() => empezar('no_ejecutada')}>No ejecutada</Button>}
+                    {puedeEditar && DESASIGNABLES.includes(estado) && <Button variant="ghost" onClick={() => empezar('desasignar')}>Desasignar</Button>}
                     <Button variant="ghost" onClick={onClose}>Cerrar</Button>
-                    {o && o.estado.codigo !== 'ANULADA' && <Button variant="secondary" icon={IoPrintOutline} onClick={() => imprimirOT(o, fullName)}>Imprimir OT</Button>}
+                    {o && estado !== 'ANULADA' && <Button variant="secondary" icon={IoPrintOutline} onClick={() => imprimirOT(o, fullName)}>Imprimir OT</Button>}
+                    {sePuedeProgramar && <Button onClick={() => setProgramando(true)}>{estado === 'PROGRAMADA' ? 'Reprogramar' : 'Programar'}</Button>}
                 </>
             )}
         >
@@ -73,6 +94,7 @@ const OrdenModal = ({ id, open, zonas, puedeEditar, onClose, onCambio }) => {
                         <EstadoOT estado={o.estado} />
                         <Prioridad valor={o.prioridad} />
                         <span className="text-xs text-gray-500">{o.estado.codigo === 'ANULADA' || o.estado.codigo === 'CERRADA' ? `Duró ${o.dias} día(s)` : `Abierta hace ${o.dias} día(s)`}</span>
+                        <PlazoChip plazo={o.plazo} />
                     </div>
 
                     {o.ubicacion.referencia && (
@@ -82,11 +104,11 @@ const OrdenModal = ({ id, open, zonas, puedeEditar, onClose, onCambio }) => {
                         </div>
                     )}
 
-                    {anulando && (
+                    {m && (
                         <div className="space-y-2">
                             {error && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-red-700">{error}</div>}
-                            <Field label="Motivo de la anulación" required hint={`La solicitud ${o.solicitud.numero} también queda anulada.`}>
-                                <TextArea rows={2} value={motivo} onChange={(e) => { setMotivo(e.target.value); setError(''); }} autoFocus placeholder="Ej: el cliente desistió" />
+                            <Field label={m.titulo} required hint={modo === 'anular' ? `La solicitud ${o.solicitud.numero} también queda anulada.` : m.hint}>
+                                <TextArea rows={2} value={motivo} onChange={(e) => { setMotivo(e.target.value); setError(''); }} autoFocus placeholder={m.placeholder} />
                             </Field>
                         </div>
                     )}
@@ -95,7 +117,13 @@ const OrdenModal = ({ id, open, zonas, puedeEditar, onClose, onCambio }) => {
                         <dl className="grid grid-cols-2 content-start gap-x-4 gap-y-3 rounded-xl border border-gray-200 p-4">
                             <Dato label="Cliente" className="col-span-2">{o.cliente.nombre} <span className="text-gray-500">· CI {o.cliente.ci}</span></Dato>
                             <Dato label="Teléfono">{o.cliente.telefono}</Dato>
-                            <Dato label="Programada para">{o.fecha_programada ? fechaCorta(o.fecha_programada) : 'Sin programar'}</Dato>
+                            <Dato label="Programada para">{o.fecha_programada ? `${fechaCorta(o.fecha_programada)}${o.cuadrilla ? ` · ${o.cuadrilla.nombre}` : ''}` : 'Sin programar'}</Dato>
+                            {o.cuadrilla && (
+                                <Dato label="Cuadrilla" className="col-span-2">
+                                    {o.cuadrilla.integrantes.map((i) => `${i.usuario.nombre}${i.es_jefe ? ' (jefe)' : ''}`).join(', ') || 'Sin técnicos'}
+                                    {o.cuadrilla.vehiculo && <span className="text-gray-500"> · {o.cuadrilla.vehiculo.placa} {o.cuadrilla.vehiculo.descripcion}</span>}
+                                </Dato>
+                            )}
                             {o.solicitud.plan && <Dato label="Plan y servicios" className="col-span-2">{o.solicitud.plan} <span className="text-gray-500">· {serviciosTexto(o.solicitud.servicios)}</span></Dato>}
                             <Dato label="Dirección" className="col-span-2">{o.solicitud.direccion}{o.solicitud.zona_referencia ? `, ${o.solicitud.zona_referencia}` : ''}</Dato>
                             <Dato label="Zona" className="col-span-2"><ZonaChip zona={o.zona} /></Dato>
@@ -117,6 +145,12 @@ const OrdenModal = ({ id, open, zonas, puedeEditar, onClose, onCambio }) => {
                     </div>
                 </div>
             )}
+            <ProgramarModal
+                open={programando}
+                ordenes={o ? [o] : []}
+                onClose={() => setProgramando(false)}
+                onHecho={() => { setProgramando(false); cargar(); onCambio?.(); }}
+            />
         </Modal>
     );
 };
