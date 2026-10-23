@@ -311,7 +311,7 @@ const Cobertura = () => {
         <div className="space-y-6">
             <PageHeader
                 title="Cobertura"
-                subtitle="Zonas donde COTEL puede instalar fibra. Las solicitudes fuera de estas zonas quedan como «sin cobertura»."
+                subtitle="Zonas donde COTEL puede instalar fibra"
                 actions={(
                     <>
                         {zonas.length > 0 && <Button variant="secondary" icon={IoDownloadOutline} onClick={exportar}>Exportar</Button>}

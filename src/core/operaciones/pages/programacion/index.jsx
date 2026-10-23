@@ -206,7 +206,7 @@ const Programacion = () => {
         <div className="space-y-6">
             <PageHeader
                 title="Programación"
-                subtitle="Asigna las OT pendientes a una cuadrilla y una fecha. Urgentes primero, luego las más antiguas."
+                subtitle="Asigna las OT a una cuadrilla y una fecha"
                 actions={<Button variant="secondary" icon={IoRefreshOutline} onClick={recargar} disabled={cargandoTablero || cargandoPend}>Actualizar</Button>}
             />
 

@@ -410,3 +410,142 @@ export const imprimirValeDespacho = (d, usuario) => {
     piePaginas(doc, `COTEL R.L. · Vale de salida ${d.numero} · ${d.cuadrilla.nombre}`);
     doc.save(`vale_${d.numero}.pdf`);
 };
+
+const num = (n, dec = 0) => (n === null || n === undefined ? '—' : Number(n).toLocaleString('es-BO', { maximumFractionDigits: dec }));
+const FUENTE = { CONSUMO: 'Consumo registrado', ESTIMADA: 'Estimada' };
+
+/** Reporte de inventario: modelo EOQ, punto de reorden, stock y cobertura (y cumplimiento ATT del mes). */
+export const reporteEOQ = (datos, indicadores, usuario) => {
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+    const p = datos.defecto;
+    let y = encabezado(doc, 'Inventario: modelo EOQ y punto de reorden', [
+        `Al ${fecha(datos.fecha)}   |   Demanda D: consumo de los últimos ${datos.periodo_dias} días llevado a un año (si no hay consumo, D estimada)`,
+        `EOQ = raíz(2·D·S / H)   |   Punto de reorden = d × L (d = D/365)   |   Por defecto ONU: S = ${bs(p.S)}, H = ${bs(p.H)}/año, L = ${p.L} días, D estimada = ${num(p.D_estimada)}/año`,
+        `Generado: ${ahora()}   |   Por: ${usuario}`,
+    ]);
+    autoTable(doc, {
+        ...estiloTabla,
+        startY: y,
+        head: [['Modelo', 'Stock', `Consumo ${datos.periodo_dias} d`, 'D anual', 'Fuente de D', 'S (Bs)', 'H (Bs)', 'L (días)', 'EOQ', 'Reorden', 'Cobertura (días)', 'Estado']],
+        body: datos.filas.map((f) => [
+            `${f.modelo.nombre} (${f.modelo.unidad})`, num(f.stock, 2), num(f.consumo_periodo, 2), num(f.demanda_anual, 1), FUENTE[f.fuente] || '—',
+            f.parametros ? num(f.parametros.S, 2) : '—', f.parametros ? num(f.parametros.H, 2) : '—', f.parametros ? f.parametros.L : '—',
+            num(f.eoq), num(f.rop), num(f.cobertura_dias, 1),
+            f.eoq === null ? 'Sin parámetros' : f.pedir ? 'PEDIR AHORA' : 'Stock suficiente',
+        ]),
+        didParseCell: (d) => { if (d.section === 'body' && d.column.index === 11 && d.cell.raw === 'PEDIR AHORA') { d.cell.styles.textColor = [220, 38, 38]; d.cell.styles.fontStyle = 'bold'; } },
+    });
+    y = doc.lastAutoTable.finalY + 22;
+
+    // Consumo de ONU por mes y cumplimiento ATT, lado a lado
+    if (y > doc.internal.pageSize.getHeight() - 170) { doc.addPage(); y = 50; }
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(...OSCURO);
+    doc.text('ONU instaladas por mes', MARGEN, y);
+    autoTable(doc, {
+        ...estiloTabla, startY: y + 8, tableWidth: 260, margin: { left: MARGEN },
+        head: [['Mes', 'ONU instaladas']],
+        body: datos.consumo_mensual.map((m) => [m.mes, num(m.onu)]),
+        columnStyles: { 1: { halign: 'right' } },
+    });
+    if (indicadores) {
+        const x = MARGEN + 300;
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(...OSCURO);
+        doc.text(`Plazo ATT (RAR 589/2025), mes desde ${fecha(indicadores.mes)}`, x, y);
+        autoTable(doc, {
+            ...estiloTabla, startY: y + 8, tableWidth: 360, margin: { left: x },
+            head: [['Indicador', 'En plazo', 'Total', '%', 'Meta']],
+            body: [
+                ['TIS: instalación y traslado (7 días)', indicadores.att.TIS.en_plazo, indicadores.att.TIS.total, indicadores.att.TIS.porcentaje ?? '—', '>= 85 %'],
+                ['TRF: reparación de fallas (24 h)', indicadores.att.TRF.en_plazo, indicadores.att.TRF.total, indicadores.att.TRF.porcentaje ?? '—', '>= 85 %'],
+                ['OT en curso vencidas / por vencer', indicadores.plazos.vencidas, indicadores.plazos.por_vencer, '', ''],
+            ],
+        });
+    }
+    piePaginas(doc, 'COTEL R.L. · Inventario: modelo EOQ');
+    doc.save(nombreArchivo('inventario_eoq'));
+};
+
+/** Historial completo de una OT: datos, trabajo en campo (reporte y fotos) y cambios de estado. */
+export const reporteHistorialOT = (o, usuario) => {
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+    let y = encabezado(doc, `Historial de la ${o.numero}`, [
+        `${o.tipo.nombre}   |   Estado: ${o.estado.nombre}   |   Solicitud ${o.solicitud.numero} (${fechaHora(o.created_at)})`,
+        `Cliente: ${o.cliente.nombre} (CI ${o.cliente.ci})   |   ${o.solicitud.direccion}`,
+        `Generado: ${ahora()} por ${usuario}`,
+    ]);
+    const pz = { EN_PLAZO: 'En plazo', POR_VENCER: 'Por vencer', VENCIDA: 'Vencida', CUMPLIDO: 'Atendida en plazo', INCUMPLIDO: 'Atendida fuera de plazo' }[o.plazo?.estado];
+    y = pares(doc, y, [
+        ['Programación', o.fecha_programada ? `${fecha(o.fecha_programada)} · ${o.cuadrilla?.nombre || ''}` : 'Sin programar'],
+        ['Plazo ATT', pz ? `${pz} (límite ${fechaHora(o.plazo.limite)})` : 'Sin plazo'],
+    ]);
+    if (o.reporte_campo || o.evidencias?.length) {
+        y = seccion(doc, y, 'Trabajo en campo');
+        const r = o.reporte_campo;
+        if (r) {
+            y = pares(doc, y, [
+                ['Informado por', `${r.usuario} · ${fechaHora(r.fecha)}`],
+                ['ONU instalada', r.onu ? `${r.onu.gpon_serial} · ${r.onu.modelo}` : '—'],
+                ['Material', r.materiales.map((m) => `${m.nombre} ${m.cantidad} ${m.unidad}`).join(' · ') || '—', true],
+                r.serial_recuperado && ['Equipo recuperado', r.serial_recuperado],
+                r.observaciones && ['Observaciones', r.observaciones, true],
+            ]);
+        }
+        if (o.evidencias?.length) {
+            autoTable(doc, {
+                ...estiloTabla, startY: y,
+                head: [['Fecha (servidor)', 'Foto', 'Estado', 'Distancia', 'CNN', 'Tomada por', 'Motivo']],
+                body: o.evidencias.map((e) => [fechaHora(e.fecha), e.tipo.nombre, e.estado.nombre, `${Math.round(e.distancia_m)} m`, e.cnn.nombre, e.tomada_por, e.motivo || '']),
+            });
+            y = doc.lastAutoTable.finalY + 14;
+        }
+    }
+    y = seccion(doc, y, 'Cambios de estado');
+    autoTable(doc, {
+        ...estiloTabla, startY: y,
+        head: [['Fecha', 'Estado', 'Usuario', 'Detalle']],
+        body: o.historial.map((h) => [fechaHora(h.fecha), h.estado_nuevo?.nombre || '', h.usuario || 'Sistema', h.observacion || '']),
+        columnStyles: { 0: { cellWidth: 98 }, 1: { cellWidth: 75 }, 2: { cellWidth: 95 } },
+    });
+    piePaginas(doc, `COTEL R.L. · Historial ${o.numero}`);
+    doc.save(nombreArchivo(`historial_${o.numero}`));
+};
+
+/** Historial (trazabilidad) de un equipo o registro de material: datos, laboratorio y movimientos. */
+export const reporteHistorialEquipo = (m, usuario) => {
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+    const unico = m.tipo_material_info?.es_unico;
+    const nombre = unico ? (m.gpon_serial || m.codigo_interno) : `${m.modelo_info?.marca || ''} ${m.modelo_info?.nombre || ''}`.trim();
+    let y = encabezado(doc, `Trazabilidad ${nombre}`, [
+        `${m.modelo_info?.marca || ''} ${m.modelo_info?.nombre || ''} · código ${m.codigo_interno}   |   Estado: ${m.estado_display?.nombre || '—'}`,
+        `Generado: ${ahora()} por ${usuario}`,
+    ]);
+    y = pares(doc, y, [
+        unico && ['GPON Serial', m.gpon_serial], unico && ['MAC', m.mac_address], unico && ['D-SN', m.serial_manufacturer],
+        !unico && ['Cantidad', `${Number(m.cantidad).toLocaleString('es-BO')} ${m.modelo_info?.unidad_medida || ''}`],
+        ['Almacén actual', m.almacen_info?.nombre], ['Lote', m.lote_info?.numero_lote],
+        ['Proveedor', m.lote_info?.proveedor_info?.nombre_comercial], ['Ingreso', fecha(m.created_at)],
+    ], 3);
+    if (unico && m.inspecciones?.length) {
+        y = seccion(doc, y, 'Laboratorio');
+        autoTable(doc, {
+            ...estiloTabla, startY: y,
+            head: [['Fecha', 'Resultado', 'Informe', 'Técnico', 'Fallas / observaciones']],
+            body: m.inspecciones.map((i) => [fechaHora(i.fecha), i.aprobado ? 'Aprobado' : 'Rechazado', i.numero_informe || '', i.tecnico || '',
+                [...(i.fallas || []), i.observaciones].filter(Boolean).join(' · ')]),
+        });
+        y = doc.lastAutoTable.finalY + 14;
+    }
+    y = seccion(doc, y, 'Movimientos');
+    autoTable(doc, {
+        ...estiloTabla, startY: y,
+        head: [['Fecha', 'Movimiento', 'Estado', 'Almacén', 'Usuario', 'Observaciones']],
+        body: (m.historial || []).map((h) => [
+            fechaHora(h.fecha_cambio), h.motivo || '', [h.estado_anterior, h.estado_nuevo].filter(Boolean).join(' > '),
+            h.almacen_anterior && h.almacen_nuevo && h.almacen_anterior !== h.almacen_nuevo ? `${h.almacen_anterior} > ${h.almacen_nuevo}` : (h.almacen_nuevo || ''),
+            h.usuario || '', h.observaciones || '',
+        ]),
+        columnStyles: { 0: { cellWidth: 98 }, 2: { cellWidth: 110 } },
+    });
+    piePaginas(doc, `COTEL R.L. · Trazabilidad ${nombre}`);
+    doc.save(nombreArchivo(`trazabilidad_${nombre}`));
+};

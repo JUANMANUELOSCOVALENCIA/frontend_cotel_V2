@@ -81,7 +81,6 @@ const ClienteModal = ({ id, puedeEditar, onClose, onCambio }) => {
                 <div className="space-y-6 text-sm">
                     <div className="flex flex-wrap items-center gap-2">
                         <Situacion valor={situacion} />
-                        {c.prueba && <Badge color="purple">Datos de prueba</Badge>}
                     </div>
 
                     {d && d.facturas > 0 && (
@@ -95,9 +94,6 @@ const ClienteModal = ({ id, puedeEditar, onClose, onCambio }) => {
                         titulo="Datos del cliente"
                         extra={puedeEditar && !editando && <Button variant="ghost" icon={IoCreateOutline} className="h-8 py-0" onClick={editar}>Editar</Button>}
                     >
-                        {c.prueba && !editando && (
-                            <p className="text-xs text-purple-700">Nombre y dirección inventados (el CI y la deuda vienen de los datos de COTEL). Al corregir el nombre deja de ser de prueba.</p>
-                        )}
                         {editando ? (
                             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                 <Field label="Nombres" required error={errores.nombres}><TextInput value={v.nombres} onChange={set('nombres')} maxLength={100} error={errores.nombres} /></Field>

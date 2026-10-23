@@ -2,11 +2,13 @@
 // Ficha de un equipo (o registro de material a granel): datos, laboratorio e historial.
 import React, { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { IoCopyOutline, IoCheckmarkCircle, IoCloseCircle, IoSwapHorizontalOutline } from 'react-icons/io5';
+import { IoCopyOutline, IoCheckmarkCircle, IoCloseCircle, IoSwapHorizontalOutline, IoDownloadOutline } from 'react-icons/io5';
 import { Modal, Button, Badge, Spinner, Field, SelectInput, TextArea, cx } from '../../../../shared/components/ui';
 import inventarioService from '../../services/inventarioService';
 import { EstadoMaterialBadge, fechaHora } from './inventarioUi';
 import { fecha } from '../lotes/loteUi';
+import { useUser } from '../../../auth/hooks/useAuth';
+import { reporteHistorialEquipo } from '../../../operaciones/components/pdf';
 
 const Dato = ({ label, children, mono, copiar }) => (
     <div>
@@ -27,6 +29,7 @@ const MaterialDetalleModal = ({ materialId, open, onClose, estados = [], puedeEd
     const [m, setM] = useState(null);
     const [corregir, setCorregir] = useState(null); // { estado, motivo }
     const [guardando, setGuardando] = useState(false);
+    const { fullName } = useUser();
 
     const cargar = useCallback(async () => {
         if (!materialId) return;
@@ -59,7 +62,12 @@ const MaterialDetalleModal = ({ materialId, open, onClose, estados = [], puedeEd
             size="lg"
             title={m ? (esUnico ? m.gpon_serial || m.codigo_interno : `${m.modelo_info?.marca} ${m.modelo_info?.nombre}`) : 'Equipo'}
             subtitle={m && `${m.modelo_info?.marca} ${m.modelo_info?.nombre} · ${m.codigo_interno}`}
-            footer={<Button variant="ghost" onClick={onClose}>Volver</Button>}
+            footer={(
+                <>
+                    <Button variant="ghost" onClick={onClose}>Volver</Button>
+                    {m && <Button variant="secondary" icon={IoDownloadOutline} onClick={() => reporteHistorialEquipo(m, fullName)}>Historial PDF</Button>}
+                </>
+            )}
         >
             {!m ? <div className="flex justify-center py-12 text-orange-500"><Spinner className="h-6 w-6" /></div> : (
                 <div className="space-y-6 text-sm">

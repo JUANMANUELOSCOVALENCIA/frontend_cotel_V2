@@ -101,7 +101,7 @@ const Solicitudes = () => {
         <div className="space-y-6">
             <PageHeader
                 title="Solicitudes"
-                subtitle="Pedidos de los clientes. Cada solicitud con cobertura genera su orden de trabajo."
+                subtitle="Pedidos de los clientes; cada una con cobertura genera su OT"
                 actions={(
                     <>
                         <Button variant="secondary" icon={IoRefreshOutline} onClick={cargar} disabled={loading}>Actualizar</Button>

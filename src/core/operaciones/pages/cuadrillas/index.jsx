@@ -157,7 +157,7 @@ const CuadrillasPage = () => {
     const permisos = { puedeCrear: hasPermission('cuadrillas', 'crear'), puedeEditar: hasPermission('cuadrillas', 'actualizar') };
     return (
         <div className="space-y-6">
-            <PageHeader title="Cuadrillas" subtitle="Equipos de campo: un vehículo y de 2 a 3 técnicos con rol Técnico, uno de ellos jefe." />
+            <PageHeader title="Cuadrillas" subtitle="Equipos de campo: vehículo y 2 a 3 técnicos con un jefe" />
             <div className="border-b border-gray-200">
                 <nav className="-mb-px flex gap-6">
                     {PESTANAS.map((t) => (

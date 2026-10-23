@@ -4,6 +4,7 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { IoCloseOutline, IoSearchOutline, IoChevronBack, IoChevronForward } from 'react-icons/io5';
+import { usePageBar } from './pageBar';
 
 export const cx = (...c) => c.filter(Boolean).join(' ');
 
@@ -81,15 +82,23 @@ export const Card = ({ className, children }) => (
     <div className={cx('rounded-xl border border-gray-200 bg-white shadow-sm', className)}>{children}</div>
 );
 
-export const PageHeader = ({ title, subtitle, actions }) => (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-            <h2 className="text-2xl font-bold text-gray-800">{title}</h2>
-            {subtitle && <p className="text-sm text-gray-500">{subtitle}</p>}
-        </div>
-        {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
-    </div>
-);
+// Encabezado de página: no se dibuja dentro de la página. La descripción (`subtitle`) y las
+// acciones (`actions`) van a la barra superior, junto al título que ya muestra el menú.
+// `title` se acepta por compatibilidad (el título sale del menú). Fuera del layout, se dibujan aquí.
+// eslint-disable-next-line no-unused-vars
+export const PageHeader = ({ title, subtitle, actions }) => {
+    const barra = usePageBar();
+    const texto = typeof subtitle === 'string' ? subtitle : '';
+    useEffect(() => {
+        if (!barra) return undefined;
+        barra.setDescripcion(texto);
+        return () => barra.setDescripcion('');
+    }, [barra, texto]);
+    if (!actions) return null;
+    const fila = <div className="flex flex-wrap items-center gap-2">{actions}</div>;
+    if (barra?.slot) return createPortal(fila, barra.slot);
+    return barra ? null : <div className="flex justify-end">{fila}</div>;
+};
 
 export const StatCard = ({ label, value, tone = 'text-gray-800' }) => (
     <Card className="p-4">

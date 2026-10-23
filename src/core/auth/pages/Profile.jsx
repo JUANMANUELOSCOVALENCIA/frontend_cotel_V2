@@ -7,9 +7,6 @@ const Profile = () => {
 
     return (
         <div className="space-y-6">
-            <Typography variant="h3" color="blue-gray">
-                Mi Perfil
-            </Typography>
             <Card>
                 <CardBody>
                     <div className="space-y-4">
@@ -37,4 +34,4 @@ const Profile = () => {
     );
 };
 
-export default Profile;
+export default Profile;

@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { IoRefreshOutline, IoPeopleCircleOutline } from 'react-icons/io5';
 import { usePermissions } from '../../../permissions/hooks/usePermissions';
-import { PageHeader, Card, Button, StatCard, SearchInput, SelectInput, Badge, EmptyState, Spinner, Pager } from '../../../../shared/components/ui';
+import { PageHeader, Card, Button, StatCard, SearchInput, SelectInput, EmptyState, Spinner, Pager } from '../../../../shared/components/ui';
 import { clientesService } from '../../services/operacionesService';
 import { fechaCorta } from '../../components/opUi';
 import ClienteModal, { Situacion, bs } from './ClienteModal';
@@ -18,7 +18,7 @@ const Clientes = () => {
     const [items, setItems] = useState([]);
     const [count, setCount] = useState(0);
     const [page, setPage] = useState(1);
-    const [f, setF] = useState({ search: '', situacion: '', prueba: '' });
+    const [f, setF] = useState({ search: '', situacion: '' });
     const [loading, setLoading] = useState(true);
     const [abierto, setAbierto] = useState(null);
 
@@ -39,16 +39,14 @@ const Clientes = () => {
         <div className="space-y-6">
             <PageHeader
                 title="Clientes"
-                subtitle={resumen
-                    ? `Un contrato con ${resumen.facturas_bloqueo} o más facturas impagas bloquea ${tipos}. La deuda se revisa sola al buscar el CI en una solicitud.`
-                    : 'Clientes, contratos y deuda'}
+                subtitle="Contratos y deuda de cada cliente"
                 actions={<Button variant="secondary" icon={IoRefreshOutline} onClick={() => { cargar(); cargarResumen(); }} disabled={loading}>Actualizar</Button>}
             />
 
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
                 <StatCard label="Clientes" value={resumen?.clientes?.toLocaleString('es-BO')} />
                 <StatCard label="Con deuda" value={resumen?.con_deuda?.toLocaleString('es-BO')} tone="text-amber-600" />
-                <StatCard label="Bloqueados" value={resumen?.bloqueados?.toLocaleString('es-BO')} tone="text-red-600" />
+                <StatCard label={resumen ? `Bloqueados (${resumen.facturas_bloqueo}+ facturas: sin ${tipos})` : 'Bloqueados'} value={resumen?.bloqueados?.toLocaleString('es-BO')} tone="text-red-600" />
                 <StatCard label={resumen?.fecha_corte ? `Deuda total al ${fechaCorta(resumen.fecha_corte)}` : 'Deuda total'} value={resumen ? bs(resumen.monto_total) : null} />
             </div>
 
@@ -59,11 +57,6 @@ const Clientes = () => {
                     <option value="al_dia">Al día</option>
                     <option value="deuda">Con deuda</option>
                     <option value="bloqueado">Bloqueados por deuda</option>
-                </SelectInput>
-                <SelectInput className="lg:w-52" value={f.prueba} onChange={setFiltro('prueba')}>
-                    <option value="">Todos los datos</option>
-                    <option value="false">Solo datos reales</option>
-                    <option value="true">Solo datos de prueba</option>
                 </SelectInput>
             </Card>
 
@@ -85,7 +78,7 @@ const Clientes = () => {
                             {items.map((c) => (
                                 <tr key={c.id} className="cursor-pointer hover:bg-gray-50" onClick={() => setAbierto(c.id)}>
                                     <td className="px-4 py-3">
-                                        <p className="text-gray-800">{c.nombre}{c.prueba && <Badge color="purple" className="ml-2">Prueba</Badge>}</p>
+                                        <p className="text-gray-800">{c.nombre}</p>
                                         <p className="font-mono text-xs text-gray-500">CI {c.ci}</p>
                                     </td>
                                     <td className="px-4 py-3">

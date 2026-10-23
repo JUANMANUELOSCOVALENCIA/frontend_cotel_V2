@@ -56,7 +56,7 @@ const NUMEROS = ['precio_mensual', 'costo_instalacion', 'precio_unidad_extra', '
 const Adicionales = () => (
     <CatalogoPage
         titulo="TV cable y telefonía"
-        subtitulo="Se suman al plan de internet en la solicitud. El precio incluye cierta cantidad de televisores o líneas; cada uno extra se cobra aparte."
+        subtitulo="Se suman al plan de internet en la solicitud"
         recurso="planes"
         api={adicionalesApi}
         singular="adicional"

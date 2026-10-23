@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import { useAuthStatus } from '../auth/hooks/useAuth';
 import Loader from './Loader';
+import { PageBarContext } from '../../shared/components/pageBar';
 
 const COLLAPSE_KEY = 'sidebar_collapsed';
 
@@ -19,6 +20,10 @@ const Layout = () => {
     const { isLoading } = useAuthStatus();
     const [collapsed, setCollapsed] = useState(readCollapsed);
     const [mobileOpen, setMobileOpen] = useState(false);
+    // Descripción y espacio para las acciones de la página actual (los llena <PageHeader />)
+    const [descripcion, setDescripcion] = useState('');
+    const [slot, setSlot] = useState(null);
+    const barra = useMemo(() => ({ slot, setDescripcion }), [slot]);
 
     const toggleCollapse = () => {
         setCollapsed((prev) => {
@@ -45,10 +50,12 @@ const Layout = () => {
             />
 
             <div className={`flex min-h-screen flex-col transition-all duration-300 ${collapsed ? 'lg:pl-20' : 'lg:pl-64'}`}>
-                <Topbar onOpenMobile={() => setMobileOpen(true)} />
-                <main className="flex-1 px-4 py-6 lg:px-8">
-                    <Outlet />
-                </main>
+                <PageBarContext.Provider value={barra}>
+                    <Topbar onOpenMobile={() => setMobileOpen(true)} descripcion={descripcion} slotRef={setSlot} />
+                    <main className="flex-1 px-4 py-6 lg:px-8">
+                        <Outlet />
+                    </main>
+                </PageBarContext.Provider>
             </div>
         </div>
     );

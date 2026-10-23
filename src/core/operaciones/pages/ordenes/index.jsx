@@ -103,7 +103,7 @@ const Ordenes = () => {
         <div className="space-y-6">
             <PageHeader
                 title="Órdenes de trabajo"
-                subtitle="Trabajos de campo generados desde las solicitudes. Urgentes primero, luego las más antiguas."
+                subtitle="Trabajos de campo generados desde las solicitudes"
                 actions={(
                     <>
                         <Button variant="secondary" icon={IoRefreshOutline} onClick={cargar} disabled={loading}>Actualizar</Button>

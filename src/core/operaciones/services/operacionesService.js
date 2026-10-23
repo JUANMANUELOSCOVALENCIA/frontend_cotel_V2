@@ -26,6 +26,10 @@ export const solicitudesService = {
 };
 
 export const ordenesService = {
+    // Dashboard: OT abiertas por estado, plazo ATT y cumplimiento del mes
+    indicadores: () => ejecutar(() => api.get(ENDPOINTS.ORDENES_INDICADORES), 'Error al cargar los indicadores'),
+    // Foto de una evidencia de la OT (blob, para mostrarla con URL.createObjectURL)
+    foto: (id, evidencia) => ejecutar(() => api.get(ENDPOINTS.ORDEN_FOTO(id, evidencia), { responseType: 'blob' }), 'No se pudo cargar la foto'),
     resumen: () => ejecutar(() => api.get(ENDPOINTS.ORDENES_RESUMEN), 'Error al cargar el resumen'),
     listar: (params = {}) => ejecutar(() => api.get(`${ENDPOINTS.ORDENES}${buildQuery(params)}`), 'Error al cargar las órdenes'),
     obtener: (id) => ejecutar(() => api.get(ENDPOINTS.ORDEN_DETAIL(id)), 'Error al cargar la orden'),
@@ -67,7 +71,7 @@ export const cuadrillasService = {
 
 export const clientesService = {
     resumen: () => ejecutar(() => api.get(ENDPOINTS.CLIENTES_OP_RESUMEN), 'Error al cargar el resumen'),
-    // params: { search, situacion: 'deuda' | 'bloqueado' | 'al_dia', prueba: 'true' | 'false', page, page_size }
+    // params: { search, situacion: 'deuda' | 'bloqueado' | 'al_dia', page, page_size }
     listar: (params = {}) => ejecutar(() => api.get(`${ENDPOINTS.CLIENTES_OP}${buildQuery(params)}`), 'Error al cargar los clientes'),
     obtener: (id) => ejecutar(() => api.get(ENDPOINTS.CLIENTE_OP_DETAIL(id)), 'Error al cargar el cliente'),
     editar: (id, datos) => ejecutar(() => api.patch(ENDPOINTS.CLIENTE_OP_DETAIL(id), datos), 'No se pudo guardar'),
@@ -123,4 +127,24 @@ export const kitsService = {
     crear: (datos) => ejecutar(() => api.post(ENDPOINTS.KITS, datos), 'No se pudo agregar'),
     actualizar: (id, datos) => ejecutar(() => api.patch(ENDPOINTS.KIT_DETAIL(id), datos), 'No se pudo guardar'),
     eliminar: (id) => ejecutar(() => api.delete(ENDPOINTS.KIT_DETAIL(id)), 'No se pudo quitar'),
+};
+
+// App de campo: el técnico trabaja sobre las OT de su cuadrilla
+export const campoService = {
+    // { fecha, radio_m, cuadrilla, previas: [OT], ordenes: [OT], onus: [ONU a cargo], materiales, motivos }
+    misTrabajos: (fecha) => ejecutar(() => api.get(`${ENDPOINTS.CAMPO_MIS_TRABAJOS}${buildQuery({ fecha })}`), 'Error al cargar tus trabajos'),
+    iniciar: (id, gps) => ejecutar(() => api.post(ENDPOINTS.CAMPO_ACCION(id, 'iniciar'), gps), 'No se pudo marcar la llegada'),
+    // FormData: imagen, lat, lng, precision, tipo (ONU | ADICIONAL)
+    evidencia: (id, formData) => ejecutar(() => api.post(ENDPOINTS.CAMPO_ACCION(id, 'evidencia'), formData), 'No se pudo subir la foto'),
+    // { onu, materiales: [{ id, cantidad }], serial_recuperado, observaciones, lat, lng }
+    ejecutar: (id, datos) => ejecutar(() => api.post(ENDPOINTS.CAMPO_ACCION(id, 'ejecutar'), datos), 'No se pudo registrar el trabajo'),
+    noSePudo: (id, datos) => ejecutar(() => api.post(ENDPOINTS.CAMPO_ACCION(id, 'no-se-pudo'), datos), 'No se pudo registrar'),
+    foto: (evidencia) => ejecutar(() => api.get(ENDPOINTS.CAMPO_FOTO(evidencia), { responseType: 'blob' }), 'No se pudo cargar la foto'),
+};
+
+// Modelo EOQ y punto de reorden con el consumo real
+export const inventarioService = {
+    eoq: () => ejecutar(() => api.get(ENDPOINTS.INVENTARIO_EOQ), 'Error al calcular el EOQ'),
+    // datos: { modelo (vacío = por defecto), S, H, L, D_estimada }
+    parametros: (datos) => ejecutar(() => api.post(ENDPOINTS.INVENTARIO_PARAMETROS, datos), 'No se pudieron guardar los parámetros'),
 };

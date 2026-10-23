@@ -16,7 +16,7 @@ import { findRouteInfo } from './navConfig';
 const getInitials = (user) =>
     `${user?.nombres?.[0] || ''}${user?.apellidopaterno?.[0] || ''}`.toUpperCase() || 'U';
 
-const Topbar = ({ onOpenMobile }) => {
+const Topbar = ({ onOpenMobile, descripcion, slotRef }) => {
     const location = useLocation();
     const navigate = useNavigate();
     const { requiresPasswordChange } = useAuth();
@@ -48,7 +48,7 @@ const Topbar = ({ onOpenMobile }) => {
     };
 
     return (
-        <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-gray-200 bg-white/90 px-4 backdrop-blur lg:px-6">
+        <header className="sticky top-0 z-20 flex min-h-[4rem] flex-wrap items-center gap-x-3 gap-y-2 border-b border-gray-200 bg-white/90 px-4 py-2 backdrop-blur lg:flex-nowrap lg:px-6">
             {/* Botón menú (móvil) */}
             <button
                 onClick={onOpenMobile}
@@ -66,8 +66,14 @@ const Topbar = ({ onOpenMobile }) => {
                         <IoChevronForward className="h-3 w-3" />
                     </div>
                 )}
-                <h1 className="truncate text-base font-semibold text-gray-800 lg:text-lg">{title}</h1>
+                <h1 className="truncate text-base font-semibold text-gray-800 lg:text-lg" title={descripcion || undefined}>
+                    {title}
+                    {descripcion && <span className="ml-2 hidden text-sm font-normal text-gray-500 md:inline">{descripcion}</span>}
+                </h1>
             </div>
+
+            {/* Acciones de la página (las pone <PageHeader />); en pantallas chicas bajan a otra fila */}
+            <div ref={slotRef} className="order-last flex w-full justify-end empty:hidden lg:order-none lg:w-auto" />
 
             {requiresPasswordChange && (
                 <button

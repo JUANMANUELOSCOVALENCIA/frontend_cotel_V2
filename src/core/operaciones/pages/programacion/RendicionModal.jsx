@@ -38,7 +38,16 @@ const RendicionModal = ({ open, despachoId, puedeEditar, onClose, onHecho }) => 
         despachosService.obtener(despachoId).then((r) => {
             if (!r.success) { setError(r.error); return; }
             setD(r.data);
-            setEqs(Object.fromEntries(r.data.equipos.map((e) => [e.id, { resultado: 'DEVUELTO', orden: '' }])));
+            // Prellenado con lo que informaron los técnicos desde la app de campo (ONU instalada, material, recuperados)
+            const conReporte = (r.data.ordenes || []).filter((o) => o.reporte);
+            setEqs(Object.fromEntries(r.data.equipos.map((e) => {
+                const ot = conReporte.find((o) => o.reporte.equipo === e.id);
+                return [e.id, ot ? { resultado: 'INSTALADO', orden: String(ot.id) } : { resultado: 'DEVUELTO', orden: '' }];
+            })));
+            const c = {};
+            conReporte.forEach((o) => Object.entries(o.reporte.materiales).forEach(([dm, cant]) => { c[dm] = { ...c[dm], [o.id]: cant }; }));
+            setCons(c);
+            setRecup(conReporte.filter((o) => o.reporte.serial_recuperado).map((o) => ({ orden: String(o.id), serial: o.reporte.serial_recuperado, observacion: '' })));
         });
     }, [open, despachoId]);
 
@@ -122,6 +131,11 @@ const RendicionModal = ({ open, despachoId, puedeEditar, onClose, onHecho }) => 
                         </p>
                     ) : (
                         <>
+                            {editable && !anulando && (d.ordenes || []).some((o) => o.reporte) && (
+                                <p className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-blue-800">
+                                    Prellenado con lo que informaron los técnicos desde la app (ONU instalada, material usado y equipos recuperados). Revisa y completa lo devuelto.
+                                </p>
+                            )}
                             {editable && abiertas.length > 0 && ejecutadas.length > 0 && (
                                 <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800">
                                     {abiertas.map((o) => o.numero).join(', ')} {abiertas.length === 1 ? 'sigue programada' : 'siguen programadas'}: al rendir, la cuadrilla

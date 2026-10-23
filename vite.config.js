@@ -26,9 +26,12 @@ export default defineConfig({
     server: {
         host: '0.0.0.0',
         port: 5173,
+        // Con VITE_API_URL=/api el navegador llama a /api del mismo origen y Vite lo pasa a Django
+        // en esta misma PC. Así un solo HTTPS (tailscale serve) sirve para el celular: la cámara y
+        // el GPS del navegador solo funcionan en un origen seguro (HTTPS o localhost).
         proxy: {
             '/api': {
-                target: 'http://100.1.42.5:8000',
+                target: 'http://127.0.0.1:8000',
                 changeOrigin: true,
                 secure: false
             }

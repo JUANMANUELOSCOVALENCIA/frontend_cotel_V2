@@ -4,13 +4,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Modal, Button, Spinner, Field, TextArea } from '../../../../shared/components/ui';
-import { IoPrintOutline } from 'react-icons/io5';
+import { IoPrintOutline, IoDownloadOutline } from 'react-icons/io5';
 import { ordenesService } from '../../services/operacionesService';
 import { useUser } from '../../../auth/hooks/useAuth';
-import { imprimirOT } from '../../components/pdf';
+import { imprimirOT, reporteHistorialOT } from '../../components/pdf';
 import UbicacionMapa from '../../components/UbicacionMapa';
 import { EstadoOT, PlazoChip, Prioridad, ZonaChip, fechaHora, fechaCorta, serviciosTexto } from '../../components/opUi';
 import ProgramarModal from '../../components/ProgramarModal';
+import { FotoEvidencia } from '../../components/campoUi';
 
 const ANULABLES = ['PENDIENTE', 'PROGRAMADA', 'NO_EJECUTADA'];
 const PROGRAMABLES = ['PENDIENTE', 'PROGRAMADA', 'NO_EJECUTADA'];
@@ -83,6 +84,7 @@ const OrdenModal = ({ id, open, zonas, puedeEditar, onClose, onCambio }) => {
                     {puedeEditar && NO_EJECUTABLES.includes(estado) && <Button variant="ghost" onClick={() => empezar('no_ejecutada')}>No ejecutada</Button>}
                     {puedeEditar && DESASIGNABLES.includes(estado) && <Button variant="ghost" onClick={() => empezar('desasignar')}>Desasignar</Button>}
                     <Button variant="ghost" onClick={onClose}>Cerrar</Button>
+                    {o && <Button variant="secondary" icon={IoDownloadOutline} onClick={() => reporteHistorialOT(o, fullName)}>Historial PDF</Button>}
                     {o && estado !== 'ANULADA' && <Button variant="secondary" icon={IoPrintOutline} onClick={() => imprimirOT(o, fullName)}>Imprimir OT</Button>}
                     {sePuedeProgramar && <Button onClick={() => setProgramando(true)}>{estado === 'PROGRAMADA' ? 'Reprogramar' : 'Programar'}</Button>}
                 </>
@@ -130,6 +132,24 @@ const OrdenModal = ({ id, open, zonas, puedeEditar, onClose, onCambio }) => {
                         </dl>
                         <UbicacionMapa zonas={zonas} valor={o.ubicacion} soloLectura alto="h-64" />
                     </div>
+
+                    {(o.evidencias?.length > 0 || o.reporte_campo) && (
+                        <div>
+                            <h4 className="mb-2 font-semibold text-gray-800">Trabajo en campo</h4>
+                            {o.reporte_campo && (
+                                <div className="mb-2 rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-700">
+                                    <p>Informado por {o.reporte_campo.usuario} · {fechaHora(o.reporte_campo.fecha)}</p>
+                                    {o.reporte_campo.onu && <p>ONU instalada: <span className="font-mono">{o.reporte_campo.onu.gpon_serial}</span> · {o.reporte_campo.onu.modelo}</p>}
+                                    {o.reporte_campo.materiales.length > 0 && <p>Material: {o.reporte_campo.materiales.map((m) => `${m.nombre} ${m.cantidad} ${m.unidad}`).join(' · ')}</p>}
+                                    {o.reporte_campo.serial_recuperado && <p>Equipo recuperado: <span className="font-mono">{o.reporte_campo.serial_recuperado}</span></p>}
+                                    {o.reporte_campo.observaciones && <p>{o.reporte_campo.observaciones}</p>}
+                                </div>
+                            )}
+                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                {o.evidencias.map((e) => <FotoEvidencia key={e.id} ev={e} cargar={() => ordenesService.foto(o.id, e.id)} />)}
+                            </div>
+                        </div>
+                    )}
 
                     <div>
                         <h4 className="mb-2 font-semibold text-gray-800">Historial</h4>

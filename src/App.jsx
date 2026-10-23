@@ -38,6 +38,7 @@ import PlanesPage from './core/operaciones/pages/planes/index.jsx';
 import ClientesPage from './core/operaciones/pages/clientes/index.jsx';
 import ProgramacionPage from './core/operaciones/pages/programacion/index.jsx';
 import CuadrillasPage from './core/operaciones/pages/cuadrillas/index.jsx';
+import MisTrabajosPage from './core/operaciones/pages/campo/index.jsx';
 function App() {
     const { isAuthenticated, loading, user } = useContext(AuthContext);
 
@@ -113,6 +114,7 @@ function App() {
                     <Route path="operaciones/clientes" element={<ClientesPage />} />
                     <Route path="operaciones/programacion" element={<ProgramacionPage />} />
                     <Route path="operaciones/cuadrillas" element={<CuadrillasPage />} />
+                    <Route path="campo" element={<MisTrabajosPage />} />
                     <Route path="operaciones/deudores" element={<Navigate to="/operaciones/clientes" replace />} />
                     <Route path="solicitudes/nueva" element={<Navigate to="/operaciones/solicitudes" replace />} />
                 </Route>

@@ -28,6 +28,7 @@ import {
     IoPeopleCircleOutline,
     IoCalendarOutline,
     IoCarOutline,
+    IoPhonePortraitOutline,
 } from 'react-icons/io5';
 
 // Cada pantalla se muestra si el rol puede LEER su recurso (el backend valida igual)
@@ -38,6 +39,13 @@ export const navItems = [
         label: 'Dashboard',
         href: '/dashboard',
         icon: IoHomeOutline,
+    },
+    {
+        // App de campo: la ve quien tiene el permiso `campo` (rol Técnico)
+        label: 'Mis trabajos',
+        href: '/campo',
+        icon: IoPhonePortraitOutline,
+        permissions: leer('campo'),
     },
     {
         label: 'Usuarios',

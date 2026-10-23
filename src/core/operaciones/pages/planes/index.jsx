@@ -54,7 +54,7 @@ const PlanesInternet = () => {
     return (
         <CatalogoPage
             titulo="Planes de internet"
-            subtitulo="Velocidad y precio. TV cable y telefonía se configuran en la pestaña de adicionales."
+            subtitulo="Velocidad y precio de los planes de internet"
             recurso="planes"
             api={planesApi}
             singular="plan"
